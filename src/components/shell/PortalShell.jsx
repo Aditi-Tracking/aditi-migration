@@ -17,6 +17,7 @@ import SalesPanel from '../panels/sales/SalesPanel'
 import AfterSalesPanel from '../panels/aftersales/AfterSalesPanel'
 import ITAdminPanel from '../panels/itadmin/ITAdminPanel'
 import MarketingPanel from '../panels/marketing/MarketingPanel'
+import FinancePanel from '../panels/finance/FinancePanel'
 
 const PANEL_COMPONENTS = {
   hr: HRPanel,
@@ -24,6 +25,7 @@ const PANEL_COMPONENTS = {
   aftersales: AfterSalesPanel,
   itadmin: ITAdminPanel,
   marketing: MarketingPanel,
+  finance: FinancePanel,
 }
 
 const PANEL_LABELS = NAV_ITEMS.reduce((acc, item) => {
