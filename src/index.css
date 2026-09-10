@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2563EB;
+  --color-primary-tint: #EFF6FF;
+  --color-border: #E2E8F0;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F8FAFC;
+  --color-text: #0F172A;
+  --color-text-muted: #64748B;
+  --color-danger: #DC2626;
+  --color-danger-tint: #FEF2F2;
+}
+
+/* Manual dark-mode toggle (old-portal/js/app.js's toggleTheme), not
+   prefers-color-scheme — redefining these custom properties is enough,
+   every bg-surface/text-text/border-border utility picks the new value up
+   automatically wherever <html> carries this class. */
+.dark {
+  --color-primary-tint: rgba(37, 99, 235, 0.16);
+  --color-border: #334155;
+  --color-surface: #0F172A;
+  --color-surface-2: #1E293B;
+  --color-text: #F1F5F9;
+  --color-text-muted: #94A3B8;
+  --color-danger-tint: rgba(220, 38, 38, 0.18);
+}
+
+body {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
