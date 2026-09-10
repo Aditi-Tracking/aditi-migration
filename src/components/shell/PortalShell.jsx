@@ -13,9 +13,11 @@ import IdleWarningToast from './IdleWarningToast'
 import FileViewerModal from '../shared/FileViewerModal'
 import PlaceholderPanel from '../panels/PlaceholderPanel'
 import HRPanel from '../panels/hr/HRPanel'
+import SalesPanel from '../panels/sales/SalesPanel'
 
 const PANEL_COMPONENTS = {
   hr: HRPanel,
+  sales: SalesPanel,
 }
 
 const PANEL_LABELS = NAV_ITEMS.reduce((acc, item) => {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
+import DocCard from '../../shared/DocCard'
+import { DOC_ICON } from '../../shared/docIcons'
 import HRDocsOverlay from './HRDocsOverlay'
 import OrgChartOverlay from './OrgChartOverlay'
 import DirectoryOverlay from './DirectoryOverlay'
@@ -11,15 +13,6 @@ import HolidayOverlay from './HolidayOverlay'
 // Organization Chart/Directory/Holiday List] -> [any new CN category].
 const SPECIAL = ['organization chart', 'directory', 'holiday list', 'branch office']
 const KNOWN_FIRST = ['sop', 'mediclaim', 'hr policy']
-
-const DOC_ICON = (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-  </svg>
-)
 
 const ORG_CHART_ICON = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -49,27 +42,6 @@ const HOLIDAY_ICON = (
     <line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 )
-
-function DocCard({ icon, name, desc, meta, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-left rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:shadow-sm transition-all flex flex-col gap-3"
-    >
-      <div className="w-10 h-10 rounded-lg bg-primary-tint border border-primary/20 flex items-center justify-center text-primary">
-        {icon}
-      </div>
-      <div>
-        <div className="text-[13.5px] font-semibold text-text">{name}</div>
-        <div className="text-[12px] text-text-muted mt-1 leading-relaxed line-clamp-2">{desc}</div>
-      </div>
-      <div className="mt-auto text-[11px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 w-fit">
-        {meta}
-      </div>
-    </button>
-  )
-}
 
 export default function HRPanel() {
   const [loading, setLoading] = useState(true)
