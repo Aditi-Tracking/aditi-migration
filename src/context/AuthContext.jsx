@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { authClient, setAuthToken } from '../lib/supabaseClient'
-import { fetchLoginEmployeeInfo } from '../lib/employeeProfile'
+import { fetchEmployeeId, fetchLoginEmployeeInfo } from '../lib/employeeProfile'
 import {
   buildFallbackPermissions,
   clearPermissionsCache,
@@ -75,6 +75,22 @@ export function AuthProvider({ children }) {
       setPermissions(newPermissions)
       setPermissionsFetchFailed(fetchFailed)
       setJustLoggedIn(Date.now())
+
+      // Fire-and-forget, mirrors old-portal's _fetchAndCacheEmpId — doesn't
+      // block showing the portal, just fills in empId once it resolves.
+      fetchEmployeeId(authUser.email).then((empId) => {
+        if (empId == null || mySeq !== authFlowSeqRef.current) return
+        setCurrentUser((u) => {
+          if (!u) return u
+          const next = { ...u, empId }
+          try {
+            localStorage.setItem('aditiUser', JSON.stringify(next))
+          } catch {
+            /* localStorage may be unavailable — ignore */
+          }
+          return next
+        })
+      })
     } catch {
       if (mySeq !== authFlowSeqRef.current) return
       const fallbackUser = {

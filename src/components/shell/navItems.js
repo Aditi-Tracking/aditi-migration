@@ -12,6 +12,8 @@
 // sheet, the same sub-items ARE shown, inline, indented under "Dashboards",
 // and each navigates straight to that dashboard. Sidebar.jsx must never
 // render `children`; MobileMenuSheet.jsx must.
+import { anyReferralTabVisible } from '../../lib/referralPermissions'
+
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
   {
@@ -45,16 +47,19 @@ export const NAV_ITEMS = [
   { id: 'itadmin', label: 'IT & Admin' },
   { id: 'training', label: 'Training', badge: 'Videos' },
   { id: 'resources', label: 'Documents', badge: 'Docs' },
-  { id: 'referral', label: 'Referral' },
+  { id: 'referral', label: 'Referral', visibility: 'referralAny' },
 ]
 
 // Mirrors old-portal/js/auth.js's per-item visibility rules exactly:
 // - restrictEmployee() maps can_view_leads/can_view_fms -> nav-leads/nav-fms,
 //   only called for non-owners (owners always see them)
 // - Access Control (adminperms) is gated to rawRole === 'mis' only
+// - Referral is hidden entirely unless the user has at least one of its 4
+//   permissions/admin-rights (see referralPermissions.js) — ported from
+//   old-portal/js/referral.js's _applyReferralNavVisibility
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
-//   training/resources/referral/home/dashboardshub)
+//   training/resources/home/dashboardshub)
 // 'notYetBuilt' items own their real check in a module we haven't built yet
 // (js/tasks.js, js/renewals.js, js/ims.js, ...) — they stay hidden here
 // until that module ships, at which point its real rule replaces this one.
@@ -68,6 +73,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions }) {
       return currentUser?.role === 'owner' || permissions.can_view_leads === 'true'
     case 'fmsPerm':
       return currentUser?.role === 'owner' || permissions.can_view_fms === 'true'
+    case 'referralAny':
+      return anyReferralTabVisible(currentUser, permissions)
     default:
       return true
   }

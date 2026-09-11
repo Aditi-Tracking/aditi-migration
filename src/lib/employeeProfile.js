@@ -15,6 +15,24 @@ export async function fetchLoginEmployeeInfo(email) {
   }
 }
 
+// Same query as old-portal/js/activitylog.js's _fetchAndCacheEmpId — needed
+// to populate CURRENT_USER.empId (a prerequisite for Referral submission's
+// referrer_emp_id, and per that function's own comment, a future
+// _canUploadQuiz check too).
+export async function fetchEmployeeId(email) {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/Employee_details?select=Emp_id&Email_Id=ilike.${encodeURIComponent(email)}&limit=1`,
+      { headers: SB_HDRS() }
+    )
+    if (!res.ok) return null
+    const rows = await res.json()
+    return Array.isArray(rows) && rows.length > 0 ? rows[0].Emp_id : null
+  } catch {
+    return null
+  }
+}
+
 // Same 3-step fallback as old-portal/js/app.js's showProfileDetails:
 // email match -> exact Employee_name match -> first-name-only match.
 export async function fetchFullEmployeeProfile(name, email) {
