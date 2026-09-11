@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
+import { clearCardName, setCardName } from '../../../lib/activityTracking'
 import DocCard from '../../shared/DocCard'
 import { DOC_ICON } from '../../shared/docIcons'
 import HRDocsOverlay from './HRDocsOverlay'
@@ -107,7 +108,10 @@ export default function HRPanel() {
               name={cat.name}
               desc={getCNCardDesc(cat.name)}
               meta={`📂 ${CN.totalFiles(cat.id)} file${CN.totalFiles(cat.id) === 1 ? '' : 's'}`}
-              onClick={() => setDocsModule(cat.name)}
+              onClick={() => {
+                setCardName(cat.name)
+                setDocsModule(cat.name)
+              }}
             />
           ))}
 
@@ -116,21 +120,32 @@ export default function HRPanel() {
             name="Organization Chart"
             desc="Complete team structure of Aditi Tracking — Head Office & Branch offices, departments, roles and reporting hierarchy."
             meta="🏢 View Charts"
-            onClick={() => setOrgChartOpen(true)}
+            onClick={() => {
+              // Matches products.js's openOrgChartPicker — open is tracked, close isn't.
+              setCardName('Organization Chart')
+              setOrgChartOpen(true)
+            }}
           />
           <DocCard
             icon={DIRECTORY_ICON}
             name="Directory"
             desc="Employee, Support & Vendor directories — contacts, roles and resources all in one place."
             meta="👥 View Directory"
-            onClick={() => setDirectoryOpen(true)}
+            onClick={() => {
+              // Matches products.js's openDirectoryOverlay — open is tracked, close isn't.
+              setCardName('Directory')
+              setDirectoryOpen(true)
+            }}
           />
           <DocCard
             icon={HOLIDAY_ICON}
             name="Holiday List"
             desc="Company holiday calendar — upcoming holidays, branch-wise list and next holiday countdown."
             meta="🎉 View Holidays"
-            onClick={() => setHolidayOpen(true)}
+            onClick={() => {
+              setCardName('Holiday List')
+              setHolidayOpen(true)
+            }}
           />
 
           {newCats.map((cat) => (
@@ -140,16 +155,33 @@ export default function HRPanel() {
               name={cat.name}
               desc={getCNCardDesc(cat.name)}
               meta={`📂 ${CN.totalFiles(cat.id)} file${CN.totalFiles(cat.id) === 1 ? '' : 's'}`}
-              onClick={() => setDocsModule(cat.name)}
+              onClick={() => {
+                setCardName(cat.name)
+                setDocsModule(cat.name)
+              }}
             />
           ))}
         </div>
       )}
 
-      <HRDocsOverlay open={!!docsModule} module={docsModule} hrSectionId={hrSectionId} onClose={() => setDocsModule(null)} />
+      <HRDocsOverlay
+        open={!!docsModule}
+        module={docsModule}
+        hrSectionId={hrSectionId}
+        onClose={() => {
+          clearCardName()
+          setDocsModule(null)
+        }}
+      />
       <OrgChartOverlay open={orgChartOpen} hrSectionId={hrSectionId} onClose={() => setOrgChartOpen(false)} />
       <DirectoryOverlay open={directoryOpen} hrSectionId={hrSectionId} onClose={() => setDirectoryOpen(false)} />
-      <HolidayOverlay open={holidayOpen} onClose={() => setHolidayOpen(false)} />
+      <HolidayOverlay
+        open={holidayOpen}
+        onClose={() => {
+          clearCardName()
+          setHolidayOpen(false)
+        }}
+      />
     </div>
   )
 }

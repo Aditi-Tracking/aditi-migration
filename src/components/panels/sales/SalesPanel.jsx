@@ -5,5 +5,7 @@ import CNSectionPanel from '../../shared/CNSectionPanel'
 // (gated by can_view_pricing / is_pricing_admin) is intentionally omitted —
 // it links to a separate, not-yet-built module.
 export default function SalesPanel() {
-  return <CNSectionPanel sectionName="Sales" title="Sales" breadcrumb="Home › Sales" />
+  // sales.js's closeSalesOverlay() calls _actOnCardClose() — close-only
+  // tracking, matching production exactly (open is never tracked there).
+  return <CNSectionPanel sectionName="Sales" title="Sales" breadcrumb="Home › Sales" trackCardClose />
 }

@@ -7,6 +7,7 @@ import {
   fetchPermissionsWithRetry,
   writePermissionsCache,
 } from '../lib/permissions'
+import { trackLogin, trackLogout, trackPageUnload } from '../lib/activityTracking'
 
 // Ported from old-portal/js/auth.js. Keep every rule here (role mapping,
 // permission fallback/retry/cache, idle timeout, visibility self-heal)
@@ -34,7 +35,7 @@ export function AuthProvider({ children }) {
   const authFlowSeqRef = useRef(0)
   const permissionsRecoveryInFlightRef = useRef(false)
 
-  const loadUserProfile = useCallback(async (authUser) => {
+  const loadUserProfile = useCallback(async (authUser, isFreshLogin = false) => {
     const mySeq = ++authFlowSeqRef.current
     try {
       const empData = await fetchLoginEmployeeInfo(authUser.email)
@@ -78,8 +79,15 @@ export function AuthProvider({ children }) {
 
       // Fire-and-forget, mirrors old-portal's _fetchAndCacheEmpId — doesn't
       // block showing the portal, just fills in empId once it resolves.
+      // Old-portal's login-event log is explicitly chained after this
+      // resolves too (auth.js:286), so the login row carries the numeric
+      // emp_id — mirrored here, gated to fresh logins only (not restores).
       fetchEmployeeId(authUser.email).then((empId) => {
-        if (empId == null || mySeq !== authFlowSeqRef.current) return
+        if (mySeq !== authFlowSeqRef.current) return
+        if (empId == null) {
+          if (isFreshLogin) trackLogin(newUser)
+          return
+        }
         setCurrentUser((u) => {
           if (!u) return u
           const next = { ...u, empId }
@@ -88,6 +96,7 @@ export function AuthProvider({ children }) {
           } catch {
             /* localStorage may be unavailable — ignore */
           }
+          if (isFreshLogin) trackLogin(next)
           return next
         })
       })
@@ -104,6 +113,7 @@ export function AuthProvider({ children }) {
       setPermissions(buildFallbackPermissions('employee', authUser.email))
       setPermissionsFetchFailed(true)
       setJustLoggedIn(Date.now())
+      if (isFreshLogin) trackLogin(fallbackUser)
     }
   }, [])
 
@@ -150,7 +160,7 @@ export function AuthProvider({ children }) {
       if (error) return { error }
 
       setAuthToken(data.session.access_token) // token set first — RLS passes correctly
-      await loadUserProfile(data.user)
+      await loadUserProfile(data.user, true)
       return { error: null }
     },
     [loadUserProfile]
@@ -158,6 +168,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     setTimeout(async () => {
+      if (currentUser) trackLogout(currentUser)
       try {
         await authClient.auth.signOut()
       } catch {
@@ -178,7 +189,7 @@ export function AuthProvider({ children }) {
       })
       window.location.reload()
     }, 400)
-  }, [])
+  }, [currentUser])
 
   const updateAvatarUrl = useCallback((avatarUrl) => {
     setCurrentUser((u) => {
@@ -228,6 +239,16 @@ export function AuthProvider({ children }) {
       clearInterval(interval)
     }
   }, [currentUser, logout])
+
+  // Best-effort tracking of tab close / navigate-away — mirrors old-portal's
+  // beforeunload handler in activitylog.js (fixed there to write a numeric
+  // emp_id, see activityTracking.js's file-header note).
+  useEffect(() => {
+    if (!currentUser) return
+    const onUnload = () => trackPageUnload(currentUser)
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [currentUser])
 
   // Permission self-heal on foreground return — if the last permissions fetch
   // fell back to role defaults, retry silently the moment the tab is

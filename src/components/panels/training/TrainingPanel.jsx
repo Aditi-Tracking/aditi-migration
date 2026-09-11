@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
 import { useAuth } from '../../../context/AuthContext'
+import { logActivity } from '../../../lib/activityTracking'
 import DocCard from '../../shared/DocCard'
 import { DOC_ICON } from '../../shared/docIcons'
 import TrainingModuleOverlay from './TrainingModuleOverlay'
@@ -22,7 +23,7 @@ import GradeOverlay from './GradeOverlay'
 // overlay and opens Preview -> Take Quiz -> Result, mirroring
 // openQuizPreviewFromOverlay's closeMarketingOverlay()-then-open sequence.
 export default function TrainingPanel() {
-  const { permissions } = useAuth()
+  const { currentUser, permissions } = useAuth()
   const canManageQuizzes = permissions.can_upload_quiz === 'true'
 
   const [loading, setLoading] = useState(true)
@@ -114,7 +115,16 @@ export default function TrainingPanel() {
                 name={cat.name}
                 desc={getCNCardDesc(cat.name)}
                 meta={`📂 ${count} file${count === 1 ? '' : 's'}`}
-                onClick={() => setModuleNode({ id: cat.id, name: cat.name })}
+                onClick={() => {
+                  // Matches training.js's cnOpenTrainingOverlay — logs directly, no
+                  // ambient card_name and no corresponding close event in production.
+                  logActivity(currentUser, {
+                    event_type: 'training_module_open',
+                    event_detail: `Opened training card: ${cat.name}`,
+                    card_name: cat.name,
+                  })
+                  setModuleNode({ id: cat.id, name: cat.name })
+                }}
               />
             )
           })}

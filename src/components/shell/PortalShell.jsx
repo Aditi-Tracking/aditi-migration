@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTheme } from '../../hooks/useTheme'
+import { useAuth } from '../../context/AuthContext'
 import { FileViewerProvider } from '../../context/FileViewerContext'
+import { trackPageSwitch } from '../../lib/activityTracking'
 import { NAV_ITEMS } from './navItems'
 import Sidebar from './Sidebar'
 import MobileHeader from './MobileHeader'
@@ -52,12 +54,14 @@ const PANEL_LABELS = NAV_ITEMS.reduce((acc, item) => {
 
 export default function PortalShell() {
   const { theme, toggleTheme } = useTheme()
+  const { currentUser } = useAuth()
   const [activePanel, setActivePanel] = useState('home')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userSheetOpen, setUserSheetOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
 
   function navigate(id) {
+    trackPageSwitch(currentUser, id)
     setActivePanel(id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
