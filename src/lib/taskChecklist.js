@@ -1,4 +1,5 @@
 import { SB_HDRS, SB_HDRS_JSON, SUPABASE_ANON, SUPABASE_URL, getAuthToken } from './supabaseClient'
+import { fetchEmployeeId } from './employeeProfile'
 
 // Ported from old-portal/js/tasks.js — Phase 1 (core checklist view: KPIs,
 // charts, leaderboard, filters, table, Mark Done/Undo/Ongoing, uploads,
@@ -110,41 +111,32 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export async function fetchChecklistRows({ scope, empId, dateFrom, dateTo }) {
-  const isAll = scope === 'all'
-  const from = dateFrom || todayISO()
-  const to = dateTo || todayISO()
-
-  // (planned_date in range) OR (ongoing expected-date in range AND not yet done)
-  const orFilter = `or=(and(planned_date.gte.${from},planned_date.lte.${to}),and(ongoing.gte.${from},ongoing.lte.${to},actual_timestamp.is.null))`
-  let url = `${SUPABASE_URL}/rest/v1/employee_checklists?select=*&${orFilter}&order=planned_date.desc,id.asc`
-  if (!isAll) url += `&emp_id=eq.${encodeURIComponent(empId)}`
-
-  const rows = await fetchAllPages(url)
-
+async function buildEmpMap(rows) {
   const empIdSet = [...new Set(rows.map((r) => String(r.emp_id || '').trim()).filter(Boolean))]
   const empMap = {}
-  if (empIdSet.length) {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/Employee_details?select=Emp_id,Employee_name,Employee_Dept,Email_Id,Location&Emp_id=in.(${empIdSet.join(',')})`,
-      { headers: SB_HDRS() }
-    )
-    const edRows = await res.json()
-    if (Array.isArray(edRows)) {
-      edRows.forEach((r) => {
-        const id = String(r.Emp_id || '').trim()
-        if (id) {
-          empMap[id] = {
-            name: String(r.Employee_name || '').trim(),
-            dept: String(r.Employee_Dept || '').trim(),
-            email: String(r.Email_Id || '').trim(),
-            loc: String(r.Location || '').trim(),
-          }
+  if (!empIdSet.length) return empMap
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/Employee_details?select=Emp_id,Employee_name,Employee_Dept,Email_Id,Location&Emp_id=in.(${empIdSet.join(',')})`,
+    { headers: SB_HDRS() }
+  )
+  const edRows = await res.json()
+  if (Array.isArray(edRows)) {
+    edRows.forEach((r) => {
+      const id = String(r.Emp_id || '').trim()
+      if (id) {
+        empMap[id] = {
+          name: String(r.Employee_name || '').trim(),
+          dept: String(r.Employee_Dept || '').trim(),
+          email: String(r.Email_Id || '').trim(),
+          loc: String(r.Location || '').trim(),
         }
-      })
-    }
+      }
+    })
   }
+  return empMap
+}
 
+function shapeChecklistRows(rows, empMap) {
   return rows.map((r) => {
     const empIdStr = String(r.emp_id || '').trim()
     const ed = empMap[empIdStr] || {}
@@ -168,6 +160,101 @@ export async function fetchChecklistRows({ scope, empId, dateFrom, dateTo }) {
       uploadUrl: r.upload ? String(r.upload).trim() : null,
     }
   })
+}
+
+export async function fetchChecklistRows({ scope, empId, dateFrom, dateTo }) {
+  const isAll = scope === 'all'
+  const from = dateFrom || todayISO()
+  const to = dateTo || todayISO()
+
+  // (planned_date in range) OR (ongoing expected-date in range AND not yet done)
+  const orFilter = `or=(and(planned_date.gte.${from},planned_date.lte.${to}),and(ongoing.gte.${from},ongoing.lte.${to},actual_timestamp.is.null))`
+  let url = `${SUPABASE_URL}/rest/v1/employee_checklists?select=*&${orFilter}&order=planned_date.desc,id.asc`
+  if (!isAll) url += `&emp_id=eq.${encodeURIComponent(empId)}`
+
+  const rows = await fetchAllPages(url)
+  const empMap = await buildEmpMap(rows)
+  return shapeChecklistRows(rows, empMap)
+}
+
+// Ported from old-portal/js/tasks.js's tSilentRefresh — wider than
+// fetchChecklistRows's initial-load query (loadTasks' shape): a 3rd OR
+// clause also catches a task completed today even if its planned_date
+// falls outside [from,to] (e.g. planned yesterday, done today), plus a
+// second unbounded "ongoing due from `from` onward, not yet done" fetch
+// merged in (dedup by id) so a future-dated ongoing task still counts
+// toward "does this employee have any tasks at all". Used only by the
+// nav/Home-banner live-sync poll (TaskChecklistNavContext) — the
+// checklist panel itself keeps the simpler loadTasks-era query, matching
+// production's own loadTasks()/tSilentRefresh split.
+export async function fetchChecklistRowsWide({ scope, empId, dateFrom, dateTo }) {
+  const isAll = scope === 'all'
+  const from = dateFrom || todayISO()
+  const to = dateTo || todayISO()
+
+  const orFilter = `or=(and(planned_date.gte.${from},planned_date.lte.${to}),and(ongoing.gte.${from},ongoing.lte.${to},actual_timestamp.is.null),and(actual_timestamp.gte.${from},actual_timestamp.lte.${to}T23:59:59))`
+  let url = `${SUPABASE_URL}/rest/v1/employee_checklists?select=*&${orFilter}&order=planned_date.desc,id.asc`
+  if (!isAll) url += `&emp_id=eq.${encodeURIComponent(empId)}`
+  const mainRows = await fetchAllPages(url)
+
+  let ongoingRows = []
+  try {
+    let ongoingUrl = `${SUPABASE_URL}/rest/v1/employee_checklists?select=*&ongoing=gte.${from}&actual_timestamp=is.null&order=planned_date.desc,id.asc`
+    if (!isAll) ongoingUrl += `&emp_id=eq.${encodeURIComponent(empId)}`
+    const res = await fetch(`${ongoingUrl}&limit=500`, { headers: SB_HDRS() })
+    const json = await res.json()
+    if (Array.isArray(json)) ongoingRows = json
+  } catch {
+    /* best-effort widen — matches production's own try/catch swallow around ongoingTasksSync */
+  }
+
+  const seenIds = new Set(mainRows.map((r) => r.id))
+  const merged = [...mainRows, ...ongoingRows.filter((r) => !seenIds.has(r.id))]
+
+  const empMap = await buildEmpMap(merged)
+  return shapeChecklistRows(merged, empMap)
+}
+
+// Ported from old-portal/js/tasks.js's loadTasks()/tSilentRefresh's shared
+// nav-reveal decision (_tRevealTasksNav). NOTE: this function only fetches
+// rows (for the Home banner's KPI data) — it does NOT decide 'all'-scope
+// nav visibility, since that reveal must fire before/independent of any
+// fetch (see TaskChecklistNavContext, which mirrors _tRevealTasksNav(true)
+// being called before loadTasks()'s fetch in production, with no way for a
+// failed fetch to hide it again). For 'own' scope, this resolves the
+// employee's Emp_id by email and reports `ownVisible` — true only once real
+// rows come back — fails closed (hidden) if the email can't be resolved or
+// no rows exist. `wide` selects which query the caller wants (plain for the
+// very first load, wide for the live-sync poll).
+export async function fetchTaskChecklistNavSnapshot({ scope, email, wide = false }) {
+  const today = todayISO()
+  const fetchRows = wide ? fetchChecklistRowsWide : fetchChecklistRows
+  if (scope === 'all') {
+    const rows = await fetchRows({ scope: 'all', dateFrom: today, dateTo: today })
+    return { rows }
+  }
+  const empId = await fetchEmployeeId(email)
+  if (!empId) return { rows: [], ownVisible: false }
+  const rows = await fetchRows({ scope: 'own', empId: String(empId), dateFrom: today, dateTo: today })
+  return { rows, ownVisible: rows.length > 0 }
+}
+
+// Ported from updateHomeTaskBanner's role exclusion — Managing
+// Director/MIS/PC/Executive Assistant/admin never see the Home Task Alert
+// Banner (independent of checklist_scope/nav visibility, a separate check
+// in production too).
+export function isHomeBannerHiddenForRole(currentUser) {
+  if (!currentUser) return true
+  const r = String(currentUser.rawRole || '').toLowerCase().trim()
+  return (
+    currentUser.role === 'owner' ||
+    r === 'owner' ||
+    r === 'mis' ||
+    r === 'pc' ||
+    r === 'executive assistant' ||
+    r === 'ea' ||
+    r === 'admin'
+  )
 }
 
 function parseDateOnly(v) {

@@ -3,6 +3,7 @@ import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../context/AuthContext'
 import { FileViewerProvider } from '../../context/FileViewerContext'
 import { CelebrationsProvider } from '../../context/CelebrationsContext'
+import { TaskChecklistNavProvider } from '../../context/TaskChecklistNavContext'
 import { trackPageSwitch } from '../../lib/activityTracking'
 import { NAV_ITEMS } from './navItems'
 import Sidebar from './Sidebar'
@@ -78,58 +79,60 @@ export default function PortalShell() {
   const ActivePanelComponent = PANEL_COMPONENTS[activePanel]
 
   return (
-    <FileViewerProvider>
-      <CelebrationsProvider>
-        <div className="min-h-screen flex bg-surface-2">
-          <Sidebar
-            activePanel={activePanel}
-            onNavigate={navigate}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onOpenProfile={() => setProfileOpen(true)}
-          />
+    <TaskChecklistNavProvider>
+      <FileViewerProvider>
+        <CelebrationsProvider>
+          <div className="min-h-screen flex bg-surface-2">
+            <Sidebar
+              activePanel={activePanel}
+              onNavigate={navigate}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onOpenProfile={() => setProfileOpen(true)}
+            />
 
-          <MobileHeader theme={theme} onToggleTheme={toggleTheme} />
+            <MobileHeader theme={theme} onToggleTheme={toggleTheme} />
 
-          <main className="flex-1 min-w-0 pt-[52px] md:pt-0 pb-16 md:pb-0">
-            <div className="max-w-5xl mx-auto">
-              {ActivePanelComponent ? (
-                <ActivePanelComponent onNavigate={navigate} />
-              ) : (
-                <PlaceholderPanel label={PANEL_LABELS[activePanel] || activePanel} />
-              )}
-            </div>
-          </main>
+            <main className="flex-1 min-w-0 pt-[52px] md:pt-0 pb-16 md:pb-0">
+              <div className="max-w-5xl mx-auto">
+                {ActivePanelComponent ? (
+                  <ActivePanelComponent onNavigate={navigate} />
+                ) : (
+                  <PlaceholderPanel label={PANEL_LABELS[activePanel] || activePanel} />
+                )}
+              </div>
+            </main>
 
-          <BottomNav
-            activePanel={activePanel}
-            onNavigate={navigate}
-            onToggleMenu={() => setMobileMenuOpen(true)}
-            onOpenUserSheet={() => setUserSheetOpen(true)}
-          />
+            <BottomNav
+              activePanel={activePanel}
+              onNavigate={navigate}
+              onToggleMenu={() => setMobileMenuOpen(true)}
+              onOpenUserSheet={() => setUserSheetOpen(true)}
+            />
 
-          <MobileMenuSheet
-            open={mobileMenuOpen}
-            activePanel={activePanel}
-            onNavigate={navigate}
-            onClose={() => setMobileMenuOpen(false)}
-          />
+            <MobileMenuSheet
+              open={mobileMenuOpen}
+              activePanel={activePanel}
+              onNavigate={navigate}
+              onClose={() => setMobileMenuOpen(false)}
+            />
 
-          <UserSheet
-            open={userSheetOpen}
-            onClose={() => setUserSheetOpen(false)}
-            onOpenProfile={() => setProfileOpen(true)}
-          />
+            <UserSheet
+              open={userSheetOpen}
+              onClose={() => setUserSheetOpen(false)}
+              onOpenProfile={() => setProfileOpen(true)}
+            />
 
-          <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+            <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
 
-          <GreetingToast />
-          <IdleWarningToast />
-          <FileViewerModal />
-          <CelebrationWishPopup />
-          <MyWishesModal />
-        </div>
-      </CelebrationsProvider>
-    </FileViewerProvider>
+            <GreetingToast />
+            <IdleWarningToast />
+            <FileViewerModal />
+            <CelebrationWishPopup />
+            <MyWishesModal />
+          </div>
+        </CelebrationsProvider>
+      </FileViewerProvider>
+    </TaskChecklistNavProvider>
   )
 }

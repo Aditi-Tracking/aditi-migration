@@ -1,4 +1,5 @@
 import { useAuth } from '../../context/AuthContext'
+import { useTaskChecklistNav } from '../../context/TaskChecklistNavContext'
 import { NAV_ITEMS, isNavItemVisible } from './navItems'
 import NavIcon from './NavIcon'
 
@@ -27,7 +28,8 @@ function NavRow({ item, active, onClick }) {
 
 export default function Sidebar({ activePanel, onNavigate, onToggleTheme, theme, onOpenProfile }) {
   const { currentUser, permissions, logout } = useAuth()
-  const ctx = { currentUser, permissions }
+  const { navVisible: taskChecklistVisible } = useTaskChecklistNav()
+  const ctx = { currentUser, permissions, taskChecklistVisible }
 
   return (
     <aside className="hidden md:flex md:flex-col w-56 shrink-0 h-screen sticky top-0 bg-surface border-r border-border">

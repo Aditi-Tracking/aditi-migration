@@ -8,14 +8,16 @@ import AnnouncementBellButton from './AnnouncementBellButton'
 import AnnouncementsDrawer from './AnnouncementsDrawer'
 import HomeContentSections from './HomeContentSections'
 import CelebrationBanner from './CelebrationBanner'
+import TaskAlertBanner from './TaskAlertBanner'
 import { FAQ_ITEMS } from './faqData'
 
 // Ported from old-portal/js/home.js (fetchUserProfilePhoto) and the static
 // #panel-home HTML (MD message / How-to / Emergency Contacts / FAQs are all
 // hardcoded, no data source — copied verbatim). The Celebrations banner is
 // its own subsystem (see lib/celebrations.js + CelebrationsContext) — the
-// banner UI is Home-scoped, but the wish popup it can open is global. Home
-// Task Alert Banner is still deferred — see MIGRATION-NOTES.md.
+// banner UI is Home-scoped, but the wish popup it can open is global. The
+// Task Alert Banner (TaskAlertBanner) is likewise Home-scoped, backed by
+// TaskChecklistNavContext (Task Checklist Phase 3).
 const HOW_TO_STEPS = [
   {
     title: 'Login with your credentials',
@@ -72,7 +74,7 @@ const CONTACT_GROUPS = [
   },
 ]
 
-export default function HomePanel() {
+export default function HomePanel({ onNavigate }) {
   const { currentUser } = useAuth()
   const firstName = (currentUser?.name || currentUser?.email?.split('@')[0] || '').split(' ')[0]
 
@@ -143,6 +145,7 @@ export default function HomePanel() {
         to our <strong className="text-text">Aditi Portal</strong> — your unified command centre to track, train and grow.
       </div>
 
+      <TaskAlertBanner onNavigate={onNavigate} />
       <CelebrationBanner />
 
       {/* Employee profile banner */}
