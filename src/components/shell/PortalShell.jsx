@@ -35,6 +35,7 @@ import ActivityLogPanel from '../panels/activitylog/ActivityLogPanel'
 import SmartFleetPanel from '../panels/smartfleet/SmartFleetPanel'
 import DashboardsHubPanel from '../panels/dashboardshub/DashboardsHubPanel'
 import TaskChecklistPanel from '../panels/taskchecklist/TaskChecklistPanel'
+import FMSPanel from '../panels/fms/FMSPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -45,6 +46,7 @@ const PANEL_COMPONENTS = {
   leads: SmartFleetPanel,
   dashboardshub: DashboardsHubPanel,
   tasks: TaskChecklistPanel,
+  fms: FMSPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
