@@ -33,6 +33,7 @@ import AccessControlPanel from '../panels/accesscontrol/AccessControlPanel'
 import ActivityLogPanel from '../panels/activitylog/ActivityLogPanel'
 import SmartFleetPanel from '../panels/smartfleet/SmartFleetPanel'
 import DashboardsHubPanel from '../panels/dashboardshub/DashboardsHubPanel'
+import TaskChecklistPanel from '../panels/taskchecklist/TaskChecklistPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -42,6 +43,7 @@ const PANEL_COMPONENTS = {
   activitylog: ActivityLogPanel,
   leads: SmartFleetPanel,
   dashboardshub: DashboardsHubPanel,
+  tasks: TaskChecklistPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,

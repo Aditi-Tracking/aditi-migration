@@ -25,7 +25,7 @@ export const NAV_ITEMS = [
       { id: 'enterprise', label: 'Enterprise Lead', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'renewals', label: 'Renewals & Collections', visibility: 'notYetBuilt' },
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
-      { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'notYetBuilt' },
+      { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistInterim' },
       { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'mapping', label: 'Customer Mapping', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'notYetBuilt' },
@@ -56,6 +56,8 @@ export const NAV_ITEMS = [
 // - Access Control (adminperms) is gated to rawRole === 'mis' only
 // - Activity Log is gated to can_view_activitylog === 'true' (no owner-role
 //   shortcut needed — owner's role defaults already grant it)
+// - Task Checklist (tasks) currently uses an interim rule (owner or
+//   checklist_scope==='all') — the real data-dependent reveal is Phase 3
 // - Referral is hidden entirely unless the user has at least one of its 4
 //   permissions/admin-rights (see referralPermissions.js) — ported from
 //   old-portal/js/referral.js's _applyReferralNavVisibility
@@ -77,6 +79,12 @@ export function isNavItemVisible(visibility, { currentUser, permissions }) {
       return currentUser?.role === 'owner' || permissions.can_view_fms === 'true'
     case 'activityLogPerm':
       return permissions.can_view_activitylog === 'true'
+    // Phase 1 interim only — mirrors the synchronous half of
+    // _tRevealTasksNav (owner/checklist_scope==='all' unlocks immediately).
+    // The full async "resolves to an employee_checklists record" reveal +
+    // 45s live-sync loop is Phase 3; this rule will be replaced then.
+    case 'taskChecklistInterim':
+      return currentUser?.role === 'owner' || permissions.checklist_scope === 'all'
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
