@@ -1,15 +1,126 @@
-import CNSectionPanel from '../../shared/CNSectionPanel'
+import { useEffect, useState } from 'react'
+import { CN } from '../../../lib/contentNodes'
+import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
+import DocCard from '../../shared/DocCard'
+import { DOC_ICON } from '../../shared/docIcons'
+import TrainingModuleOverlay from './TrainingModuleOverlay'
+import QuizPreviewModal from './QuizPreviewModal'
+import QuizTakingOverlay from './QuizTakingOverlay'
+import QuizResultOverlay from './QuizResultOverlay'
+import MyResultsOverlay from './MyResultsOverlay'
 
-// Phase 1 of Training — the Videos tab only. Ported from old-portal/js/training.js's
-// loadTrainingSection(): CN.getSection('Training') + a plain card grid, same
-// generic pattern as Sales/After Sales/etc. Reuses CNSectionPanel/
-// CNCategoryBrowser/FileViewerModal unchanged.
+// Ported from old-portal/js/training.js's loadTrainingSection() (plain
+// content_nodes grid) plus the quiz flow entry points. Restructured away
+// from Phase 1's thin CNSectionPanel wrapper because Training's overlay
+// needs its own Videos/Assessment tab bar (see TrainingModuleOverlay) —
+// the Videos tab behavior itself is unchanged.
 //
-// Deliberately NOT included in this phase (see plan discussion +
-// MIGRATION-NOTES.md): the Assessment/quiz tab (Phase 2: quiz-taking flow;
-// Phase 3: MIS quiz creation/management + Grade Overlay). Old-portal's
-// dead switchTrainingTab()/legacy hidden tab markup is not ported either —
-// confirmed unreachable in production.
+// Quiz flow: selecting a quiz inside the module overlay closes that
+// overlay and opens Preview -> Take Quiz -> Result, mirroring
+// openQuizPreviewFromOverlay's closeMarketingOverlay()-then-open sequence.
 export default function TrainingPanel() {
-  return <CNSectionPanel sectionName="Training" title="Training" breadcrumb="Home › Training" />
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [cats, setCats] = useState([])
+
+  const [moduleNode, setModuleNode] = useState(null) // { id, name } | null
+  const [quizFlow, setQuizFlow] = useState(null) // { screen: 'preview'|'taking'|'result', quizId, result } | null
+  const [myResultsOpen, setMyResultsOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    CN.load()
+      .then(() => {
+        if (cancelled) return
+        const section = CN.getSection('Training')
+        if (!section) {
+          setError('Training section not found in content_nodes')
+          setLoading(false)
+          return
+        }
+        setCats(CN.getCategories(section.id))
+        setLoading(false)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setError(e.message)
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function handleSelectQuiz(quizId) {
+    setModuleNode(null)
+    setQuizFlow({ screen: 'preview', quizId })
+  }
+
+  return (
+    <div className="px-4 sm:px-6 py-5">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div>
+          <div className="text-[16px] font-semibold text-text">Training</div>
+          <div className="text-[11.5px] text-text-muted mt-0.5">Home › Training</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMyResultsOpen(true)}
+          className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+        >
+          📊 My Results
+        </button>
+      </div>
+
+      {loading && <div className="text-center py-16 text-text-muted text-[13px]">Loading…</div>}
+      {!loading && error && <div className="text-center py-16 text-danger text-[13px]">⚠️ {error}</div>}
+
+      {!loading && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+          {cats.map((cat) => {
+            const count = CN.totalFiles(cat.id)
+            return (
+              <DocCard
+                key={cat.id}
+                icon={DOC_ICON}
+                name={cat.name}
+                desc={getCNCardDesc(cat.name)}
+                meta={`📂 ${count} file${count === 1 ? '' : 's'}`}
+                onClick={() => setModuleNode({ id: cat.id, name: cat.name })}
+              />
+            )
+          })}
+        </div>
+      )}
+
+      <TrainingModuleOverlay
+        open={!!moduleNode}
+        node={moduleNode}
+        onClose={() => setModuleNode(null)}
+        onSelectQuiz={handleSelectQuiz}
+      />
+
+      <QuizPreviewModal
+        open={quizFlow?.screen === 'preview'}
+        quizId={quizFlow?.quizId}
+        onClose={() => setQuizFlow(null)}
+        onStart={(quizId) => setQuizFlow({ screen: 'taking', quizId })}
+      />
+
+      <QuizTakingOverlay
+        open={quizFlow?.screen === 'taking'}
+        quizId={quizFlow?.quizId}
+        onClose={() => setQuizFlow(null)}
+        onFinished={(result) => setQuizFlow({ screen: 'result', quizId: quizFlow.quizId, result })}
+      />
+
+      <QuizResultOverlay
+        result={quizFlow?.screen === 'result' ? quizFlow.result : null}
+        onClose={() => setQuizFlow(null)}
+        onRetake={() => setQuizFlow({ screen: 'taking', quizId: quizFlow.quizId })}
+      />
+
+      <MyResultsOverlay open={myResultsOpen} onClose={() => setMyResultsOpen(false)} />
+    </div>
+  )
 }
