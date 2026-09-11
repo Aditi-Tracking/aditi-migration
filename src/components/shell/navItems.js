@@ -35,7 +35,7 @@ export const NAV_ITEMS = [
     ],
   },
   { id: 'announcements', label: 'Announcements', visibility: 'notYetBuilt' },
-  { id: 'activitylog', label: 'Activity Log', visibility: 'notYetBuilt' },
+  { id: 'activitylog', label: 'Activity Log', visibility: 'activityLogPerm' },
   { id: 'adminperms', label: 'Access Control', visibility: 'misOnly' },
   { id: 'about', label: 'About Organisation' },
   { id: 'hr', label: 'HR', badge: 'Policy' },
@@ -54,6 +54,8 @@ export const NAV_ITEMS = [
 // - restrictEmployee() maps can_view_leads/can_view_fms -> nav-leads/nav-fms,
 //   only called for non-owners (owners always see them)
 // - Access Control (adminperms) is gated to rawRole === 'mis' only
+// - Activity Log is gated to can_view_activitylog === 'true' (no owner-role
+//   shortcut needed — owner's role defaults already grant it)
 // - Referral is hidden entirely unless the user has at least one of its 4
 //   permissions/admin-rights (see referralPermissions.js) — ported from
 //   old-portal/js/referral.js's _applyReferralNavVisibility
@@ -73,6 +75,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions }) {
       return currentUser?.role === 'owner' || permissions.can_view_leads === 'true'
     case 'fmsPerm':
       return currentUser?.role === 'owner' || permissions.can_view_fms === 'true'
+    case 'activityLogPerm':
+      return permissions.can_view_activitylog === 'true'
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:

@@ -25,12 +25,14 @@ import HomePanel from '../panels/home/HomePanel'
 import AboutPanel from '../panels/about/AboutPanel'
 import TrainingPanel from '../panels/training/TrainingPanel'
 import AccessControlPanel from '../panels/accesscontrol/AccessControlPanel'
+import ActivityLogPanel from '../panels/activitylog/ActivityLogPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
   about: AboutPanel,
   training: TrainingPanel,
   adminperms: AccessControlPanel,
+  activitylog: ActivityLogPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
