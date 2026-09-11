@@ -6,12 +6,15 @@ import { computeUnreadCount, markAllSeen } from '../../../lib/announcements'
 import AnnouncementBellButton from './AnnouncementBellButton'
 import AnnouncementsDrawer from './AnnouncementsDrawer'
 import HomeContentSections from './HomeContentSections'
+import CelebrationBanner from './CelebrationBanner'
 import { FAQ_ITEMS } from './faqData'
 
 // Ported from old-portal/js/home.js (fetchUserProfilePhoto) and the static
 // #panel-home HTML (MD message / How-to / Emergency Contacts / FAQs are all
-// hardcoded, no data source — copied verbatim). Home Task Alert Banner and
-// the Celebrations banner are deferred — see MIGRATION-NOTES.md.
+// hardcoded, no data source — copied verbatim). The Celebrations banner is
+// its own subsystem (see lib/celebrations.js + CelebrationsContext) — the
+// banner UI is Home-scoped, but the wish popup it can open is global. Home
+// Task Alert Banner is still deferred — see MIGRATION-NOTES.md.
 const HOW_TO_STEPS = [
   {
     title: 'Login with your credentials',
@@ -133,6 +136,8 @@ export default function HomePanel() {
       <div className="text-[12.5px] text-text-muted mt-1 mb-5">
         to our <strong className="text-text">Aditi Portal</strong> — your unified command centre to track, train and grow.
       </div>
+
+      <CelebrationBanner />
 
       {/* Employee profile banner */}
       <div className="flex flex-wrap items-stretch gap-4 rounded-2xl border border-border bg-surface p-4 mb-5">
