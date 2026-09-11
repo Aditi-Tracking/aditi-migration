@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
+import { useAuth } from '../../../context/AuthContext'
 import DocCard from '../../shared/DocCard'
 import { DOC_ICON } from '../../shared/docIcons'
 import TrainingModuleOverlay from './TrainingModuleOverlay'
@@ -8,6 +9,8 @@ import QuizPreviewModal from './QuizPreviewModal'
 import QuizTakingOverlay from './QuizTakingOverlay'
 import QuizResultOverlay from './QuizResultOverlay'
 import MyResultsOverlay from './MyResultsOverlay'
+import QuizAdminOverlay from './QuizAdminOverlay'
+import GradeOverlay from './GradeOverlay'
 
 // Ported from old-portal/js/training.js's loadTrainingSection() (plain
 // content_nodes grid) plus the quiz flow entry points. Restructured away
@@ -19,6 +22,9 @@ import MyResultsOverlay from './MyResultsOverlay'
 // overlay and opens Preview -> Take Quiz -> Result, mirroring
 // openQuizPreviewFromOverlay's closeMarketingOverlay()-then-open sequence.
 export default function TrainingPanel() {
+  const { permissions } = useAuth()
+  const canManageQuizzes = permissions.can_upload_quiz === 'true'
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [cats, setCats] = useState([])
@@ -26,6 +32,8 @@ export default function TrainingPanel() {
   const [moduleNode, setModuleNode] = useState(null) // { id, name } | null
   const [quizFlow, setQuizFlow] = useState(null) // { screen: 'preview'|'taking'|'result', quizId, result } | null
   const [myResultsOpen, setMyResultsOpen] = useState(false)
+  const [quizAdminOpen, setQuizAdminOpen] = useState(false)
+  const [gradeOpen, setGradeOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -63,13 +71,33 @@ export default function TrainingPanel() {
           <div className="text-[16px] font-semibold text-text">Training</div>
           <div className="text-[11.5px] text-text-muted mt-0.5">Home › Training</div>
         </div>
-        <button
-          type="button"
-          onClick={() => setMyResultsOpen(true)}
-          className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
-        >
-          📊 My Results
-        </button>
+        <div className="flex items-center gap-2">
+          {canManageQuizzes && (
+            <button
+              type="button"
+              onClick={() => setQuizAdminOpen(true)}
+              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+            >
+              ➕ Create Quiz
+            </button>
+          )}
+          {canManageQuizzes && (
+            <button
+              type="button"
+              onClick={() => setGradeOpen(true)}
+              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+            >
+              ✏️ Grade
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMyResultsOpen(true)}
+            className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+          >
+            📊 My Results
+          </button>
+        </div>
       </div>
 
       {loading && <div className="text-center py-16 text-text-muted text-[13px]">Loading…</div>}
@@ -121,6 +149,9 @@ export default function TrainingPanel() {
       />
 
       <MyResultsOverlay open={myResultsOpen} onClose={() => setMyResultsOpen(false)} />
+
+      {canManageQuizzes && <QuizAdminOverlay open={quizAdminOpen} onClose={() => setQuizAdminOpen(false)} />}
+      {canManageQuizzes && <GradeOverlay open={gradeOpen} onClose={() => setGradeOpen(false)} />}
     </div>
   )
 }
