@@ -1,11 +1,10 @@
 import { SB_HDRS, SUPABASE_URL } from './supabaseClient'
 
-// Ported from old-portal/js/announcements.js. Only the "Updates" half of
-// the drawer (portal_update_text) — the "Celebrations" tab is a separate,
-// deferred feature (birthday/anniversary detection + live chat against
-// birthday_wishes, see MIGRATION-NOTES.md). Seen-tracking keys are
-// namespaced (u_<id>) so adding celebrations back later just extends this,
-// not replaces it.
+// Ported from old-portal/js/announcements.js. The "Updates" half of the
+// drawer (portal_update_text) lives here; the "Celebrations" tab's chat is
+// in lib/announcementsCelebChat.js. Seen-tracking keys are namespaced
+// (u_<id> / c_<key>) so both tabs share one combined unread count, matching
+// production's _annUpdateBadge.
 
 export async function fetchPortalUpdates() {
   const res = await fetch(
@@ -95,6 +94,12 @@ function todayKey() {
   return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()
 }
 
+// Stable key for a celebrant (no row id on an Employee_details record) —
+// port of _annCelebKey.
+export function celebKey(c) {
+  return 'c_' + (c.name || '').replace(/\s+/g, '_') + '_' + (c.celebType || 'bday')
+}
+
 export function getSeenIds() {
   try {
     return JSON.parse(localStorage.getItem('annSeenIds') || '[]')
@@ -103,9 +108,10 @@ export function getSeenIds() {
   }
 }
 
-export function markAllSeen(updates) {
+export function markAllSeen(updates, celebs = []) {
   try {
-    localStorage.setItem('annSeenIds', JSON.stringify(updates.map((a) => 'u_' + a.id)))
+    const ids = [...updates.map((a) => 'u_' + a.id), ...celebs.map(celebKey)]
+    localStorage.setItem('annSeenIds', JSON.stringify(ids))
     localStorage.setItem('annSeen_' + todayKey(), '1')
   } catch {
     /* localStorage may be unavailable — ignore */
@@ -120,8 +126,10 @@ export function isSeenToday() {
   }
 }
 
-export function computeUnreadCount(updates) {
+export function computeUnreadCount(updates, celebs = []) {
   if (isSeenToday()) return 0
   const seenIds = getSeenIds()
-  return updates.filter((a) => !seenIds.includes('u_' + a.id)).length
+  const unseenUpdates = updates.filter((a) => !seenIds.includes('u_' + a.id))
+  const unseenCelebs = celebs.filter((c) => !seenIds.includes(celebKey(c)))
+  return unseenUpdates.length + unseenCelebs.length
 }

@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import { deletePortalUpdate, formatTimeLabel, safeBody } from '../../../lib/announcements'
 import PostUpdateModal from './PostUpdateModal'
+import CelebrationChatTab from './CelebrationChatTab'
 
-// Ported from old-portal/js/announcements.js's openAnnOverlay/_annDrwRender —
-// Updates tab only for now (see MIGRATION-NOTES.md: Celebrations tab is a
-// separate, deferred module). No tab bar since there's only one tab.
+// Ported from old-portal/js/announcements.js's openAnnOverlay/_annDrwRender/
+// annDrwFilter. Two tabs, matching production's exact labels — no "All" tab,
+// that only ever existed on the dead standalone Announcements panel (see
+// MIGRATION-NOTES.md). CelebrationChatTab is rendered only while the drawer
+// is open AND this is the active tab — its mount/unmount lifecycle is what
+// starts/stops the 5s poll, since this drawer itself never unmounts (it's
+// slid off-screen via CSS, not removed from the DOM).
 export default function AnnouncementsDrawer({ open, updates, loading, error, onClose, onRefetch }) {
   const { currentUser, permissions } = useAuth()
   const canPost = permissions.can_post_announcements === 'true'
@@ -15,6 +20,7 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
 
   const [postModalOpen, setPostModalOpen] = useState(false)
   const [editingUpdate, setEditingUpdate] = useState(null)
+  const [activeTab, setActiveTab] = useState('update')
 
   useEffect(() => {
     if (!open) return
@@ -57,66 +63,91 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {loading && <div className="text-center py-16 text-text-muted text-[12.5px]">⏳ Loading...</div>}
-          {!loading && error && <div className="text-center py-16 text-danger text-[12.5px]">⚠️ {error}</div>}
-          {!loading && !error && !updates.length && (
-            <div className="text-center py-16 text-text-muted">
-              <div className="text-[13px] font-medium text-text mb-1">No portal updates yet.</div>
-              <div className="text-[12px]">MIS Team will post updates here soon.</div>
-            </div>
-          )}
-          {!loading && !error && (
-            <div className="flex flex-col gap-3">
-              {updates.map((u) => (
-                <div key={u.id} className="rounded-xl border border-border border-l-[3px] border-l-primary bg-surface-2 p-3.5">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-primary-tint text-primary border border-primary/20">
-                      Portal Update
-                    </span>
-                    <span className="text-[10.5px] text-text-muted ml-auto">{formatTimeLabel(u.created_at)}</span>
-                    {canPost && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingUpdate(u)
-                          setPostModalOpen(true)
-                        }}
-                        className="text-[10.5px] font-medium text-primary bg-primary-tint border border-primary/20 rounded px-2 py-0.5"
-                      >
-                        ✏️ Edit
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(u.id)}
-                        className="text-[10.5px] font-medium text-danger bg-danger-tint border border-danger/20 rounded px-2 py-0.5"
-                      >
-                        🗑 Delete
-                      </button>
-                    )}
-                  </div>
-                  <div className="text-[13.5px] font-semibold text-text mb-1.5">{u.title}</div>
-                  <div
-                    className="text-[12.5px] text-text-muted leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: safeBody(u.body) }}
-                  />
-                  {u.posted_by && (
-                    <div className="mt-2.5 pt-2.5 border-t border-border text-[11px] text-text-muted flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded bg-primary-tint text-primary flex items-center justify-center text-[10px] font-bold">
-                        {(u.posted_by || 'M')[0].toUpperCase()}
-                      </span>
-                      Posted by <strong className="text-text-muted">{u.posted_by}</strong>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="flex gap-1 px-5 pt-2 border-b border-border shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab('update')}
+            className={`px-3.5 py-2 text-[12.5px] font-semibold border-b-2 -mb-px ${
+              activeTab === 'update' ? 'border-primary text-primary' : 'border-transparent text-text-muted'
+            }`}
+          >
+            ✨ Updates
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('celeb')}
+            className={`px-3.5 py-2 text-[12.5px] font-semibold border-b-2 -mb-px ${
+              activeTab === 'celeb' ? 'border-primary text-primary' : 'border-transparent text-text-muted'
+            }`}
+          >
+            🎉 Celebrations
+          </button>
         </div>
 
-        {canPost && (
+        {activeTab === 'celeb' && open && <CelebrationChatTab />}
+
+        {activeTab === 'update' && (
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {loading && <div className="text-center py-16 text-text-muted text-[12.5px]">⏳ Loading...</div>}
+            {!loading && error && <div className="text-center py-16 text-danger text-[12.5px]">⚠️ {error}</div>}
+            {!loading && !error && !updates.length && (
+              <div className="text-center py-16 text-text-muted">
+                <div className="text-[13px] font-medium text-text mb-1">No portal updates yet.</div>
+                <div className="text-[12px]">MIS Team will post updates here soon.</div>
+              </div>
+            )}
+            {!loading && !error && (
+              <div className="flex flex-col gap-3">
+                {updates.map((u) => (
+                  <div key={u.id} className="rounded-xl border border-border border-l-[3px] border-l-primary bg-surface-2 p-3.5">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-primary-tint text-primary border border-primary/20">
+                        Portal Update
+                      </span>
+                      <span className="text-[10.5px] text-text-muted ml-auto">{formatTimeLabel(u.created_at)}</span>
+                      {canPost && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingUpdate(u)
+                            setPostModalOpen(true)
+                          }}
+                          className="text-[10.5px] font-medium text-primary bg-primary-tint border border-primary/20 rounded px-2 py-0.5"
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(u.id)}
+                          className="text-[10.5px] font-medium text-danger bg-danger-tint border border-danger/20 rounded px-2 py-0.5"
+                        >
+                          🗑 Delete
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-[13.5px] font-semibold text-text mb-1.5">{u.title}</div>
+                    <div
+                      className="text-[12.5px] text-text-muted leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: safeBody(u.body) }}
+                    />
+                    {u.posted_by && (
+                      <div className="mt-2.5 pt-2.5 border-t border-border text-[11px] text-text-muted flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded bg-primary-tint text-primary flex items-center justify-center text-[10px] font-bold">
+                          {(u.posted_by || 'M')[0].toUpperCase()}
+                        </span>
+                        Posted by <strong className="text-text-muted">{u.posted_by}</strong>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'update' && canPost && (
           <div className="px-5 py-3.5 border-t border-border shrink-0">
             <button
               type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
+import { useCelebrations } from '../../../context/CelebrationsContext'
 import { SB_HDRS, SUPABASE_URL } from '../../../lib/supabaseClient'
 import { useAnnouncementUpdates } from '../../../hooks/useAnnouncementUpdates'
 import { computeUnreadCount, markAllSeen } from '../../../lib/announcements'
@@ -118,12 +119,17 @@ export default function HomePanel() {
   }, [currentUser])
 
   const { updates, loading: updatesLoading, error: updatesError, refetch } = useAnnouncementUpdates()
+  const { birthdays, anniversaries } = useCelebrations()
+  const todaysCelebs = [
+    ...birthdays.map((p) => ({ ...p, celebType: 'birthday' })),
+    ...anniversaries.map((p) => ({ ...p, celebType: 'anniversary' })),
+  ]
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const unreadCount = computeUnreadCount(updates)
+  const unreadCount = computeUnreadCount(updates, todaysCelebs)
 
   function openDrawer() {
     setDrawerOpen(true)
-    markAllSeen(updates)
+    markAllSeen(updates, todaysCelebs)
   }
 
   const deptLabel = (profile.dept || 'Employee').charAt(0).toUpperCase() + (profile.dept || 'Employee').slice(1)
