@@ -21,8 +21,10 @@ import FinancePanel from '../panels/finance/FinancePanel'
 import ResourcesPanel from '../panels/resources/ResourcesPanel'
 import ReferralPanel from '../panels/referral/ReferralPanel'
 import ProductsPanel from '../panels/products/ProductsPanel'
+import HomePanel from '../panels/home/HomePanel'
 
 const PANEL_COMPONENTS = {
+  home: HomePanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
