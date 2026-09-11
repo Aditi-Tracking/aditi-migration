@@ -20,6 +20,7 @@ import MarketingPanel from '../panels/marketing/MarketingPanel'
 import FinancePanel from '../panels/finance/FinancePanel'
 import ResourcesPanel from '../panels/resources/ResourcesPanel'
 import ReferralPanel from '../panels/referral/ReferralPanel'
+import ProductsPanel from '../panels/products/ProductsPanel'
 
 const PANEL_COMPONENTS = {
   hr: HRPanel,
@@ -30,6 +31,7 @@ const PANEL_COMPONENTS = {
   finance: FinancePanel,
   resources: ResourcesPanel,
   referral: ReferralPanel,
+  products: ProductsPanel,
 }
 
 const PANEL_LABELS = NAV_ITEMS.reduce((acc, item) => {
