@@ -31,6 +31,7 @@ import AboutPanel from '../panels/about/AboutPanel'
 import TrainingPanel from '../panels/training/TrainingPanel'
 import AccessControlPanel from '../panels/accesscontrol/AccessControlPanel'
 import ActivityLogPanel from '../panels/activitylog/ActivityLogPanel'
+import SmartFleetPanel from '../panels/smartfleet/SmartFleetPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -38,6 +39,7 @@ const PANEL_COMPONENTS = {
   training: TrainingPanel,
   adminperms: AccessControlPanel,
   activitylog: ActivityLogPanel,
+  leads: SmartFleetPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
