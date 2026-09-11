@@ -12,6 +12,7 @@ import {
   getDateFiltered,
   getFiltered,
 } from '../../../lib/taskChecklist'
+import { canUseTaskScheduler } from '../../../lib/taskScheduler'
 import TaskKpiGrid from './TaskKpiGrid'
 import TaskCharts from './TaskCharts'
 import TaskLeaderboard from './TaskLeaderboard'
@@ -19,6 +20,7 @@ import TaskFilterBar from './TaskFilterBar'
 import TaskTable from './TaskTable'
 import TaskUploadModal from './TaskUploadModal'
 import TaskUploadsViewerModal from './TaskUploadsViewerModal'
+import TaskSchedulerTab from './TaskSchedulerTab'
 
 const PER_PAGE = 20
 
@@ -33,6 +35,8 @@ function todayISO() {
 export default function TaskChecklistPanel() {
   const { currentUser, permissions } = useAuth()
   const scope = permissions.checklist_scope === 'all' ? 'all' : 'own'
+  const schedulerAllowed = canUseTaskScheduler(currentUser, permissions)
+  const [activeTab, setActiveTab] = useState('checklist')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -236,6 +240,33 @@ export default function TaskChecklistPanel() {
         </div>
       </div>
 
+      {/* Tab bar — only rendered for MIS/owner (or anyone individually
+          granted can_use_task_scheduler), mirrors tRenderTabBar's own
+          "no bar at all if there's nothing to switch" rule. */}
+      {schedulerAllowed && (
+        <div className="flex gap-1.5 flex-wrap mb-5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('checklist')}
+            className={`rounded-lg px-4 py-1.5 text-[12.5px] font-semibold border ${
+              activeTab === 'checklist' ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'
+            }`}
+          >
+            📋 Checklist
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('scheduler')}
+            className={`rounded-lg px-4 py-1.5 text-[12.5px] font-semibold border ${
+              activeTab === 'scheduler' ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'
+            }`}
+          >
+            🗓️ Task Scheduler
+          </button>
+        </div>
+      )}
+
+      <div hidden={schedulerAllowed && activeTab !== 'checklist'}>
       {loading && <div className="text-center py-16 text-text-muted text-[13px]">⏳ Loading…</div>}
       {!loading && error && <div className="text-center py-16 text-danger text-[13px]">⚠️ {error}</div>}
 
@@ -307,6 +338,13 @@ export default function TaskChecklistPanel() {
             afterMutation={afterMutation}
             onOpenUpload={(id, task) => setUploadTarget({ id, task })}
           />
+        </div>
+      )}
+      </div>
+
+      {schedulerAllowed && (
+        <div hidden={activeTab !== 'scheduler'}>
+          <TaskSchedulerTab onGenerated={() => load(dateFrom, dateTo)} />
         </div>
       )}
 

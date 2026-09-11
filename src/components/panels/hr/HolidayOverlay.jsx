@@ -3,11 +3,12 @@ import OverlayShell from '../../shared/OverlayShell'
 import { useAuth } from '../../../context/AuthContext'
 import { SUPABASE_ANON, SUPABASE_URL } from '../../../lib/supabaseClient'
 import { holidayCache } from '../../../lib/holidayCache'
+import { normalizeHolidayLocation as holNormLoc } from '../../../lib/holidayLocation'
 
 // Ported from old-portal/js/hr.js's loadHolidayCard/renderHolidayCard/
-// filterHolidayBranch/_holNormLoc. Note: this table's RLS policy is on the
-// 'anon' role specifically, so it's always queried with SUPABASE_ANON, even
-// for a logged-in user — never the user's JWT. Do not "fix" that.
+// filterHolidayBranch. Note: this table's RLS policy is on the 'anon' role
+// specifically, so it's always queried with SUPABASE_ANON, even for a
+// logged-in user — never the user's JWT. Do not "fix" that.
 const OWNER_TIER_RAW_ROLES = ['managing director', 'mis', 'pc', 'executive assistant', 'ea']
 const BRANCHES = [
   { key: 'Mumbai', label: '🏙️ Mumbai' },
@@ -15,18 +16,6 @@ const BRANCHES = [
   { key: 'Bangalore', label: '🌆 Bangalore' },
   { key: 'Gujarat', label: '🏛️ Gujarat' },
 ]
-
-function holNormLoc(loc) {
-  const l = (loc || '').toLowerCase().trim()
-  if (l.includes('goa')) return 'Goa'
-  if (l.includes('bangalore') || l.includes('bengaluru')) return 'Bangalore'
-  if (l.includes('gujarat') || l.includes('surat') || l.includes('ahmedabad')) return 'Gujarat'
-  // Employee_details stores this as "HeadOffice" (no space) for most staff,
-  // while the Holiday List sheet's Location column may use "Head Office"
-  // (with a space) — match both, plus a hyphenated variant.
-  if (l.includes('mumbai') || l.includes('head office') || l.includes('headoffice') || l.includes('head-office')) return 'Mumbai'
-  return loc || 'All'
-}
 
 function fmtDate(d) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
