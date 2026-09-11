@@ -32,6 +32,7 @@ import TrainingPanel from '../panels/training/TrainingPanel'
 import AccessControlPanel from '../panels/accesscontrol/AccessControlPanel'
 import ActivityLogPanel from '../panels/activitylog/ActivityLogPanel'
 import SmartFleetPanel from '../panels/smartfleet/SmartFleetPanel'
+import DashboardsHubPanel from '../panels/dashboardshub/DashboardsHubPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -40,6 +41,7 @@ const PANEL_COMPONENTS = {
   adminperms: AccessControlPanel,
   activitylog: ActivityLogPanel,
   leads: SmartFleetPanel,
+  dashboardshub: DashboardsHubPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
@@ -90,7 +92,7 @@ export default function PortalShell() {
           <main className="flex-1 min-w-0 pt-[52px] md:pt-0 pb-16 md:pb-0">
             <div className="max-w-5xl mx-auto">
               {ActivePanelComponent ? (
-                <ActivePanelComponent />
+                <ActivePanelComponent onNavigate={navigate} />
               ) : (
                 <PlaceholderPanel label={PANEL_LABELS[activePanel] || activePanel} />
               )}
