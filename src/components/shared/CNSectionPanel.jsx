@@ -18,7 +18,12 @@ import { DOC_ICON } from './docIcons'
 // per module — production's own card-open/close tracking is inconsistent
 // per module (Sales only tracks close, most others track nothing at all),
 // so this component must not track uniformly for every consumer.
-export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCardOpen = false, trackCardClose = false }) {
+// `extraCard`, when passed, renders as the FIRST grid item, ahead of every content_nodes card —
+// matches production's own `gridEl.insertBefore(card, gridEl.firstChild)` pattern for a
+// module-specific tool card injected onto an otherwise-generic CN grid (Finance's "Purchase
+// Request" card is the first real consumer of this; Sales' still-deferred "Deal Calculator" card
+// is the same shape, for whenever that's built).
+export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCardOpen = false, trackCardClose = false, extraCard = null }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [cats, setCats] = useState([])
@@ -64,6 +69,7 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
 
       {!loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+          {extraCard}
           {cats.map((cat) => {
             const count = CN.totalFiles(cat.id)
             return (

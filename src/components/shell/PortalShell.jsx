@@ -43,6 +43,7 @@ import TaskDelegationPanel from '../panels/taskdelegation/TaskDelegationPanel'
 import CRMVehiclePanel from '../panels/crmvehicle/CRMVehiclePanel'
 import FieldServicePanel from '../panels/fieldservice/FieldServicePanel'
 import HREmployeeMasterPanel from '../panels/hremployee/HREmployeeMasterPanel'
+import VendorRequestsPanel from '../panels/vendorrequests/VendorRequestsPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -59,6 +60,7 @@ const PANEL_COMPONENTS = {
   crm: CRMVehiclePanel,
   fieldservice: FieldServicePanel,
   hremployee: HREmployeeMasterPanel,
+  vendorrequests: VendorRequestsPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
