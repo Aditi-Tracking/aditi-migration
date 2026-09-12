@@ -14,6 +14,7 @@
 // render `children`; MobileMenuSheet.jsx must.
 import { anyReferralTabVisible } from '../../lib/referralPermissions'
 import { canAccessCRM } from '../../lib/crmVehicle'
+import { canViewHREmployee } from '../../lib/hrEmployee'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -37,7 +38,7 @@ export const NAV_ITEMS = [
       // things inside the panel (My vs All Entries, delete authority) — it just no longer
       // gates visibility. See lib/fieldService.js.
       { id: 'fieldservice', label: 'Field Service' },
-      { id: 'hremployee', label: 'HR Employee Master', visibility: 'notYetBuilt' },
+      { id: 'hremployee', label: 'HR Employee Master', visibility: 'hrEmployeePerm' },
       { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
     ],
   },
@@ -87,6 +88,10 @@ export const NAV_ITEMS = [
 //   see lib/crmVehicle.js's getCrmAccessLevel). Unlike every async rule
 //   above, this is a plain synchronous check against `permissions` — no
 //   Supabase round-trip, so no NavContext/Provider needed.
+// - HR Employee Master uses the real rule ported from _heCanView: an
+//   owner-or-MIS role shortcut, OR hr_employee_view==='true' — a plain
+//   synchronous check against `permissions`, no NavContext needed (same
+//   category as crmPerm above).
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -120,6 +125,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return !!taskDelegationVisible
     case 'crmPerm':
       return canAccessCRM(permissions)
+    case 'hrEmployeePerm':
+      return canViewHREmployee(currentUser, permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
