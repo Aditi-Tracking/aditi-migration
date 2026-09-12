@@ -19,12 +19,18 @@ import FMSPipelineTable from './FMSPipelineTable'
 import NewOrderModal from './NewOrderModal'
 import UpdatePaymentModal from './UpdatePaymentModal'
 import TimelineModal from './TimelineModal'
+import SupportAssignModal from './SupportAssignModal'
+import ReassignModal from './ReassignModal'
+import ConfigModal from './ConfigModal'
+import EngineerAssignModal from './EngineerAssignModal'
+import InstallUpdateModal from './InstallUpdateModal'
+import CertificationModal from './CertificationModal'
 
-// Ported from old-portal/js/fms.js's fmsInit/fmsLoadOrders/fmsApplyFilters —
+// Ported from old-portal/js/fms.js's fmsInit/fmsLoadOrders/fmsApplyFilters.
 // Phase 1: dashboard, New Order/Edit, Timeline/Notes, Update Payment,
-// Delete. The pipeline action overlays (Support/Config/Engineer/Install/
-// Certification/Reassign) are Phase 2 — the pipeline table's action column
-// stays "View only" until then.
+// Delete. Phase 2 (this revision) adds the pipeline action overlays —
+// Support Assign/Reassign/Config/Engineer Assign/Install Update/
+// Certification — as one `actionState` slot so only one can ever be open.
 export default function FMSPanel() {
   const { currentUser, permissions } = useAuth()
 
@@ -50,6 +56,8 @@ export default function FMSPanel() {
   const [editOrder, setEditOrder] = useState(null)
   const [paymentOrderId, setPaymentOrderId] = useState(null)
   const [timelineOrderId, setTimelineOrderId] = useState(null)
+  // { kind: 'support'|'certify'|'config'|'engineer'|'install'|'reassign', orderId } | null
+  const [actionState, setActionState] = useState(null)
 
   const isViewAll = canViewAllOrders(currentUser, permissions)
 
@@ -145,6 +153,11 @@ export default function FMSPanel() {
 
   const timelineOrder = orders.find((o) => o.id === timelineOrderId) || null
   const paymentOrder = orders.find((o) => o.id === paymentOrderId) || null
+  const actionOrder = orders.find((o) => o.id === actionState?.orderId) || null
+
+  function closeAction() {
+    setActionState(null)
+  }
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -216,7 +229,10 @@ export default function FMSPanel() {
             locations={locations}
             products={products}
             empMap={empMap}
+            currentUser={currentUser}
+            permissions={permissions}
             onOpenTimeline={setTimelineOrderId}
+            onOpenAction={(kind, orderId) => setActionState({ kind, orderId })}
           />
         </div>
       )}
@@ -258,6 +274,58 @@ export default function FMSPanel() {
         }}
         onDelete={handleDelete}
         onOpenPayment={setPaymentOrderId}
+        onOpenReassign={(orderId) => setActionState({ kind: 'reassign', orderId })}
+      />
+
+      <SupportAssignModal
+        open={actionState?.kind === 'support'}
+        order={actionOrder}
+        empMap={empMap}
+        locations={locations}
+        products={products}
+        onClose={closeAction}
+        onSaved={refreshOrders}
+        onNeedsCertification={(orderId) => setActionState({ kind: 'certify', orderId })}
+      />
+
+      <ReassignModal
+        open={actionState?.kind === 'reassign'}
+        order={actionOrder}
+        supportPersons={supportPersons}
+        empMap={empMap}
+        onClose={closeAction}
+        onSaved={refreshOrders}
+      />
+
+      <ConfigModal
+        open={actionState?.kind === 'config'}
+        order={actionOrder}
+        products={products}
+        onClose={closeAction}
+        onSaved={refreshOrders}
+      />
+
+      <EngineerAssignModal
+        open={actionState?.kind === 'engineer'}
+        order={actionOrder}
+        empMap={empMap}
+        products={products}
+        onClose={closeAction}
+        onSaved={refreshOrders}
+      />
+
+      <InstallUpdateModal
+        open={actionState?.kind === 'install'}
+        order={actionOrder}
+        onClose={closeAction}
+        onSaved={refreshOrders}
+      />
+
+      <CertificationModal
+        open={actionState?.kind === 'certify'}
+        order={actionOrder}
+        onClose={closeAction}
+        onSaved={refreshOrders}
       />
     </div>
   )

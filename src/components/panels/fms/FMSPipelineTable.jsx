@@ -1,12 +1,22 @@
-import { FMS_STEPS, empName, formatTat, parseProofUrls, productNames, stepStateMap } from '../../../lib/fms'
+import {
+  FMS_STEPS,
+  canActOnAssignedStage,
+  canActOnConfigStage,
+  empName,
+  formatTat,
+  isCertOrder,
+  parseProofUrls,
+  productNames,
+  stepStateMap,
+} from '../../../lib/fms'
 
 const PER_PAGE = 20
 
 // Ported from old-portal/js/fms.js's fmsRenderTable/fmsBuildPipelineRow.
-// Phase 1 keeps the action column read-only ("View" only, opens Timeline) —
-// the status-specific action buttons (Assign/Config/Engineer/etc.) are
-// Phase 2, once the overlays they open exist.
-export default function FMSPipelineTable({ orders, page, onPageChange, locations, products, empMap, onOpenTimeline }) {
+// The action column now mirrors fmsRenderTable's exact status+permission
+// branching — one status-specific action button (falling back to "View"
+// for anyone without the relevant access, or once an order is completed).
+export default function FMSPipelineTable({ orders, page, onPageChange, locations, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
   const total = orders.length
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
   const pageRows = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
@@ -32,7 +42,17 @@ export default function FMSPipelineTable({ orders, page, onPageChange, locations
               </tr>
             )}
             {pageRows.map((o) => (
-              <OrderRow key={o.id} order={o} locations={locations} products={products} empMap={empMap} onOpenTimeline={onOpenTimeline} />
+              <OrderRow
+                key={o.id}
+                order={o}
+                locations={locations}
+                products={products}
+                empMap={empMap}
+                currentUser={currentUser}
+                permissions={permissions}
+                onOpenTimeline={onOpenTimeline}
+                onOpenAction={onOpenAction}
+              />
             ))}
           </tbody>
         </table>
@@ -77,11 +97,34 @@ export default function FMSPipelineTable({ orders, page, onPageChange, locations
   )
 }
 
-function OrderRow({ order: o, locations, products, empMap, onOpenTimeline }) {
+// Mirrors fmsRenderTable's action-button branching exactly, including the
+// two access-boundary quirks confirmed and deliberately kept as-is (see
+// MIGRATION-NOTES.md's "Known confusing-but-intentional-looking access
+// boundaries"): the Config gate via canActOnConfigStage, and Certify being
+// gated the same way as Assign (assigned_to_support-based) rather than by
+// config-team membership, even though certification work routes to Anish.
+function resolveAction(order, currentUser, permissions) {
+  if (order.status === 'pending_support' && canActOnAssignedStage(currentUser, permissions, order)) {
+    return isCertOrder(order) ? { kind: 'certify', label: '📶 Certify' } : { kind: 'support', label: '➡️ Assign' }
+  }
+  if (order.status === 'pending_config' && canActOnConfigStage(currentUser, permissions)) {
+    return { kind: 'config', label: '💾 Config' }
+  }
+  if (order.status === 'pending_engineer' && canActOnAssignedStage(currentUser, permissions, order)) {
+    return { kind: 'engineer', label: '🔩 Assign' }
+  }
+  if (order.status === 'installing' && canActOnAssignedStage(currentUser, permissions, order)) {
+    return { kind: 'install', label: '🔧 Update' }
+  }
+  return null
+}
+
+function OrderRow({ order: o, locations, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
   const locName = o.location_type === 'outside' ? o.location_manual || 'Outside' : locations.find((l) => l.id === o.location_id)?.location_name || '—'
   const created = o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
   const states = stepStateMap(o.status)
   const proofs = parseProofUrls(o.payment_proof_url)
+  const action = resolveAction(o, currentUser, permissions)
 
   return (
     <tr onClick={() => onOpenTimeline(o.id)} className="border-b border-border last:border-0 cursor-pointer hover:bg-surface-2">
@@ -123,13 +166,23 @@ function OrderRow({ order: o, locations, products, empMap, onOpenTimeline }) {
         <FMSPipelineSteps order={o} states={states} />
       </td>
       <td className="px-3 py-2 align-middle text-center border-l border-border" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={() => onOpenTimeline(o.id)}
-          className="text-[11px] font-medium text-primary border border-primary/30 rounded-md px-2.5 py-1"
-        >
-          👁 View
-        </button>
+        {action ? (
+          <button
+            type="button"
+            onClick={() => onOpenAction(action.kind, o.id)}
+            className="text-[11px] font-semibold text-white bg-primary rounded-md px-2.5 py-1 whitespace-nowrap"
+          >
+            {action.label}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenTimeline(o.id)}
+            className="text-[11px] font-medium text-primary border border-primary/30 rounded-md px-2.5 py-1"
+          >
+            👁 View
+          </button>
+        )}
       </td>
     </tr>
   )

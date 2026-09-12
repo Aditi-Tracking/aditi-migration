@@ -3,6 +3,7 @@ import OverlayShell from '../../shared/OverlayShell'
 import {
   calcPendingAmount,
   canOverride,
+  canReassign,
   certQuantity,
   empName,
   fetchAssignments,
@@ -24,10 +25,22 @@ const fmtDt = (dt) => (dt ? new Date(dt).toLocaleString('en-IN', { day: '2-digit
 const fmtDate = (dt) => (dt ? new Date(dt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
 
 // Ported from old-portal/js/fms.js's fmsOpenTimeline. Read-only detail view
-// + Notes (add/delete, involvement-gated) + Payment/Edit/Delete actions.
-// Reassign is intentionally NOT rendered here yet — it opens a Phase 2
-// overlay that doesn't exist until the pipeline-action phase ships.
-export default function TimelineModal({ open, orderId, order, currentUser, permissions, locations, products, empMap, onClose, onEdit, onDelete, onOpenPayment }) {
+// + Notes (add/delete, involvement-gated) + Payment/Edit/Delete/Reassign actions.
+export default function TimelineModal({
+  open,
+  orderId,
+  order,
+  currentUser,
+  permissions,
+  locations,
+  products,
+  empMap,
+  onClose,
+  onEdit,
+  onDelete,
+  onOpenPayment,
+  onOpenReassign,
+}) {
   const [loading, setLoading] = useState(true)
   const [assignments, setAssignments] = useState([])
   const [config, setConfig] = useState(null)
@@ -198,6 +211,18 @@ export default function TimelineModal({ open, orderId, order, currentUser, permi
                 🗑️ Delete
               </button>
             </>
+          )}
+          {order.status === 'pending_support' && canReassign(currentUser, permissions, order) && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onOpenReassign(order.id)
+              }}
+              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+            >
+              🔁 Reassign
+            </button>
           )}
         </div>
       </div>

@@ -39,6 +39,16 @@ export const FMS_CERT_ELIGIBLE_EMAILS = [
   FMS_ANKUSH_EMAIL,
 ]
 
+// Static labels, matching index.html's #fmsSupportConfigPerson options
+// exactly (not derived from Employee_details names).
+export const FMS_CONFIG_PERSON_OPTIONS = [
+  { email: FMS_ANISH_EMAIL, label: '⚙️ Anish' },
+  { email: FMS_KUSH_EMAIL, label: '⚙️ Kush (Goa)' },
+  { email: FMS_KINCHIT_EMAIL, label: '⚙️ Kinchit (Gujarat)' },
+  { email: FMS_BHUMIT_EMAIL, label: '⚙️ Bhumit (Gujarat)' },
+  { email: FMS_ANKUSH_EMAIL, label: '⚙️ Ankush (Bangalore)' },
+]
+
 export const FMS_STEPS = [
   { key: 'order', icon: '🗒️', label: 'Order Created', color: '#6c63ff' },
   { key: 'support', icon: '🔧', label: 'Support Assign', color: '#7c3aed' },
@@ -71,6 +81,42 @@ export function isFmsConfigEmail(email) {
 // MIS/PC are always notes-admins (can add/delete any note).
 export function notesIsAdmin(currentUser) {
   return currentUser?.rawRole === 'mis' || currentUser?.rawRole === 'pc'
+}
+
+// Shared by Support-Assign/Certify (pending_support), Engineer Assign
+// (pending_engineer), and Install Update (installing): fms_support PLUS
+// being the order's current assigned_to_support, or override.
+export function canActOnAssignedStage(currentUser, permissions, order) {
+  const isSupport = permissions?.fms_support === 'true'
+  const myEmail = (currentUser?.email || '').toLowerCase().trim()
+  const assignedToMe = myEmail === (order.assigned_to_support || '').toLowerCase().trim()
+  return (isSupport && assignedToMe) || canOverride(currentUser, permissions)
+}
+
+// Ported EXACTLY as production has it — a known, deliberately-preserved
+// access-boundary quirk, not a display bug: `isConfig && isFmsConfigEmail`
+// where `isConfig = fms_config==='true' || isFmsConfigEmail`. By boolean
+// algebra, (A || B) && B always equals B — so the fms_config PERMISSION
+// FLAG currently has NO effect on this gate unless the grantee is already
+// one of the 5 hardcoded config emails. See MIGRATION-NOTES.md's "Known
+// confusing-but-intentional-looking access boundaries" — deliberately not
+// fixed here; changing it would silently expand who can act on Config-stage
+// orders, which is a business/Access-Control decision, not ours to make.
+export function canActOnConfigStage(currentUser, permissions) {
+  const myEmail = (currentUser?.email || '').toLowerCase().trim()
+  const isConfig = permissions?.fms_config === 'true' || isFmsConfigEmail(myEmail)
+  return (isConfig && isFmsConfigEmail(myEmail)) || canOverride(currentUser, permissions)
+}
+
+// Reassign's own gate — NOT the same as canActOnAssignedStage: being the
+// assigned support person is sufficient on its own here, with no fms_support
+// permission required (matches fmsOpenTimeline's _isAssignedToMe check
+// exactly). Callers must separately check order.status === 'pending_support'
+// — production ANDs that in at the call site, not inside this OR-group.
+export function canReassign(currentUser, permissions, order) {
+  const myEmail = (currentUser?.email || '').toLowerCase().trim()
+  const assignedToMe = myEmail === (order.assigned_to_support || '').toLowerCase().trim()
+  return assignedToMe || canOverride(currentUser, permissions) || currentUser?.rawRole === 'pc'
 }
 
 // ── Fetches ──────────────────────────────────────────────────────────────
@@ -116,6 +162,31 @@ export async function fetchSupportPersons() {
   return (Array.isArray(rows) ? rows : [])
     .filter((r) => r.Email_Id)
     .map((r) => ({ email: (r.Email_Id || '').toLowerCase().trim(), name: r.Employee_name || r.Email_Id }))
+}
+
+// Service Engineer dept + Vinayak (Support dept, does engineer work too —
+// added manually without touching his department record) + the two
+// non-employee options. Reuses the already-loaded employee name map for
+// Vinayak's display name instead of production's separate fallback fetch
+// (only needed there because that module's own emp-name cache might not
+// yet be populated when this runs — ours always is, fetched once at panel
+// load before any overlay can open).
+export async function fetchEngineers(empMap) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/Employee_details?Employee_Dept=eq.Service%20Engineer&select=Employee_name,Email_Id&order=Employee_name`,
+    { headers: SB_HDRS() }
+  )
+  const rows = await res.json()
+  const list = (Array.isArray(rows) ? rows : [])
+    .filter((r) => r.Email_Id)
+    .map((r) => ({ email: (r.Email_Id || '').toLowerCase().trim(), name: r.Employee_name || r.Email_Id }))
+
+  if (!list.some((e) => e.email === FMS_VINAYAK_EMAIL)) {
+    list.push({ email: FMS_VINAYAK_EMAIL, name: empName(empMap, FMS_VINAYAK_EMAIL) })
+  }
+  list.push({ email: 'outsource', name: 'Outsource' })
+  list.push({ email: 'self_installed', name: 'Self Installed by Client' })
+  return list
 }
 
 // Scoping matches loadOrders() exactly: fms_view_all (or mis/owner) sees
@@ -435,4 +506,222 @@ export async function uploadAllFmsProofs(files) {
     if (url) urls.push(url)
   }
   return urls
+}
+
+// ── Pipeline action writes (Phase 2) ──────────────────────────────────────
+// Ported from fmsSupportSubmit/fmsSubmitReassign/fmsSubmitConfig/
+// fmsSubmitEngineerAssign/fmsSubmitInstallUpdate/fmsSubmitCertification.
+// Callers own the pure-cert-to-Anish bypass check themselves (mirrors
+// fmsSupportSubmit's early return) — when configPersonEmail===FMS_ANISH_EMAIL
+// and isCertOrder(order), open the Certification overlay directly instead
+// of calling submitSupportToConfig; nothing here needs to run for that case.
+
+export async function submitSupportToConfig({ orderId, configPersonEmail, notes, assignedFrom }) {
+  const now = new Date().toISOString()
+  await updateOrder(orderId, { status: 'pending_config', current_step: 2, step2_completed_at: now, step3_started_at: now })
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_assignments`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ order_id: orderId, step: 2, assigned_from: assignedFrom, assigned_to: configPersonEmail, notes, assigned_at: now }),
+  })
+}
+
+// Direct-to-engineer — skips pending_config/pending_engineer entirely.
+// Uses nonCertQuantity consistently (production's own direct-to-engineer
+// completion check used raw order.quantity instead — functionally
+// identical for every order that can reach this branch, since cert orders
+// are barred from it, but nonCertQuantity is used everywhere else so this
+// keeps the port internally consistent rather than replicating the
+// harmless inconsistency).
+export async function submitSupportDirectToEngineer({ order, engineerEmail, installed, pending, assignedFrom }) {
+  const now = new Date().toISOString()
+  const isCompleted = installed >= nonCertQuantity(order) && installed > 0
+  await updateOrder(order.id, { status: 'installing', current_step: 4, step2_completed_at: now, step4_completed_at: now, step5_started_at: now })
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_installation`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      order_id: order.id,
+      engineer_email: engineerEmail,
+      devices_installed: installed,
+      devices_pending: pending,
+      is_completed: isCompleted,
+      completed_at: isCompleted ? now : null,
+      updated_by: assignedFrom,
+      assigned_at: now,
+    }),
+  })
+  // Note: production reads the Support overlay's notes textarea here but
+  // never actually uses it — the assignment always gets this fixed string
+  // instead. Faithfully preserved; not something with an obvious "correct"
+  // fix, so the caller doesn't even need to pass notes through.
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_assignments`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      order_id: order.id,
+      step: 2,
+      assigned_from: assignedFrom,
+      assigned_to: engineerEmail,
+      notes: 'Direct assignment (no config required)',
+      assigned_at: now,
+    }),
+  })
+  return isCompleted
+}
+
+export async function submitReassign({ order, newAssignee, notes, myEmail, myName }) {
+  const now = new Date().toISOString()
+  await updateOrder(order.id, { assigned_to_support: newAssignee })
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_assignments`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      order_id: order.id,
+      step: order.current_step || 1,
+      assigned_from: myEmail,
+      assigned_to: newAssignee,
+      notes: notes ? `Reassigned by ${myName}: ${notes}` : `Reassigned by ${myName}`,
+      assigned_at: now,
+    }),
+  })
+}
+
+// Config is one-shot — submitting always advances the order to
+// pending_engineer, whether 0 devices (skipped) or the full quantity was
+// configured. No re-validation against the total beyond what the input's
+// own clamped max already enforces client-side, matching production
+// ("Anish can configure any number freely").
+export async function submitConfig({ order, configuredQty, notConfiguredQty, notes, skipReason, configuredBy }) {
+  const now = new Date().toISOString()
+  const isSkipped = configuredQty === 0
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_configuration`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      order_id: order.id,
+      configured_qty: configuredQty,
+      not_configured_qty: notConfiguredQty,
+      config_notes: notes || null,
+      is_skipped: isSkipped,
+      skip_reason: skipReason || null,
+      configured_by: configuredBy,
+      received_at: order.step3_started_at || now,
+      configured_at: now,
+    }),
+  })
+  await updateOrder(order.id, { status: 'pending_engineer', current_step: 3, step3_completed_at: now, step4_started_at: now })
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_assignments`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      order_id: order.id,
+      step: 3,
+      assigned_from: configuredBy,
+      assigned_to: order.assigned_to_support || '',
+      notes: isSkipped ? `Skipped: ${skipReason}` : notes,
+      assigned_at: now,
+    }),
+  })
+}
+
+export async function submitEngineerAssign({ order, engineerEmail, installed, notes, myEmail }) {
+  const now = new Date().toISOString()
+  const totalQty = nonCertQuantity(order)
+  const pending = totalQty - installed
+  const isCompleted = installed >= totalQty && installed > 0
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_installation`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      order_id: order.id,
+      engineer_email: engineerEmail,
+      devices_installed: installed,
+      devices_pending: pending,
+      installation_notes: notes || null,
+      is_completed: isCompleted,
+      completed_at: isCompleted ? now : null,
+      updated_by: myEmail,
+      assigned_at: now,
+    }),
+  })
+  await updateOrder(order.id, {
+    status: isCompleted ? 'completed' : 'installing',
+    current_step: 4,
+    step4_completed_at: now,
+    step5_started_at: now,
+    ...(isCompleted ? { step5_completed_at: now } : {}),
+  })
+  // No `notes` mirrored into the assignment row — matches production exactly.
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_assignments`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ order_id: order.id, step: 4, assigned_from: myEmail, assigned_to: engineerEmail, assigned_at: now }),
+  })
+  return isCompleted
+}
+
+// Updates the SAME installation row created by Engineer Assign (found by
+// most-recent order_id match) — never creates a new one, never touches
+// engineer_email. No fms_assignments write at all (this is a progress
+// update, not a reassignment). fms_orders is only PATCHed when completing —
+// an in-progress update leaves status/current_step untouched entirely.
+export async function submitInstallUpdate({ order, installed, notes, myEmail }) {
+  const now = new Date().toISOString()
+  const totalQty = nonCertQuantity(order)
+  const pending = totalQty - installed
+  const isCompleted = installed >= totalQty && installed > 0
+
+  const latest = await fetchLatestInstallation(order.id)
+  if (latest) {
+    await fetch(`${SUPABASE_URL}/rest/v1/fms_installation?id=eq.${latest.id}`, {
+      method: 'PATCH',
+      headers: SB_HDRS_JSON(),
+      body: JSON.stringify({
+        devices_installed: installed,
+        devices_pending: pending,
+        installation_notes: notes || null,
+        is_completed: isCompleted,
+        completed_at: isCompleted ? now : null,
+        updated_by: myEmail,
+      }),
+    })
+  }
+  if (isCompleted) {
+    await updateOrder(order.id, { status: 'completed', current_step: 5, step5_completed_at: now })
+  }
+  return isCompleted
+}
+
+// Additive/audit-trail — always inserts a new fms_certification row, never
+// overwrites. Only the submission that crosses the target gets an
+// fms_assignments row (a synthetic self-assignment) and flips the order to
+// completed; partial submissions leave the order at pending_support with
+// no audit-trail entry at all, matching production exactly.
+export async function submitCertification({ order, certifiedQty, notes, myEmail }) {
+  const now = new Date().toISOString()
+  await fetch(`${SUPABASE_URL}/rest/v1/fms_certification`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ order_id: order.id, certified_qty: certifiedQty, certified_by: myEmail, notes: notes || null, certified_at: now }),
+  })
+  const target = certQuantity(order)
+  const certifiedSoFar = await fetchCertifiedSoFar(order.id)
+  const isComplete = certifiedSoFar >= target
+  if (isComplete) {
+    await updateOrder(order.id, { status: 'completed', current_step: 5, step5_completed_at: now })
+    await fetch(`${SUPABASE_URL}/rest/v1/fms_assignments`, {
+      method: 'POST',
+      headers: SB_HDRS_JSON(),
+      body: JSON.stringify({
+        order_id: order.id,
+        step: 2,
+        assigned_from: myEmail,
+        assigned_to: myEmail,
+        notes: 'Certification only — completed directly',
+        assigned_at: now,
+      }),
+    })
+  }
+  return { certifiedSoFar, target, isComplete }
 }
