@@ -9,11 +9,10 @@ import UnassignedPoolTab from './UnassignedPoolTab'
 import UploadTab from './UploadTab'
 import ResolveUnmatchedTab from './ResolveUnmatchedTab'
 import OverviewTab from './OverviewTab'
+import AccountsTab from './AccountsTab'
 
-// Tabs actually implemented so far — intersected with role visibility
-// (visibleTabIds) below to decide what really renders. Grows one entry per
-// phase (Accounts still isn't built).
-const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'upload', 'unmatched', 'unassignedPool', 'overview']
+// All 7 tabs are now built — Renewals & Collections is fully converted.
+const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'upload', 'unmatched', 'unassignedPool', 'overview', 'accounts']
 
 // Ported from old-portal/js/renewals.js's loadRenewals/ruRenderTabBar/
 // ruRenderLocationBar. Through Phase 1a/1b there was only ever one built
@@ -79,8 +78,6 @@ export default function RenewalsPanel() {
 
       <RenewalsTabBar tabs={tabs} activeTab={activeTab} onChange={setChosenTab} unassignedPoolCount={unassignedPoolCount} />
 
-      {!activeTab && <p className="text-text-muted text-[13px] py-10 text-center">The Accounts tab isn't built yet — check back soon.</p>}
-
       {activeTab === 'myCustomers' && (
         <MyCustomersTab location={location} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />
       )}
@@ -93,6 +90,11 @@ export default function RenewalsPanel() {
       {activeTab === 'overview' && (
         <OverviewTab allowedLocations={allowedLocations} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />
       )}
+      {/* Deliberately no location prop — Accounts is location-agnostic, the
+          one exception to every other tab's per-loader scoping. The shared
+          LocationBar above stays visible and switchable here (only Overview
+          suppresses it) even though it has zero effect on this tab. */}
+      {activeTab === 'accounts' && <AccountsTab isMIS={isMIS} isAccounts={isAccounts} />}
     </div>
   )
 }

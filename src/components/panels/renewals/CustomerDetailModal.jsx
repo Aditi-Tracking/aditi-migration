@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import OverlayShell from '../../shared/OverlayShell'
 import CallHistoryList from './CallHistoryList'
+import { Section, FieldGrid, FieldRow } from './DetailSection'
 import {
   RU_CATEGORY_ORDER,
   currentOutstandingValue,
@@ -155,27 +156,5 @@ export default function CustomerDetailModal({ open, customer, persons, crmPerson
         </div>
       </div>
     </OverlayShell>
-  )
-}
-
-function Section({ title, tint, children }) {
-  return (
-    <div className={`rounded-lg border p-3 ${tint ? 'border-[#f0a50040] bg-[#f0a5000f]' : 'border-border bg-surface-2'}`}>
-      <div className="text-[10.5px] font-bold uppercase tracking-wide text-text-muted mb-2">{title}</div>
-      {children}
-    </div>
-  )
-}
-
-function FieldGrid({ children }) {
-  return <div className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-2 text-[13px] text-text items-center">{children}</div>
-}
-
-function FieldRow({ label, value }) {
-  return (
-    <>
-      <span className="text-text-muted font-semibold">{label}</span>
-      <span>{value}</span>
-    </>
   )
 }

@@ -65,6 +65,7 @@ export default function MyCustomersTable({
   afterMutation,
   onOpenDetail,
   onCallSaved,
+  onOpenFlagDialog,
   emptyMessage,
 }) {
   const [openCallRowIds, setOpenCallRowIds] = useState(new Set())
@@ -158,6 +159,7 @@ export default function MyCustomersTable({
                 onStatusChange={handleStatusChange}
                 afterMutation={afterMutation}
                 onOpenDetail={() => onOpenDetail(c.id)}
+                onOpenFlagDialog={onOpenFlagDialog}
               />
             ))}
           </tbody>
@@ -206,7 +208,9 @@ function CustomerRow({
   onStatusChange,
   afterMutation,
   onOpenDetail,
+  onOpenFlagDialog,
 }) {
+  const isFlagged = c.accounts_flag_status === 'open'
   return (
     <>
       <tr className="border-b border-border last:border-b-0 hover:bg-surface-2/60 cursor-pointer" onClick={onOpenDetail}>
@@ -215,21 +219,48 @@ function CustomerRow({
           <ColumnCell key={col.key} colKey={col.key} customer={c} persons={persons} onStatusChange={onStatusChange} afterMutation={afterMutation} />
         ))}
         <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
-          {/* Logging a call requires attributing it to a real crm_persons row
-              (collection_calls.called_by is NOT NULL) — MIS/owner accounts
-              don't have one, so there's nothing valid to log the call under. */}
-          {crmPerson && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleCallPanel()
-              }}
-              className="rounded-lg border border-primary/40 bg-primary-tint text-primary font-bold text-[11.5px] px-3 py-1"
-            >
-              Call
-            </button>
-          )}
+          <div className="inline-flex items-center gap-1.5">
+            {/* Logging a call requires attributing it to a real crm_persons
+                row (collection_calls.called_by is NOT NULL) — MIS/owner
+                accounts don't have one, so there's nothing valid to log the
+                call under. */}
+            {crmPerson && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleCallPanel()
+                }}
+                className="rounded-lg border border-primary/40 bg-primary-tint text-primary font-bold text-[11.5px] px-3 py-1"
+              >
+                Call
+              </button>
+            )}
+            {/* Every row visible in My Customers is already one the current
+                viewer can act on (the fetch itself is pre-scoped unless
+                MIS/full-access) — no extra per-row permission check needed
+                to flag it. */}
+            {isFlagged ? (
+              <span
+                title="With Accounts"
+                className="rounded-full border border-[#f0a50055] bg-[#f0a50018] text-[#f0a500] font-bold text-[11px] px-3 py-1 whitespace-nowrap"
+              >
+                With Accounts
+              </span>
+            ) : (
+              <button
+                type="button"
+                title="Send this customer to Accounts"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenFlagDialog(c.id)
+                }}
+                className="rounded-lg border border-border text-text-muted font-bold text-[11px] px-2.5 py-1 whitespace-nowrap"
+              >
+                Send to Accounts
+              </button>
+            )}
+          </div>
         </td>
         {dates.map((d) => (
           <CalendarCallCell key={d} customerId={c.id} date={d} call={callsMap ? callsMap.get(`${c.id}|${d}`) : null} />

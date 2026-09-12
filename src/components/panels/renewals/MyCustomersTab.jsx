@@ -30,6 +30,7 @@ import CalendarNav from './CalendarNav'
 import MyCustomersTable from './MyCustomersTable'
 import CustomerDetailModal from './CustomerDetailModal'
 import ScreenshotLightbox from './ScreenshotLightbox'
+import NoteActionDialog from './NoteActionDialog'
 
 // Ported from old-portal/js/renewals.js's loadRenewalsMyCustomers/
 // ruRenderMyCustomers/ruLoadCalendarCalls. Search is implemented as a real
@@ -57,6 +58,7 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
   const [detailCustomerId, setDetailCustomerId] = useState(null)
   const [lightbox, setLightbox] = useState(null) // { paths, index } | null
   const screenshotCache = useScreenshotCache()
+  const [flagDialogCustomerId, setFlagDialogCustomerId] = useState(null)
 
   // Fresh load whenever location/scope changes — mirrors loadRenewalsMyCustomers,
   // which resets sort/filter/calendar state on every fresh tab entry too.
@@ -196,6 +198,14 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
     setLightbox({ paths, index })
   }
 
+  // Local-cache update, mirroring the reassign/status-change pattern rather
+  // than a full reload — the row's badge flips from "Send to Accounts" to
+  // "With Accounts" immediately.
+  function handleFlagSubmitted(_mode, customerId) {
+    setFlagDialogCustomerId(null)
+    afterMutation(customerId, (c) => ({ ...c, accounts_flag_status: 'open' }))
+  }
+
   const dates = calendarDateList(windowEnd, workingDays)
   const columns = RU_COLUMNS.filter((col) => isColumnVisible(columnPrefs, col.key, { isMIS, fullDataAccess }))
 
@@ -277,7 +287,16 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
         afterMutation={afterMutation}
         onOpenDetail={setDetailCustomerId}
         onCallSaved={handleCallSaved}
+        onOpenFlagDialog={setFlagDialogCustomerId}
         emptyMessage={emptyMessage}
+      />
+
+      <NoteActionDialog
+        open={!!flagDialogCustomerId}
+        mode="flag"
+        customerId={flagDialogCustomerId}
+        onClose={() => setFlagDialogCustomerId(null)}
+        onSubmitted={handleFlagSubmitted}
       />
 
       <CustomerDetailModal

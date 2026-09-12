@@ -15,8 +15,11 @@ import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL, getAuth
 // + best-effort duplicate sweep).
 // Phase 4: Overview (KPI tiles + 3 charts + its own independent location
 // filter) and Team Performance (date-range presets, full-peer-table vs
-// personal-scorecard split). 100% read-only. Accounts + Notes + Flag/
-// Resolve is the last phase.
+// personal-scorecard split). 100% read-only.
+// Phase 5 (final): Accounts (location-agnostic flagged-customer list),
+// the shared Notes thread, and the Flag/Resolve dialog — plus wiring the
+// flag badge/button back into My Customers. Renewals & Collections is
+// fully converted once this phase ships.
 
 export const RU_LOCATIONS = [
   { value: 'original', label: 'Mumbai HO' }, // display-only relabel — stored value stays 'original'
@@ -37,6 +40,14 @@ export const RU_CATEGORY_COLORS = { Platinum: '#00d4aa', Gold: '#f0a500', Silver
 // customer with no (recognized) category is grouped last under "No
 // Category" rather than dropped — the trailing `null` is that group.
 export const RU_UNASSIGNED_CATEGORY_GROUPS = [...RU_CATEGORY_ORDER, null]
+
+// renewals_customer_notes.note_type — author-name tint is the only signal
+// of which side a note came from (no per-note pill/badge).
+export const RU_NOTE_TYPE_STYLE = {
+  crm: { label: 'CRM', color: '#4e9af1' },
+  accounts: { label: 'Accounts', color: '#f0a500' },
+  system: { label: 'System', color: '#9aa3b2' },
+}
 
 // Ordered exactly like production's RU_TABS — drives the tab bar's button
 // order. Which of these actually render is the intersection of role
@@ -1059,4 +1070,170 @@ export async function fetchTeamPerformance({ crmPersonId, isMIS, fullDataAccess,
     if (amtDiff !== 0) return amtDiff
     return Number(b.calls_count || 0) - Number(a.calls_count || 0)
   })
+}
+
+// ── Shared notes thread (Phase 5) — renewals_customer_notes. Deliberately
+// generic: any caller just passes a customer id, so the exact same
+// functions can serve multiple call sites even though the Accounts detail
+// modal is the only one that actually exists today. ────────────────────────
+export async function fetchCustomerNotes(customerId) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/renewals_customer_notes?customer_id=eq.${customerId}&select=*&order=created_at.asc`, {
+      headers: SB_HDRS(),
+    })
+    return res.ok ? await res.json() : []
+  } catch {
+    return []
+  }
+}
+
+// note_type reflects the ADDER's own Accounts-tier status at the moment
+// they post — not the customer's or the flag's state. An MIS user who
+// isn't also Accounts-tier is tagged 'crm', same as a plain CRM person.
+export async function addCustomerNote({ customerId, note, isAccounts }) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/add_customer_note`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ p_customer_id: customerId, p_note: note, p_note_type: isAccounts ? 'accounts' : 'crm' }),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+}
+
+// ── Flag / Resolve / Delete (Phase 5) — neither RPC ever touches
+// assigned_crm_person_id — flagging/resolving is a parallel status, not a
+// reassignment. ─────────────────────────────────────────────────────────────
+export async function flagCustomerToAccounts({ customerId, note }) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/flag_customer_to_accounts`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ p_customer_id: customerId, p_note: note }),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+}
+
+export async function resolveAccountsFlag({ customerId, note }) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/resolve_accounts_flag`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ p_customer_id: customerId, p_note: note }),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+}
+
+// Fully wipes the flag + its notes — distinct from Resolve, which keeps
+// both as history. Never touches assigned_crm_person_id/category/location,
+// so the customer is untouched in My Customers; that tab's flag badge
+// reverts to unflagged simply because accounts_flag_status is back to
+// null, not because of any special-case logic on that side. Server-side
+// gated to MIS or the original flagger — canDeleteAccountsFlag below
+// mirrors that gate client-side, doesn't rely on it alone.
+export async function deleteAccountsFlag(customerId) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_accounts_flag`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ p_customer_id: customerId }),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+}
+
+// Resolve is isMIS || isAccounts specifically — NOT isMIS || fullDataAccess
+// like every other full-access gate in this module. A full-access
+// crm_persons person who is neither MIS nor Accounts-tier cannot resolve a
+// flag, even though they see everyone's data elsewhere.
+export function canResolveAccountsFlag({ isMIS, isAccounts }) {
+  return isMIS || isAccounts
+}
+
+// MIS always can; otherwise only the original flagger, and explicitly never
+// an Accounts-tier person — even on a flag they personally raised as a
+// dual-role (also-a-CRM-person) user.
+export function canDeleteAccountsFlag({ isMIS, isAccounts, flaggedByEmail, myEmail }) {
+  if (isMIS) return true
+  if (isAccounts) return false
+  const isOwnFlag = !!(flaggedByEmail && myEmail && String(flaggedByEmail).trim().toLowerCase() === String(myEmail).trim().toLowerCase())
+  return isOwnFlag
+}
+
+// ── Accounts tab (Phase 5) — deliberately location-agnostic, the one
+// exception to every other tab's per-loader location scoping: Accounts is
+// one central team, not scoped to a region the way a CRM person is. ────────
+export async function fetchAccountsFlaggedCustomers(statusFilter) {
+  const statusQuery = statusFilter === 'all' ? 'in.(open,resolved)' : statusFilter === 'resolved' ? 'eq.resolved' : 'eq.open'
+  const customers = await fetchAllRows(
+    `${SUPABASE_URL}/rest/v1/crm_customers?select=id,billing_name,location,category,assigned_crm_person_id,accounts_flag_status,accounts_flagged_at,accounts_flagged_by,accounts_resolved_at,accounts_resolved_by&accounts_flag_status=${statusQuery}&order=accounts_flagged_at.desc`
+  )
+  if (!customers.length) return []
+
+  // The flagged set is always small (a handful at a time) — unlike My
+  // Customers/Unassigned Pool at full-location scale, a plain IN-list here
+  // never approaches the API gateway's URL-length limit, so this isn't
+  // routed through fetchRowsInIdChunks.
+  const ids = customers.map((c) => c.id).join(',')
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?customer_id=in.(${ids})&select=customer_id,grand_total,bucket_0_30,bucket_31_60,bucket_61_90,bucket_above_90`,
+    { headers: SB_HDRS() }
+  )
+  if (!res.ok) throw new Error('latest_outstanding_snapshots: HTTP ' + res.status)
+  const snaps = await res.json()
+  const snapMap = new Map(snaps.map((s) => [s.customer_id, s]))
+  return customers.map((c) => ({ ...c, _snapshot: snapMap.get(c.id) || null }))
+}
+
+// All active crm_persons with email (no location filter — Accounts sees
+// every location), for the two-tier Flagged-By/Resolved-By name resolution.
+export async function fetchAccountsPersons() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/crm_persons?is_active=eq.true&select=id,name,email`, { headers: SB_HDRS() })
+  if (!res.ok) throw new Error('crm_persons: HTTP ' + res.status)
+  return res.json()
+}
+
+// Employee_details is the same company-wide name/email table used
+// elsewhere in the app (e.g. the login profile lookup) — a second, broader
+// fallback so MIS/Accounts-tier flaggers who aren't a crm_persons row at
+// all (and so never appear in fetchAccountsPersons) still resolve to a
+// name instead of a raw email. Failing to fetch this isn't fatal — callers
+// just fall back further, same as before this lookup existed.
+export async function fetchEmployeeNamesByEmail() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/Employee_details?select=Employee_name,Email_Id`, { headers: SB_HDRS() })
+    if (!res.ok) return {}
+    const employees = await res.json()
+    const map = {}
+    employees.forEach((e) => {
+      if (e.Email_Id) map[String(e.Email_Id).toLowerCase()] = e.Employee_name
+    })
+    return map
+  } catch {
+    return {}
+  }
+}
+
+export function accountsPersonNameById(id, personsById) {
+  if (!id) return '— Unassigned —'
+  return personsById[id] || '(inactive person)'
+}
+
+// Two-tier fallback: crm_persons by email first, then Employee_details by
+// email, then the raw email itself as a last resort.
+export function accountsPersonNameByEmail(email, personsByEmail, employeesByEmail) {
+  if (!email) return '—'
+  const key = String(email).toLowerCase()
+  return personsByEmail[key] || employeesByEmail[key] || email
+}
+
+export function locationLabel(value) {
+  const loc = RU_LOCATIONS.find((l) => l.value === value)
+  return loc ? loc.label : value || '—'
 }
