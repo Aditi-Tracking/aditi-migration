@@ -12,8 +12,11 @@ import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL, getAuth
 // one built tab can be visible at once.
 // Phase 3: Upload (Storage upload + import_jobs polling + upload history)
 // and Resolve Unmatched (latest-batch-only, resolve_unmatched_customer RPC
-// + best-effort duplicate sweep). Overview/Team Performance and Accounts
-// are later phases.
+// + best-effort duplicate sweep).
+// Phase 4: Overview (KPI tiles + 3 charts + its own independent location
+// filter) and Team Performance (date-range presets, full-peer-table vs
+// personal-scorecard split). 100% read-only. Accounts + Notes + Flag/
+// Resolve is the last phase.
 
 export const RU_LOCATIONS = [
   { value: 'original', label: 'Mumbai HO' }, // display-only relabel — stored value stays 'original'
@@ -24,6 +27,11 @@ export const RU_LOCATIONS = [
 
 export const RU_CATEGORY_ORDER = ['Platinum', 'Gold', 'Silver']
 export const RU_CATEGORY_FREQ = { Platinum: 'Once a Week', Gold: 'Twice a Week', Silver: 'Thrice a Week' }
+
+// Category Breakdown doughnut colors — reuses established accents rather
+// than inventing a new palette (Platinum: the app's teal accent, Gold: its
+// amber accent, Silver: its neutral grey).
+export const RU_CATEGORY_COLORS = { Platinum: '#00d4aa', Gold: '#f0a500', Silver: '#9aa3b2' }
 
 // Unassigned Pool groups by category too, but unlike every other tab, a
 // customer with no (recognized) category is grouped last under "No
@@ -927,4 +935,128 @@ export async function sweepUnmatchedDuplicates({ rawName, location, resolvedCust
   } catch {
     /* best-effort — the primary assign already succeeded */
   }
+}
+
+// ── Overview + Team Performance (Phase 4) — 100% read-only ─────────────────
+
+// Compact Indian-numbering format (₹1.52 Cr / ₹68.23 L) for headline KPI
+// figures — a dense fully-expanded comma-grouped number is harder to scan at
+// a glance than a rounded one. Only for display tiles like this; anywhere a
+// value needs to be read/edited precisely should keep using plain
+// toLocaleString('en-IN') instead.
+export function formatIndianCompact(n) {
+  const value = Number(n || 0)
+  const abs = Math.abs(value)
+  if (abs >= 1e7) return `₹${(value / 1e7).toFixed(2)} Cr`
+  if (abs >= 1e5) return `₹${(value / 1e5).toFixed(2)} L`
+  return `₹${value.toLocaleString('en-IN')}`
+}
+
+// Month-over-month trend indicator (get_renewals_overview's *_prev_month
+// fields). `kind` distinguishes which direction counts as "good" — inverted
+// between the two tile families: for an outstanding balance, a DECREASE is
+// good; for a received amount, an INCREASE is good. Returns null when
+// there's nothing meaningful to compare against (no previous value, or
+// previous is 0 — percentage change against a zero base is undefined, not
+// "infinite good"), or when the two values are equal.
+export function computeTrend(current, previous, kind) {
+  const cur = Number(current)
+  const prev = Number(previous)
+  if (!Number.isFinite(prev) || prev === 0 || !Number.isFinite(cur)) return null
+  const pct = ((cur - prev) / prev) * 100
+  if (!Number.isFinite(pct) || pct === 0) return null
+  const isUp = pct > 0
+  const isGood = kind === 'outstanding' ? !isUp : isUp
+  return { pct: Math.abs(pct), isUp, isGood }
+}
+
+export async function fetchRenewalsOverview({ crmPersonId, fullDataAccess, location }) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_renewals_overview`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ p_crm_person_id: crmPersonId, p_full_access: fullDataAccess, p_location: location }),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  return res.json()
+}
+
+export const RU_TEAM_PERF_PRESETS = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: '7d', label: 'Last 7 Days' },
+  { value: 'lastMonth', label: 'Last Month' },
+  { value: '3m', label: 'Last 3 Months' },
+  { value: 'mtd', label: 'Month to Date' },
+  { value: 'custom', label: 'Custom' },
+]
+
+// IST = UTC+5:30 — every preset is computed against the IST calendar date,
+// not the browser's local date.
+function ruFmtDate(d) {
+  const ist = new Date(d.getTime() + (5 * 60 + 30) * 60000)
+  return ist.toISOString().split('T')[0]
+}
+
+// Ported from _ruTeamPerfRange exactly, including '3m''s reliance on plain
+// setMonth() arithmetic — if the current day-of-month doesn't exist 3
+// months back, JS rolls it into the next month. Not "fixed" here either.
+export function teamPerfDateRange(preset) {
+  const now = new Date()
+  const istNow = new Date(now.getTime() + (5 * 60 + 30) * 60000)
+  const today = new Date(istNow.toISOString().split('T')[0] + 'T00:00:00.000Z')
+  let start = today
+  let end = today
+
+  if (preset === 'today') {
+    start = today
+    end = today
+  } else if (preset === 'yesterday') {
+    start = new Date(today)
+    start.setDate(start.getDate() - 1)
+    end = new Date(start)
+  } else if (preset === '7d') {
+    start = new Date(today)
+    start.setDate(start.getDate() - 7)
+    end = today
+  } else if (preset === 'lastMonth') {
+    const firstOfThisMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))
+    end = new Date(firstOfThisMonth)
+    end.setDate(end.getDate() - 1)
+    start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1))
+  } else if (preset === '3m') {
+    start = new Date(today)
+    start.setMonth(start.getMonth() - 3)
+    end = today
+  } else if (preset === 'mtd') {
+    start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))
+    end = today
+  }
+  return { start: ruFmtDate(start), end: ruFmtDate(end) }
+}
+
+// p_crm_person_id: null for isMIS/fullDataAccess (full peer comparison
+// table), the person's own id otherwise (their single row only) — same
+// null-means-unscoped convention as get_renewals_overview. Re-sorted on
+// every fetch (not once on load) so each date-range refresh re-ranks
+// against that range's own numbers: received_amount desc, calls_count desc
+// as tiebreaker, not alphabetical by name.
+export async function fetchTeamPerformance({ crmPersonId, isMIS, fullDataAccess, location, start, end }) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_renewals_team_performance`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({
+      p_crm_person_id: isMIS || fullDataAccess ? null : crmPersonId,
+      p_full_access: fullDataAccess,
+      p_location: location,
+      p_start: start,
+      p_end: end,
+    }),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const data = await res.json()
+  return (data || []).slice().sort((a, b) => {
+    const amtDiff = Number(b.received_amount || 0) - Number(a.received_amount || 0)
+    if (amtDiff !== 0) return amtDiff
+    return Number(b.calls_count || 0) - Number(a.calls_count || 0)
+  })
 }

@@ -8,11 +8,12 @@ import ClosedPaidTab from './ClosedPaidTab'
 import UnassignedPoolTab from './UnassignedPoolTab'
 import UploadTab from './UploadTab'
 import ResolveUnmatchedTab from './ResolveUnmatchedTab'
+import OverviewTab from './OverviewTab'
 
 // Tabs actually implemented so far — intersected with role visibility
 // (visibleTabIds) below to decide what really renders. Grows one entry per
-// phase (Overview/Accounts still aren't built).
-const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'upload', 'unmatched', 'unassignedPool']
+// phase (Accounts still isn't built).
+const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'upload', 'unmatched', 'unassignedPool', 'overview']
 
 // Ported from old-portal/js/renewals.js's loadRenewals/ruRenderTabBar/
 // ruRenderLocationBar. Through Phase 1a/1b there was only ever one built
@@ -71,7 +72,10 @@ export default function RenewalsPanel() {
         <div className="text-[11.5px] text-text-muted mt-0.5">Home › Renewals & Collections</div>
       </div>
 
-      <LocationBar location={location} allowedLocations={allowedLocations} onChange={setLocation} />
+      {/* Suppressed entirely on Overview — that tab has its own dedicated
+          location/"All" filter, and showing this switcher on top of it
+          would be two location pickers with overlapping jobs. */}
+      {activeTab !== 'overview' && <LocationBar location={location} allowedLocations={allowedLocations} onChange={setLocation} />}
 
       <RenewalsTabBar tabs={tabs} activeTab={activeTab} onChange={setChosenTab} unassignedPoolCount={unassignedPoolCount} />
 
@@ -86,6 +90,9 @@ export default function RenewalsPanel() {
       {activeTab === 'upload' && <UploadTab location={location} allowedLocations={allowedLocations} />}
       {activeTab === 'unmatched' && <ResolveUnmatchedTab location={location} />}
       {activeTab === 'unassignedPool' && <UnassignedPoolTab location={location} onCountChange={setUnassignedPoolCount} />}
+      {activeTab === 'overview' && (
+        <OverviewTab allowedLocations={allowedLocations} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />
+      )}
     </div>
   )
 }
