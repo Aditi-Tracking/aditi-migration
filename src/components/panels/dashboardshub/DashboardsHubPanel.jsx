@@ -1,6 +1,7 @@
 import { useAuth } from '../../../context/AuthContext'
 import { useTaskChecklistNav } from '../../../context/TaskChecklistNavContext'
 import { useRenewalsNav } from '../../../context/RenewalsNavContext'
+import { useTaskDelegationNav } from '../../../context/TaskDelegationNavContext'
 import { NAV_ITEMS, isNavItemVisible } from '../../shell/navItems'
 
 // Ported from old-portal/js/app.js's DASHBOARD_HUB_TILES + _renderDashboardsHub().
@@ -132,6 +133,7 @@ export default function DashboardsHubPanel({ onNavigate }) {
   const { currentUser, permissions } = useAuth()
   const { navVisible: taskChecklistVisible } = useTaskChecklistNav()
   const { navVisible: renewalsVisible } = useRenewalsNav()
+  const { navVisible: taskDelegationVisible } = useTaskDelegationNav()
 
   // Never re-implements a visibility rule — looks each tile's rule up from
   // the same NAV_ITEMS children the sidebar/mobile menu already use, so a
@@ -143,7 +145,10 @@ export default function DashboardsHubPanel({ onNavigate }) {
   // nav-reveal state.
   const visibleTiles = HUB_TILES.filter((t) => {
     const navChild = DASHBOARDS_CHILDREN.find((c) => c.id === t.id)
-    return navChild && isNavItemVisible(navChild.visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible })
+    return (
+      navChild &&
+      isNavItemVisible(navChild.visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible })
+    )
   })
 
   return (

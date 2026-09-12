@@ -1,6 +1,7 @@
 import { useAuth } from '../../context/AuthContext'
 import { useTaskChecklistNav } from '../../context/TaskChecklistNavContext'
 import { useRenewalsNav } from '../../context/RenewalsNavContext'
+import { useTaskDelegationNav } from '../../context/TaskDelegationNavContext'
 import { NAV_ITEMS, isNavItemVisible } from './navItems'
 import NavIcon from './NavIcon'
 
@@ -8,7 +9,8 @@ export default function MobileMenuSheet({ open, activePanel, onNavigate, onClose
   const { currentUser, permissions } = useAuth()
   const { navVisible: taskChecklistVisible } = useTaskChecklistNav()
   const { navVisible: renewalsVisible } = useRenewalsNav()
-  const ctx = { currentUser, permissions, taskChecklistVisible, renewalsVisible }
+  const { navVisible: taskDelegationVisible } = useTaskDelegationNav()
+  const ctx = { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible }
 
   return (
     <>

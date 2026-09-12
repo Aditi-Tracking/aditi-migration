@@ -31,7 +31,7 @@ export const NAV_ITEMS = [
       { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'fieldservice', label: 'Field Service', visibility: 'notYetBuilt' },
       { id: 'hremployee', label: 'HR Employee Master', visibility: 'notYetBuilt' },
-      { id: 'taskdelegation', label: 'Task Delegation', visibility: 'notYetBuilt' },
+      { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
     ],
   },
   { id: 'announcements', label: 'Announcements', visibility: 'notYetBuilt' },
@@ -70,13 +70,18 @@ export const NAV_ITEMS = [
 //   row, or an Accounts-tier grant (renewals_accounts_access) — resolved
 //   once per login by RenewalsNavContext, no live-sync poll (production has
 //   none for this one either)
+// - Task Delegation uses the real async rule ported from
+//   _applyTaskDelegationNavVisibility: a direct email match against the
+//   hardcoded MD address, or an active delegation_assignees row — resolved
+//   once per login by TaskDelegationNavContext, no live-sync poll (same as
+//   Renewals — production has none for this module either)
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
 // 'notYetBuilt' items own their real check in a module we haven't built yet
-// (js/tasks.js, js/ims.js, ...) — they stay hidden here
-// until that module ships, at which point its real rule replaces this one.
-export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible }) {
+// (js/ims.js, ...) — they stay hidden here until that module ships, at
+// which point its real rule replaces this one.
+export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible }) {
   switch (visibility) {
     case 'notYetBuilt':
       return false
@@ -97,6 +102,10 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
     // match, or an Accounts-tier grant (see _applyRenewalsNavVisibility).
     case 'renewalsAsync':
       return !!renewalsVisible
+    // Resolved by TaskDelegationNavContext — the hardcoded MD email, or an
+    // active delegation_assignees row (see _applyTaskDelegationNavVisibility).
+    case 'taskDelegationAsync':
+      return !!taskDelegationVisible
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:

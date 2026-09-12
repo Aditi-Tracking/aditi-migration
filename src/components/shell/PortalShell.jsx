@@ -5,6 +5,7 @@ import { FileViewerProvider } from '../../context/FileViewerContext'
 import { CelebrationsProvider } from '../../context/CelebrationsContext'
 import { TaskChecklistNavProvider } from '../../context/TaskChecklistNavContext'
 import { RenewalsNavProvider } from '../../context/RenewalsNavContext'
+import { TaskDelegationNavProvider } from '../../context/TaskDelegationNavContext'
 import { trackPageSwitch } from '../../lib/activityTracking'
 import { NAV_ITEMS } from './navItems'
 import Sidebar from './Sidebar'
@@ -38,6 +39,7 @@ import DashboardsHubPanel from '../panels/dashboardshub/DashboardsHubPanel'
 import TaskChecklistPanel from '../panels/taskchecklist/TaskChecklistPanel'
 import FMSPanel from '../panels/fms/FMSPanel'
 import RenewalsPanel from '../panels/renewals/RenewalsPanel'
+import TaskDelegationPanel from '../panels/taskdelegation/TaskDelegationPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -50,6 +52,7 @@ const PANEL_COMPONENTS = {
   tasks: TaskChecklistPanel,
   fms: FMSPanel,
   renewals: RenewalsPanel,
+  taskdelegation: TaskDelegationPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
@@ -86,6 +89,7 @@ export default function PortalShell() {
   return (
     <TaskChecklistNavProvider>
     <RenewalsNavProvider>
+    <TaskDelegationNavProvider>
       <FileViewerProvider>
         <CelebrationsProvider>
           <div className="min-h-screen flex bg-surface-2">
@@ -139,6 +143,7 @@ export default function PortalShell() {
           </div>
         </CelebrationsProvider>
       </FileViewerProvider>
+    </TaskDelegationNavProvider>
     </RenewalsNavProvider>
     </TaskChecklistNavProvider>
   )
