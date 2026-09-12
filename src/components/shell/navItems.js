@@ -17,6 +17,7 @@ import { canAccessCRM } from '../../lib/crmVehicle'
 import { canViewHREmployee } from '../../lib/hrEmployee'
 import { canAccessMapping } from '../../lib/customerMapping'
 import { canAccessEnterprise } from '../../lib/enterpriseLead'
+import { canAccessIMS } from '../../lib/ims'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -30,7 +31,7 @@ export const NAV_ITEMS = [
       { id: 'renewals', label: 'Renewals & Collections', visibility: 'renewalsAsync' },
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
       { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistAsync' },
-      { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'notYetBuilt' },
+      { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'imsPerm' },
       { id: 'mapping', label: 'Customer Mapping', badge: 'Live', visibility: 'mappingPerm' },
       { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'crmPerm' },
       // No visibility rule — field_service_create is no longer permission-gated anywhere
@@ -105,6 +106,10 @@ export const NAV_ITEMS = [
 //   hardcoded owner/mis/pc/executive-assistant/ea role check — forward-
 //   compatible, since a real 'true'/'false' from the backend takes over
 //   automatically once that column exists. Also a plain synchronous check.
+// - IMS uses the real rule ported from _canAccessIMS: a plain
+//   can_view_ims==='true' check with NO role-string bypass at all (unlike
+//   Enterprise Lead/CRM Vehicle/HR Employee Master) — also a plain
+//   synchronous check, no NavContext needed.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -147,6 +152,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return canAccessMapping(permissions)
     case 'enterprisePerm':
       return canAccessEnterprise(currentUser, permissions)
+    case 'imsPerm':
+      return canAccessIMS(permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:

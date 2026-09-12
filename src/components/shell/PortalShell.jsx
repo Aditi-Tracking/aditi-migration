@@ -47,6 +47,7 @@ import VendorRequestsPanel from '../panels/vendorrequests/VendorRequestsPanel'
 import RecurringBillsPanel from '../panels/vendorrequests/RecurringBillsPanel'
 import MappingPanel from '../panels/mapping/MappingPanel'
 import EnterpriseLeadPanel from '../panels/enterprise/EnterpriseLeadPanel'
+import IMSPanel from '../panels/ims/IMSPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -67,6 +68,7 @@ const PANEL_COMPONENTS = {
   recurringbills: RecurringBillsPanel,
   mapping: MappingPanel,
   enterprise: EnterpriseLeadPanel,
+  ims: IMSPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
