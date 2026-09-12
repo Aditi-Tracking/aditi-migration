@@ -6,11 +6,13 @@ import RenewalsTabBar from './RenewalsTabBar'
 import MyCustomersTab from './MyCustomersTab'
 import ClosedPaidTab from './ClosedPaidTab'
 import UnassignedPoolTab from './UnassignedPoolTab'
+import UploadTab from './UploadTab'
+import ResolveUnmatchedTab from './ResolveUnmatchedTab'
 
 // Tabs actually implemented so far — intersected with role visibility
 // (visibleTabIds) below to decide what really renders. Grows one entry per
-// phase (Upload/Resolve Unmatched/Overview/Accounts still aren't built).
-const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'unassignedPool']
+// phase (Overview/Accounts still aren't built).
+const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'upload', 'unmatched', 'unassignedPool']
 
 // Ported from old-portal/js/renewals.js's loadRenewals/ruRenderTabBar/
 // ruRenderLocationBar. Through Phase 1a/1b there was only ever one built
@@ -81,6 +83,8 @@ export default function RenewalsPanel() {
       {activeTab === 'closedPaid' && (
         <ClosedPaidTab location={location} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />
       )}
+      {activeTab === 'upload' && <UploadTab location={location} allowedLocations={allowedLocations} />}
+      {activeTab === 'unmatched' && <ResolveUnmatchedTab location={location} />}
       {activeTab === 'unassignedPool' && <UnassignedPoolTab location={location} onCountChange={setUnassignedPoolCount} />}
     </div>
   )

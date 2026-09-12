@@ -9,8 +9,11 @@ import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL, getAuth
 // history/lightbox.
 // Phase 2: Closed/Paid (read-only) + Unassigned Pool (MIS-only, direct-PATCH
 // assign) + the tab bar itself, which starts mattering now that more than
-// one built tab can be visible at once. Upload, Resolve Unmatched,
-// Overview/Team Performance, and Accounts are later phases.
+// one built tab can be visible at once.
+// Phase 3: Upload (Storage upload + import_jobs polling + upload history)
+// and Resolve Unmatched (latest-batch-only, resolve_unmatched_customer RPC
+// + best-effort duplicate sweep). Overview/Team Performance and Accounts
+// are later phases.
 
 export const RU_LOCATIONS = [
   { value: 'original', label: 'Mumbai HO' }, // display-only relabel — stored value stays 'original'
@@ -68,6 +71,7 @@ export const RU_CRM_STATUS_OPTIONS = [
 // to a label for the calendar cell's hover tooltip.
 export const RU_NOT_CONNECTED_REASON_LABELS = { no_answer: 'No Answer', switched_off: 'Switched Off', call_later: 'Call Later' }
 
+const RU_BUCKET = 'accounts-uploads' // the Excel-upload bucket — see uploadRenewalsFile/fetchUploadHistory
 const RU_CALL_ATTACHMENTS_BUCKET = 'call-attachments' // private — see fetchScreenshotBlob
 export const RU_CALL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024 // also enforced server-side via storage.buckets.file_size_limit
 export const RU_CALL_ATTACHMENT_MAX_COUNT = 5 // soft client-side cap — Storage itself has no per-call count limit to enforce this against
@@ -333,10 +337,10 @@ export function filterByAssignedTo(customers, assignedToFilter) {
   )
 }
 
-export function filterBySearch(customers, search) {
+export function filterBySearch(rows, search, field = 'billing_name') {
   const q = search.trim().toLowerCase()
-  if (!q) return customers
-  return customers.filter((c) => (c.billing_name || '').toLowerCase().includes(q))
+  if (!q) return rows
+  return rows.filter((r) => (r[field] || '').toLowerCase().includes(q))
 }
 
 // ── Pure derivations ───────────────────────────────────────────────────────
@@ -794,4 +798,133 @@ export async function fetchUnassignedPoolCount(location) {
   const range = res.headers.get('content-range') || ''
   const total = range.split('/')[1]
   return total && total !== '*' ? parseInt(total, 10) : 0
+}
+
+// ── Upload (Phase 3) ───────────────────────────────────────────────────────
+export function isValidExcelFile(file) {
+  return /\.xlsx?$/i.test(file.name)
+}
+
+// Path convention: 'original' gets NO folder (bucket root, matching every
+// upload that predates locations existing); every other location gets
+// `<location>/<timestamp>_<safeName>`. Each path segment is encoded
+// separately, not the joined path — encoding the whole thing would escape
+// the folder-separating "/" itself, which the server-side trigger's
+// split_part() needs literal to parse the location back out. Uses fetch()
+// (not old-portal's raw XHR), matching the technique already established by
+// uploadCallScreenshot/lib/fms.js's uploadFmsProof. Returns the storage path
+// used, needed to poll import_jobs for this exact upload.
+export async function uploadRenewalsFile(file, location) {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = location === 'original' ? `${Date.now()}_${safeName}` : `${location}/${Date.now()}_${safeName}`
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${RU_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-upsert': 'false',
+    },
+    body: file,
+  })
+  if (!res.ok) throw new Error('Storage upload: HTTP ' + res.status)
+  return path
+}
+
+// Polled directly instead of diffing row counts — the pipeline upserts
+// (same customer + same date = update, not insert), so re-processing the
+// same file never changes counts even on a fully successful run.
+export async function fetchImportJob(filePath) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/import_jobs?file_path=eq.${encodeURIComponent(filePath)}&order=created_at.desc&limit=1`,
+    { headers: SB_HDRS() }
+  )
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const rows = await res.json()
+  return rows[0] || null
+}
+
+// Reads from Supabase Storage's list-objects endpoint, not a database table.
+// Scoped to the CURRENT shared location (not the separate upload-target
+// selection) — 'original' uploads sit at the bucket root, every other
+// location has its own subfolder. Listing the root also surfaces each
+// location's own subfolder as a pseudo-entry (id: null, no created_at) —
+// only relevant for 'original', since the other locations' folders never
+// contain a further nested folder.
+export async function fetchUploadHistory(location) {
+  const isOriginal = location === 'original'
+  const prefix = isOriginal ? '' : `${location}/`
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${RU_BUCKET}`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ prefix, limit: 20, sortBy: { column: 'created_at', order: 'desc' } }),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  let files = await res.json()
+  if (isOriginal && Array.isArray(files)) files = files.filter((f) => f.id)
+  return Array.isArray(files) ? files : []
+}
+
+// ── Resolve Unmatched (Phase 3) ─────────────────────────────────────────────
+// Only names from the most recent upload count as "current" — a name that
+// was unresolved in an older upload and never reappeared since isn't part of
+// this period's outstanding at all, just stale backlog.
+export async function fetchLatestUnmatchedBatchDate(location) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/unmatched_import_names?select=import_batch_date&location=eq.${encodeURIComponent(location)}&order=import_batch_date.desc&limit=1`,
+    { headers: SB_HDRS() }
+  )
+  if (!res.ok) throw new Error('unmatched_import_names: HTTP ' + res.status)
+  const [row] = await res.json()
+  return row?.import_batch_date || null
+}
+
+// latest_unmatched_import_names is a view — one row per raw_name (its most
+// recent still-unresolved occurrence). Not paginated (unlike crm_customers/
+// snapshots) — this never approaches PostgREST's default row cap.
+export async function fetchUnmatchedNames({ location, latestBatchDate }) {
+  const batchFilter = latestBatchDate ? `&import_batch_date=eq.${latestBatchDate}` : ''
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/latest_unmatched_import_names?order=grand_total.desc&select=*&location=eq.${encodeURIComponent(location)}${batchFilter}`,
+    { headers: SB_HDRS() }
+  )
+  if (!res.ok) throw new Error('latest_unmatched_import_names: HTTP ' + res.status)
+  return res.json()
+}
+
+// Returns the new customer's uuid directly (not wrapped) — resolving the
+// unmatched_import_names row identified by unmatchedId itself happens
+// entirely server-side inside this RPC.
+export async function resolveUnmatchedCustomer({ unmatchedId, personId, category }) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/resolve_unmatched_customer`, {
+    method: 'POST',
+    headers: SB_HDRS_JSON(),
+    body: JSON.stringify({ p_unmatched_id: unmatchedId, p_person_id: personId, p_category: category }),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+  return res.json()
+}
+
+// Sweeps every OTHER still-unresolved row sharing this raw_name (stale
+// duplicates left over from a prior batch, back when this name was already
+// pending) so they don't linger as orphaned unresolved entries once the
+// current one is handled. Scoped to the same location as the row just
+// resolved — raw_name alone isn't unique across locations (two different
+// locations can each have a real, independently-unresolved customer that
+// happens to share a billing name). Best-effort: the primary action has
+// already succeeded by the time this runs, so a failure here is swallowed,
+// never surfaced to the caller.
+export async function sweepUnmatchedDuplicates({ rawName, location, resolvedCustomerId }) {
+  try {
+    const body = { resolved: true }
+    if (resolvedCustomerId) body.resolved_customer_id = resolvedCustomerId
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/unmatched_import_names?raw_name=eq.${encodeURIComponent(rawName)}&location=eq.${encodeURIComponent(location)}&resolved=eq.false`,
+      { method: 'PATCH', headers: SB_HDRS_MIN(), body: JSON.stringify(body) }
+    )
+  } catch {
+    /* best-effort — the primary assign already succeeded */
+  }
 }
