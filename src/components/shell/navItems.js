@@ -18,6 +18,7 @@ import { canViewHREmployee } from '../../lib/hrEmployee'
 import { canAccessMapping } from '../../lib/customerMapping'
 import { canAccessEnterprise } from '../../lib/enterpriseLead'
 import { canAccessIMS } from '../../lib/ims'
+import { canAccessEnterpriseSolutions } from '../../lib/enterpriseSolutions'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -26,7 +27,7 @@ export const NAV_ITEMS = [
     label: 'Dashboards',
     children: [
       { id: 'leads', label: 'SmartFleet', badge: 'Live', visibility: 'leadsPerm' },
-      { id: 'entsol', label: 'Enterprise Solutions', badge: 'Live', visibility: 'notYetBuilt' },
+      { id: 'entsol', label: 'Enterprise Solutions', badge: 'Live', visibility: 'entsolPerm' },
       { id: 'enterprise', label: 'Enterprise Lead', badge: 'Live', visibility: 'enterprisePerm' },
       { id: 'renewals', label: 'Renewals & Collections', visibility: 'renewalsAsync' },
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
@@ -110,6 +111,11 @@ export const NAV_ITEMS = [
 //   can_view_ims==='true' check with NO role-string bypass at all (unlike
 //   Enterprise Lead/CRM Vehicle/HR Employee Master) — also a plain
 //   synchronous check, no NavContext needed.
+// - Enterprise Solutions uses the real rule ported from
+//   _canAccessEnterpriseSolutions: same shape as Enterprise Lead's rule
+//   (can_view_entsol is also currently always undefined from the real
+//   backend, falling through to the same owner/mis/pc/executive-assistant/
+//   ea role check) — also a plain synchronous check, no NavContext needed.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -154,6 +160,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return canAccessEnterprise(currentUser, permissions)
     case 'imsPerm':
       return canAccessIMS(permissions)
+    case 'entsolPerm':
+      return canAccessEnterpriseSolutions(currentUser, permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
