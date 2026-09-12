@@ -15,6 +15,7 @@
 import { anyReferralTabVisible } from '../../lib/referralPermissions'
 import { canAccessCRM } from '../../lib/crmVehicle'
 import { canViewHREmployee } from '../../lib/hrEmployee'
+import { canAccessMapping } from '../../lib/customerMapping'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -29,7 +30,7 @@ export const NAV_ITEMS = [
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
       { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistAsync' },
       { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'notYetBuilt' },
-      { id: 'mapping', label: 'Customer Mapping', badge: 'Live', visibility: 'notYetBuilt' },
+      { id: 'mapping', label: 'Customer Mapping', badge: 'Live', visibility: 'mappingPerm' },
       { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'crmPerm' },
       // No visibility rule — field_service_create is no longer permission-gated anywhere
       // (frontend or RLS), so _fsHasAccess() in old-portal/js/fieldservice.js is
@@ -92,6 +93,11 @@ export const NAV_ITEMS = [
 //   owner-or-MIS role shortcut, OR hr_employee_view==='true' — a plain
 //   synchronous check against `permissions`, no NavContext needed (same
 //   category as crmPerm above).
+// - Customer Mapping uses the real rule ported from _applyMappingNavVisibility:
+//   can_view_mapping==='true', with NO hardcoded role-string bypass in the
+//   check itself (unlike CRM Vehicle/HR Employee Master) — owner/mis get in
+//   only because the backend's own role_defaults already resolve this key to
+//   'true' for them. Also a plain synchronous check, no NavContext needed.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -127,6 +133,11 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return canAccessCRM(permissions)
     case 'hrEmployeePerm':
       return canViewHREmployee(currentUser, permissions)
+    // Ported from _applyMappingNavVisibility: a plain `can_view_mapping === 'true'` check with no
+    // hardcoded role-string bypass — the owner/mis "bypass" seen in practice comes entirely from
+    // the backend's own role_defaults, not client-side logic. Same category as crmPerm.
+    case 'mappingPerm':
+      return canAccessMapping(permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
