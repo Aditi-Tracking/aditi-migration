@@ -69,7 +69,9 @@ export function canBulkPay(req, currentUser, permissions) {
   return (canPayVendorRequests(currentUser, permissions) || canReviewVendorRequests(currentUser, permissions)) && req.status === 'Approved' && req.payment_status !== 'Paid'
 }
 
-async function lookupEmpId(email) {
+// Exported for reuse by lib/recurringBills.js — same Employee_details lookup, no need to
+// duplicate it a third time in this project.
+export async function lookupEmpId(email) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/Employee_details?select=Emp_id&Email_Id=ilike.${encodeURIComponent(email)}&limit=1`, { headers: SB_HDRS() })
     const rows = res.ok ? await res.json() : []

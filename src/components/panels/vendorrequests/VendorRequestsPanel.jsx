@@ -11,6 +11,7 @@ import {
   filterVendorRequests,
   formatINR,
 } from '../../../lib/vendorRequests'
+import { canAccessRecurringBills } from '../../../lib/recurringBills'
 import VendorRequestsTable from './VendorRequestsTable'
 import VendorRequestFormModal from './VendorRequestFormModal'
 import VendorRequestReviewModal from './VendorRequestReviewModal'
@@ -27,9 +28,12 @@ const FILTER_CHIPS = [
 // Ported from old-portal/js/vendor.js's loadVendorRequests/_vrApplyFilter/vrSetFilter/vrBulkPay.
 // Reached from Finance's "Purchase Request" card — see FinancePanel.jsx/CNSectionPanel.jsx's
 // extraCard slot. Recurring Bills (a fully separate feature bundled in the same production file,
-// its own recurring_* permissions) is a future phase, not built here.
-export default function VendorRequestsPanel() {
+// its own recurring_* permissions) is now built too — reached via the header button below, which
+// navigates to a sibling panel rather than production's nested-overlay-on-overlay, matching every
+// other cross-panel jump in this app.
+export default function VendorRequestsPanel({ onNavigate }) {
   const { currentUser, permissions } = useAuth()
+  const showRecurringBillsBtn = canAccessRecurringBills(currentUser, permissions)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -157,6 +161,16 @@ export default function VendorRequestsPanel() {
           <div className="text-[11.5px] text-text-muted mt-0.5">Home › Finance › Purchase Requests</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {showRecurringBillsBtn && (
+            <button
+              type="button"
+              onClick={() => onNavigate?.('recurringbills')}
+              className="text-[12px] font-bold text-white rounded-md px-3.5 py-1.5"
+              style={{ background: 'linear-gradient(135deg,#8b5cf6,#a78bfa)' }}
+            >
+              🔁 Recurring
+            </button>
+          )}
           {selectedIds.size > 0 && (
             <button type="button" onClick={handleBulkPay} disabled={bulkPaying} className="text-[12px] font-bold text-primary border border-primary/30 bg-primary-tint rounded-md px-3 py-1.5 disabled:opacity-60">
               💳 Pay Selected ({selectedIds.size})
