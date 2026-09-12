@@ -30,7 +30,13 @@ export const NAV_ITEMS = [
       { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'mapping', label: 'Customer Mapping', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'crmPerm' },
-      { id: 'fieldservice', label: 'Field Service', visibility: 'notYetBuilt' },
+      // No visibility rule — field_service_create is no longer permission-gated anywhere
+      // (frontend or RLS), so _fsHasAccess() in old-portal/js/fieldservice.js is
+      // `_fsCanCreate() || _fsCanViewAll()` with _fsCanCreate() unconditionally true, making
+      // this tile visible to every logged-in user. field_service_view_all still gates real
+      // things inside the panel (My vs All Entries, delete authority) — it just no longer
+      // gates visibility. See lib/fieldService.js.
+      { id: 'fieldservice', label: 'Field Service' },
       { id: 'hremployee', label: 'HR Employee Master', visibility: 'notYetBuilt' },
       { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
     ],
