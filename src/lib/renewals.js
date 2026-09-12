@@ -6,8 +6,11 @@ import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL, getAuth
 // Phase 1b: call logging + screenshot attachments + the customer detail
 // modal (category editing's sole home, plus reassign moved here from a
 // Phase 1a row placement that had no counterpart in production) + call
-// history/lightbox. Closed/Paid, Unassigned Pool, Upload, Resolve
-// Unmatched, Overview/Team Performance, and Accounts are later phases.
+// history/lightbox.
+// Phase 2: Closed/Paid (read-only) + Unassigned Pool (MIS-only, direct-PATCH
+// assign) + the tab bar itself, which starts mattering now that more than
+// one built tab can be visible at once. Upload, Resolve Unmatched,
+// Overview/Team Performance, and Accounts are later phases.
 
 export const RU_LOCATIONS = [
   { value: 'original', label: 'Mumbai HO' }, // display-only relabel — stored value stays 'original'
@@ -18,6 +21,36 @@ export const RU_LOCATIONS = [
 
 export const RU_CATEGORY_ORDER = ['Platinum', 'Gold', 'Silver']
 export const RU_CATEGORY_FREQ = { Platinum: 'Once a Week', Gold: 'Twice a Week', Silver: 'Thrice a Week' }
+
+// Unassigned Pool groups by category too, but unlike every other tab, a
+// customer with no (recognized) category is grouped last under "No
+// Category" rather than dropped — the trailing `null` is that group.
+export const RU_UNASSIGNED_CATEGORY_GROUPS = [...RU_CATEGORY_ORDER, null]
+
+// Ordered exactly like production's RU_TABS — drives the tab bar's button
+// order. Which of these actually render is the intersection of role
+// visibility (visibleTabIds) and which ones are actually built so far.
+export const RU_TABS = [
+  { id: 'myCustomers', label: 'My Customers' },
+  { id: 'closedPaid', label: 'Closed/Paid' },
+  { id: 'upload', label: 'Upload' },
+  { id: 'unmatched', label: 'Resolve Unmatched' },
+  { id: 'unassignedPool', label: 'Unassigned Pool' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'accounts', label: 'Accounts' },
+]
+
+// Ported from _ruVisibleTabIds. MIS/owner gets every tab; a plain crm_persons
+// match (full-access or not) gets myCustomers/closedPaid/unmatched/overview
+// — NEVER unassignedPool or upload, regardless of full_data_access; Accounts
+// is visible to anyone with any access to the module at all.
+export function visibleTabIds({ isMIS, crmPerson, isAccounts }) {
+  if (isMIS) return RU_TABS.map((t) => t.id)
+  const ids = []
+  if (crmPerson) ids.push('myCustomers', 'closedPaid', 'unmatched', 'overview')
+  if (crmPerson || isAccounts) ids.push('accounts')
+  return ids
+}
 
 // crm_customers.crm_status — matches the "SCOT Sheet" status list/colors.
 // Distinct from crm_customers.status, an internal active/inactive lifecycle
@@ -609,4 +642,156 @@ export async function fetchScreenshotBlob(path) {
   })
   if (!res.ok) throw new Error('HTTP ' + res.status)
   return res.blob()
+}
+
+// ── Closed/Paid + Unassigned Pool (Phase 2) ────────────────────────────────
+
+// Runs an IN-list query over `ids` in chunks small enough that the built URL
+// stays well clear of the API gateway's length limit, then merges the
+// results — ported from _ruFetchInIdChunks. A single request with ~1000
+// UUIDs (Goa-scale) produces a 37,000+ character URL that gets rejected with
+// a blank 400 before it's even parsed. `buildUrl` receives one chunk's ids
+// pre-joined with commas.
+export async function fetchRowsInIdChunks(buildUrl, ids, chunkSize = 150) {
+  const chunks = []
+  for (let i = 0; i < ids.length; i += chunkSize) chunks.push(ids.slice(i, i + chunkSize))
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const res = await fetch(buildUrl(chunk.join(',')), { headers: SB_HDRS() })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      return res.json()
+    })
+  )
+  return results.flat()
+}
+
+// history: one customer's full snapshot rows, ascending by date, all with
+// grand_total already confirmed 0 at the latest point. Walks back from the
+// latest row while still 0 to find where the current zero-streak began —
+// "date closed" is that transition point, not just "whatever the latest
+// snapshot happens to be dated", so a customer sitting at 0 for months still
+// shows the date they actually closed, not today's import date.
+export function deriveClosedInfo(history) {
+  if (!history.length) return { closedDate: null, priorOutstanding: null }
+  let i = history.length - 1
+  while (i > 0 && Number(history[i - 1].grand_total) === 0) i--
+  const priorRow = i > 0 ? history[i - 1] : null
+  return {
+    closedDate: history[i].snapshot_date,
+    priorOutstanding: priorRow ? Number(priorRow.grand_total) : null,
+  }
+}
+
+// Ported from loadRenewalsClosedPaid — narrows to the zero-balance subset
+// FIRST (via the already-fetched latest snapshots), then fetches full
+// history only for that (usually much smaller) set, not the whole book.
+export async function fetchClosedPaid({ location, isMIS, fullDataAccess, crmPersonId }) {
+  const scope = scopeQuery({ isMIS, fullDataAccess, crmPersonId })
+  const customers = await fetchAllRows(
+    `${SUPABASE_URL}/rest/v1/crm_customers?select=id,billing_name,category,assigned_crm_person_id&order=billing_name.asc&location=eq.${encodeURIComponent(location)}${scope}`
+  )
+  if (!customers.length) return []
+
+  const snaps = await fetchLatestOutstandingSnapshots(location)
+  const snapMap = new Map(snaps.map((s) => [s.customer_id, s]))
+  const closedIds = customers.filter((c) => {
+    const snap = snapMap.get(c.id)
+    return snap && Number(snap.grand_total) === 0
+  }).map((c) => c.id)
+  if (!closedIds.length) return []
+
+  // closedIds is an arbitrary, precise subset — unlike the snapshot query
+  // above it can't be replaced by a location filter (that would pull in
+  // every still-open customer's full history too), so it still needs an
+  // IN-list.
+  const history = await fetchRowsInIdChunks(
+    (idsStr) =>
+      `${SUPABASE_URL}/rest/v1/outstanding_snapshots?customer_id=in.(${idsStr})&select=customer_id,snapshot_date,grand_total&order=customer_id.asc,snapshot_date.asc`,
+    closedIds
+  )
+  const historyByCustomer = new Map()
+  history.forEach((row) => {
+    if (!historyByCustomer.has(row.customer_id)) historyByCustomer.set(row.customer_id, [])
+    historyByCustomer.get(row.customer_id).push(row)
+  })
+
+  const customerById = new Map(customers.map((c) => [c.id, c]))
+  return closedIds.map((id) => {
+    const info = deriveClosedInfo(historyByCustomer.get(id) || [])
+    return { ...customerById.get(id), _closedDate: info.closedDate, _priorOutstanding: info.priorOutstanding }
+  })
+}
+
+// Most recently closed first within each category — the ones worth a fresh
+// look first. A category with no rows is dropped entirely.
+export function groupClosedPaidByCategory(customers) {
+  return RU_CATEGORY_ORDER.map((category) => {
+    const inCat = customers.filter((c) => c.category === category)
+    if (!inCat.length) return null
+    const sorted = [...inCat].sort((a, b) => (b._closedDate || '').localeCompare(a._closedDate || ''))
+    return { category, rows: sorted }
+  }).filter(Boolean)
+}
+
+// Ported from loadRenewalsUnassignedPool. Zero balance means already paid
+// off (belongs in Closed/Paid, nothing to assign anyone to collect); no
+// snapshot at all is a different, still-shown "unknown" state.
+export async function fetchUnassignedPool(location) {
+  const customers = await fetchAllRows(
+    `${SUPABASE_URL}/rest/v1/crm_customers?assigned_crm_person_id=is.null&select=id,billing_name,city,contact_person,contact_number,category&order=billing_name.asc&location=eq.${encodeURIComponent(location)}`
+  )
+  if (!customers.length) return []
+
+  const snaps = await fetchLatestOutstandingSnapshots(location)
+  const snapMap = new Map(snaps.map((s) => [s.customer_id, s]))
+  return customers
+    .map((c) => ({ ...c, _snapshot: snapMap.get(c.id) || null }))
+    .filter((c) => !c._snapshot || Number(c._snapshot.grand_total) > 0)
+}
+
+// Highest outstanding first within each group — those are the most urgent to
+// get assigned; a customer with no snapshot yet sorts to the bottom.
+// Uncategorized customers form their own trailing group, not dropped.
+export function groupUnassignedByCategory(customers) {
+  return RU_UNASSIGNED_CATEGORY_GROUPS.map((category) => {
+    const inCat = customers.filter((c) => (c.category || null) === category)
+    if (!inCat.length) return null
+    const sorted = [...inCat].sort((a, b) => {
+      const aTotal = a._snapshot ? Number(a._snapshot.grand_total) : -Infinity
+      const bTotal = b._snapshot ? Number(b._snapshot.grand_total) : -Infinity
+      return bTotal - aTotal
+    })
+    return { category, freq: category ? RU_CATEGORY_FREQ[category] : null, rows: sorted }
+  }).filter(Boolean)
+}
+
+// Direct PATCH, NOT the reassign_crm_customer RPC — the asymmetry is real,
+// not an oversight: RLS only blocks a hand-AWAY update's post-write
+// visibility (see reassignCustomer's comment), and assigning FROM the
+// unassigned pool is always a hand-IN, so a plain PATCH already satisfies
+// crm_customers' RLS here.
+export async function assignUnassignedCustomer(customerId, personId) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/crm_customers?id=eq.${customerId}`, {
+    method: 'PATCH',
+    headers: SB_HDRS_MIN(),
+    body: JSON.stringify({ assigned_crm_person_id: personId, is_active_calling: true }),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+}
+
+// Cheap exact count via PostgREST's Content-Range header, no rows fetched —
+// ported from _ruCount/_ruRefreshUnassignedPoolBadge. Deliberately counts
+// EVERY unassigned row (no zero-balance filter) — production's own tab-button
+// badge is a two-tier approximation: this cheap count on login/location
+// switch, corrected down to the precise post-filter count once the
+// Unassigned Pool tab is actually opened (see fetchUnassignedPool). Not a
+// bug to reconcile — replicated faithfully.
+export async function fetchUnassignedPoolCount(location) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/crm_customers?assigned_crm_person_id=is.null&location=eq.${encodeURIComponent(location)}&select=id`,
+    { method: 'HEAD', headers: { ...SB_HDRS(), Prefer: 'count=exact' } }
+  )
+  const range = res.headers.get('content-range') || ''
+  const total = range.split('/')[1]
+  return total && total !== '*' ? parseInt(total, 10) : 0
 }

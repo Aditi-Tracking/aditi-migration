@@ -1,17 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useRenewalsNav } from '../../../context/RenewalsNavContext'
+import { fetchUnassignedPoolCount, visibleTabIds } from '../../../lib/renewals'
 import LocationBar from './LocationBar'
+import RenewalsTabBar from './RenewalsTabBar'
 import MyCustomersTab from './MyCustomersTab'
+import ClosedPaidTab from './ClosedPaidTab'
+import UnassignedPoolTab from './UnassignedPoolTab'
+
+// Tabs actually implemented so far — intersected with role visibility
+// (visibleTabIds) below to decide what really renders. Grows one entry per
+// phase (Upload/Resolve Unmatched/Overview/Accounts still aren't built).
+const BUILT_TAB_IDS = ['myCustomers', 'closedPaid', 'unassignedPool']
 
 // Ported from old-portal/js/renewals.js's loadRenewals/ruRenderTabBar/
-// ruRenderLocationBar. Phase 1a only has the My Customers tab built — the
-// tab bar itself doesn't render yet (production's own "no bar if <=1
-// visible tab" rule applies naturally, since there's nothing else to switch
-// to until Closed/Paid/Upload/Resolve Unmatched/Unassigned Pool/Overview/
-// Accounts land in later phases).
+// ruRenderLocationBar. Through Phase 1a/1b there was only ever one built
+// tab, so production's own "no bar if <=1 visible" rule never fired — Phase
+// 2 is where a real tab bar starts mattering (a plain crm_persons user now
+// has 2 built tabs, MIS has 3).
 export default function RenewalsPanel() {
-  const { isMIS, crmPerson, fullDataAccess, allowedLocations, loading } = useRenewalsNav()
+  const { isMIS, isAccounts, crmPerson, fullDataAccess, allowedLocations, loading } = useRenewalsNav()
   const [location, setLocation] = useState(null)
+  const [chosenTab, setChosenTab] = useState(null)
+  const [unassignedPoolCount, setUnassignedPoolCount] = useState(0)
 
   useEffect(() => {
     if (loading) return
@@ -22,6 +32,22 @@ export default function RenewalsPanel() {
     })
   }, [loading, allowedLocations, crmPerson])
 
+  // Cheap approximate count on login/location switch (MIS only) — corrected
+  // to the precise post-filter count once UnassignedPoolTab actually loads
+  // (see its own onCountChange call, passed down below). Two-tier, matching
+  // production's own _ruRefreshUnassignedPoolBadge/loadRenewalsUnassignedPool
+  // split exactly rather than reconciling it away.
+  useEffect(() => {
+    if (!isMIS || !location) return
+    let cancelled = false
+    fetchUnassignedPoolCount(location)
+      .then((n) => !cancelled && setUnassignedPoolCount(n))
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isMIS, location])
+
   if (loading || !location) {
     return (
       <div className="px-4 sm:px-6 py-5">
@@ -30,11 +56,11 @@ export default function RenewalsPanel() {
     )
   }
 
-  // My Customers is only available to MIS/owner or an actual crm_persons
-  // match — a pure Accounts-tier grant (no crm_persons row, not MIS) has nav
-  // access to this module but nothing built for them yet (Accounts is
-  // Phase 5).
-  const hasMyCustomers = isMIS || !!crmPerson
+  // Pure/synchronous, computed fresh every render — no effect needed, and no
+  // one-frame flash between "tabs resolved" and "active tab resolved" the
+  // way an effect-driven default would introduce.
+  const tabs = visibleTabIds({ isMIS, crmPerson, isAccounts }).filter((id) => BUILT_TAB_IDS.includes(id))
+  const activeTab = chosenTab && tabs.includes(chosenTab) ? chosenTab : (tabs[0] ?? null)
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -45,11 +71,17 @@ export default function RenewalsPanel() {
 
       <LocationBar location={location} allowedLocations={allowedLocations} onChange={setLocation} />
 
-      {hasMyCustomers ? (
+      <RenewalsTabBar tabs={tabs} activeTab={activeTab} onChange={setChosenTab} unassignedPoolCount={unassignedPoolCount} />
+
+      {!activeTab && <p className="text-text-muted text-[13px] py-10 text-center">The Accounts tab isn't built yet — check back soon.</p>}
+
+      {activeTab === 'myCustomers' && (
         <MyCustomersTab location={location} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />
-      ) : (
-        <p className="text-text-muted text-[13px] py-10 text-center">The Accounts tab isn't built yet — check back soon.</p>
       )}
+      {activeTab === 'closedPaid' && (
+        <ClosedPaidTab location={location} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />
+      )}
+      {activeTab === 'unassignedPool' && <UnassignedPoolTab location={location} onCountChange={setUnassignedPoolCount} />}
     </div>
   )
 }
