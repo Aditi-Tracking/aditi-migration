@@ -13,6 +13,7 @@
 // and each navigates straight to that dashboard. Sidebar.jsx must never
 // render `children`; MobileMenuSheet.jsx must.
 import { anyReferralTabVisible } from '../../lib/referralPermissions'
+import { canAccessCRM } from '../../lib/crmVehicle'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -28,7 +29,7 @@ export const NAV_ITEMS = [
       { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistAsync' },
       { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'mapping', label: 'Customer Mapping', badge: 'Live', visibility: 'notYetBuilt' },
-      { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'notYetBuilt' },
+      { id: 'crm', label: 'CRM Vehicle', badge: 'Live', visibility: 'crmPerm' },
       { id: 'fieldservice', label: 'Field Service', visibility: 'notYetBuilt' },
       { id: 'hremployee', label: 'HR Employee Master', visibility: 'notYetBuilt' },
       { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
@@ -75,6 +76,11 @@ export const NAV_ITEMS = [
 //   hardcoded MD address, or an active delegation_assignees row — resolved
 //   once per login by TaskDelegationNavContext, no live-sync poll (same as
 //   Renewals — production has none for this module either)
+// - CRM Vehicle uses the real rule ported from _canAccessCRM: can_view_crm
+//   is anything other than 'false' (including a literal tier-name string —
+//   see lib/crmVehicle.js's getCrmAccessLevel). Unlike every async rule
+//   above, this is a plain synchronous check against `permissions` — no
+//   Supabase round-trip, so no NavContext/Provider needed.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -106,6 +112,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
     // active delegation_assignees row (see _applyTaskDelegationNavVisibility).
     case 'taskDelegationAsync':
       return !!taskDelegationVisible
+    case 'crmPerm':
+      return canAccessCRM(permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
