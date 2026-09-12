@@ -3,11 +3,13 @@ import { useAuth } from '../../../context/AuthContext'
 import { canCreateFieldService, canViewAllFieldService, hasFieldServiceAccess } from '../../../lib/fieldService'
 import SubmitEntryTab from './SubmitEntryTab'
 import EntriesListTab from './EntriesListTab'
+import FieldServiceDashboardTab from './dashboard/FieldServiceDashboardTab'
 
-// Ported from old-portal/js/fieldservice.js's loadFieldService/_fsRenderTabBar/_fsSwitchTabView —
-// Phase 1 of 2 (Submit + List + delete). The Dashboard tab (js/fieldservice-dashboard.js) is
-// Phase 2, added alongside its own lib/fieldServiceDashboard.js, matching production's own file
-// split — not stubbed here.
+// Ported from old-portal/js/fieldservice.js's loadFieldService/_fsRenderTabBar/_fsSwitchTabView.
+// Phase 1 (Submit + List + delete) and Phase 2 (Dashboard, js/fieldservice-dashboard.js) are both
+// done now. The Dashboard tab is always present regardless of role/permissions — reaching this
+// panel at all already implies hasFieldServiceAccess(), so (matching _fsRenderTabBar's own
+// comment) no extra check is needed for it specifically.
 //
 // field_service_create is no longer permission-gated (see lib/fieldService.js) — every logged-in
 // user can submit, so hasFieldServiceAccess() is effectively always true; the check below is a
@@ -26,6 +28,7 @@ export default function FieldServicePanel() {
   const tabs = []
   if (canCreate) tabs.push(['submit', '📝 Submit Entry'])
   tabs.push(['list', viewAll ? '📋 All Entries' : '📋 My Entries'])
+  tabs.push(['dashboard', '📊 Dashboard'])
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -60,6 +63,9 @@ export default function FieldServicePanel() {
       )}
       <div hidden={activeTab !== 'list'}>
         <EntriesListTab active={activeTab === 'list'} />
+      </div>
+      <div hidden={activeTab !== 'dashboard'}>
+        <FieldServiceDashboardTab active={activeTab === 'dashboard'} />
       </div>
     </div>
   )
