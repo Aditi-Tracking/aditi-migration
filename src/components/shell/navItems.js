@@ -16,6 +16,7 @@ import { anyReferralTabVisible } from '../../lib/referralPermissions'
 import { canAccessCRM } from '../../lib/crmVehicle'
 import { canViewHREmployee } from '../../lib/hrEmployee'
 import { canAccessMapping } from '../../lib/customerMapping'
+import { canAccessEnterprise } from '../../lib/enterpriseLead'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -25,7 +26,7 @@ export const NAV_ITEMS = [
     children: [
       { id: 'leads', label: 'SmartFleet', badge: 'Live', visibility: 'leadsPerm' },
       { id: 'entsol', label: 'Enterprise Solutions', badge: 'Live', visibility: 'notYetBuilt' },
-      { id: 'enterprise', label: 'Enterprise Lead', badge: 'Live', visibility: 'notYetBuilt' },
+      { id: 'enterprise', label: 'Enterprise Lead', badge: 'Live', visibility: 'enterprisePerm' },
       { id: 'renewals', label: 'Renewals & Collections', visibility: 'renewalsAsync' },
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
       { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistAsync' },
@@ -98,6 +99,12 @@ export const NAV_ITEMS = [
 //   check itself (unlike CRM Vehicle/HR Employee Master) — owner/mis get in
 //   only because the backend's own role_defaults already resolve this key to
 //   'true' for them. Also a plain synchronous check, no NavContext needed.
+// - Enterprise Lead uses the real rule ported from _canAccessEnterprise: the
+//   Python backend has no can_view_enterprise column yet, so permissions.
+//   can_view_enterprise is always undefined today, which falls through to a
+//   hardcoded owner/mis/pc/executive-assistant/ea role check — forward-
+//   compatible, since a real 'true'/'false' from the backend takes over
+//   automatically once that column exists. Also a plain synchronous check.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -138,6 +145,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
     // the backend's own role_defaults, not client-side logic. Same category as crmPerm.
     case 'mappingPerm':
       return canAccessMapping(permissions)
+    case 'enterprisePerm':
+      return canAccessEnterprise(currentUser, permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
