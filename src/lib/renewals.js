@@ -1,10 +1,12 @@
-import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SUPABASE_URL } from './supabaseClient'
+import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL, getAuthToken } from './supabaseClient'
 
 // Ported from old-portal/js/renewals.js — Renewals & Collections.
 // Phase 1a: nav-visibility/location-scoping foundation + the My Customers
-// tab's list/calendar/inline-edit/status/category/reassign functionality.
-// Call logging + screenshot attachments + the customer detail modal/call
-// history are Phase 1b; Closed/Paid, Unassigned Pool, Upload, Resolve
+// tab's list/calendar/inline-edit/status/reassign functionality.
+// Phase 1b: call logging + screenshot attachments + the customer detail
+// modal (category editing's sole home, plus reassign moved here from a
+// Phase 1a row placement that had no counterpart in production) + call
+// history/lightbox. Closed/Paid, Unassigned Pool, Upload, Resolve
 // Unmatched, Overview/Team Performance, and Accounts are later phases.
 
 export const RU_LOCATIONS = [
@@ -32,6 +34,10 @@ export const RU_CRM_STATUS_OPTIONS = [
 // collection_calls.not_connected_reason stores the raw value — mapped back
 // to a label for the calendar cell's hover tooltip.
 export const RU_NOT_CONNECTED_REASON_LABELS = { no_answer: 'No Answer', switched_off: 'Switched Off', call_later: 'Call Later' }
+
+const RU_CALL_ATTACHMENTS_BUCKET = 'call-attachments' // private — see fetchScreenshotBlob
+export const RU_CALL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024 // also enforced server-side via storage.buckets.file_size_limit
+export const RU_CALL_ATTACHMENT_MAX_COUNT = 5 // soft client-side cap — Storage itself has no per-call count limit to enforce this against
 
 // Optional columns for the My Customers table — Billing Name and Action are
 // always shown and aren't part of this list. Visibility is a display
@@ -473,4 +479,134 @@ export async function reassignCustomer({ customerId, newPersonId }) {
     const errBody = await res.json().catch(() => ({}))
     throw new Error(errBody.message || 'HTTP ' + res.status)
   }
+}
+
+// ── Call logging + screenshot attachments (Phase 1b) ──────────────────────
+
+// Shared entrypoint for both the file picker and clipboard paste — mirrors
+// _ruAddCallScreenshotFiles. Pure (aside from createObjectURL, a browser API
+// with no React/DOM dependency) so both entry points can call it identically.
+// Returns validation messages instead of alerting directly — the caller
+// (CallLogPanel, which is what's actually on screen) decides how to surface them.
+export function validateScreenshotFiles(existingFiles, incoming) {
+  const next = [...existingFiles]
+  const errors = []
+  for (const file of incoming) {
+    if (next.length >= RU_CALL_ATTACHMENT_MAX_COUNT) {
+      errors.push(`Up to ${RU_CALL_ATTACHMENT_MAX_COUNT} screenshots per call — remove one before adding more.`)
+      break
+    }
+    if (!file.type.startsWith('image/')) {
+      errors.push('Please choose an image file.')
+      continue
+    }
+    if (file.size > RU_CALL_ATTACHMENT_MAX_BYTES) {
+      errors.push('Image is too large — max 5MB.')
+      continue
+    }
+    next.push({ file, blobUrl: URL.createObjectURL(file) })
+  }
+  return { files: next, errors }
+}
+
+// Ported from ruSaveCall's insert. amountRecovered/notConnectedReason are
+// only meaningful for their respective Connected/Not-Connected branch —
+// callers (CallLogPanel) already enforce that split before calling this.
+export async function submitCall({ customerId, calledBy, callDate, connected, amountRecovered, notes, notConnectedReason }) {
+  const payload = { customer_id: customerId, called_by: calledBy, call_date: callDate, connected }
+  if (amountRecovered !== null && amountRecovered !== undefined) payload.amount_recovered = amountRecovered
+  payload.conversation_notes = notes || null
+  if (!connected) payload.not_connected_reason = notConnectedReason
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/collection_calls`, {
+    method: 'POST',
+    headers: SB_HDRS_REPR(),
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+  const [savedCall] = await res.json()
+  return savedCall
+}
+
+// Path convention: <customer_id>/<timestamp><disambiguator>_<safeName> — the
+// leading customer_id folder segment is what call-attachments' storage RLS
+// keys off via storage.foldername(name). `disambiguator` disambiguates
+// several files uploaded for the same call in a tight loop (Date.now() alone
+// isn't guaranteed unique across a same-millisecond back-to-back upload).
+// Uses fetch() (not old-portal's raw XHR) — same technique already
+// established by lib/fms.js's uploadFmsProof for this project's own storage
+// uploads.
+export async function uploadCallScreenshot(customerId, file, disambiguator = '') {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `${customerId}/${Date.now()}${disambiguator}_${safeName}`
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${RU_CALL_ATTACHMENTS_BUCKET}/${encodeURIComponent(path)}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-upsert': 'false',
+    },
+    body: file,
+  })
+  if (!res.ok) throw new Error('Screenshot upload: HTTP ' + res.status)
+  return path
+}
+
+// Uploads sequentially (not parallel) — a failure partway through still
+// leaves the earlier files uploaded — then links every successfully-uploaded
+// path to the call in a single batch insert.
+export async function uploadCallAttachments(customerId, callId, files) {
+  const paths = []
+  for (let i = 0; i < files.length; i++) {
+    paths.push(await uploadCallScreenshot(customerId, files[i], `_${i}`))
+  }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/call_attachments`, {
+    method: 'POST',
+    headers: SB_HDRS_MIN(),
+    body: JSON.stringify(paths.map((screenshot_url) => ({ call_id: callId, screenshot_url }))),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new Error(errBody.message || 'HTTP ' + res.status)
+  }
+}
+
+// Ported from ruRefreshCustomerRow — a real refetch after logging a call,
+// not a locally-guessed value.
+export async function fetchLatestCallForCustomer(customerId) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/latest_collection_calls?customer_id=eq.${customerId}&select=customer_id,call_date,connected`,
+    { headers: SB_HDRS() }
+  )
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const rows = await res.json()
+  return rows[0] || null
+}
+
+// Ported from _ruLoadCustomerCallHistory — one query, using an embedded
+// relation to pull each call's attachment paths together with it rather
+// than a separate round-trip per call.
+export async function fetchCustomerCallHistory(customerId) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/collection_calls?customer_id=eq.${customerId}&select=call_date,connected,not_connected_reason,conversation_notes,amount_recovered,call_attachments(screenshot_url)&order=call_date.desc,created_at.desc&limit=50`,
+    { headers: SB_HDRS() }
+  )
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  return res.json()
+}
+
+// call-attachments is a PRIVATE bucket — a plain <img src> can't
+// authenticate, so every image goes through this same authenticated fetch
+// every other API call in this file uses. Returns a Blob; turning it into an
+// object URL (and caching/revoking it) is a browser-object-lifecycle concern
+// left to the caller (see hooks/useScreenshotCache.js).
+export async function fetchScreenshotBlob(path) {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${RU_CALL_ATTACHMENTS_BUCKET}/${encodeURIComponent(path)}`, {
+    headers: SB_HDRS(),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  return res.blob()
 }

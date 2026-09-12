@@ -28,6 +28,7 @@ export default function EditableCell({ value, onSave, className = '' }) {
   return (
     <td
       className={className}
+      onClick={(e) => e.stopPropagation()}
       style={{
         background: flash === 'success' ? 'rgba(0,212,170,0.18)' : flash === 'error' ? 'rgba(255,92,124,0.18)' : undefined,
         transition: 'background 0.15s',

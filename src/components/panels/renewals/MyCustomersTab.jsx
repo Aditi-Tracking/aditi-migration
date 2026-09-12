@@ -7,6 +7,7 @@ import {
   addWorkingDays,
   fetchCalendarCalls,
   fetchCrmPersons,
+  fetchLatestCallForCustomer,
   fetchLatestCollectionCalls,
   fetchLatestOutstandingSnapshots,
   fetchMyCustomers,
@@ -23,9 +24,12 @@ import {
   saveColumnPrefs,
   todayStr,
 } from '../../../lib/renewals'
+import { useScreenshotCache } from '../../../hooks/useScreenshotCache'
 import ColumnsMenu from './ColumnsMenu'
 import CalendarNav from './CalendarNav'
 import MyCustomersTable from './MyCustomersTable'
+import CustomerDetailModal from './CustomerDetailModal'
+import ScreenshotLightbox from './ScreenshotLightbox'
 
 // Ported from old-portal/js/renewals.js's loadRenewalsMyCustomers/
 // ruRenderMyCustomers/ruLoadCalendarCalls. Search is implemented as a real
@@ -49,6 +53,10 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
   const [windowEnd, setWindowEnd] = useState(null) // null = today
   const [callsMap, setCallsMap] = useState(null) // null = not loaded yet
   const [calendarLoading, setCalendarLoading] = useState(false)
+
+  const [detailCustomerId, setDetailCustomerId] = useState(null)
+  const [lightbox, setLightbox] = useState(null) // { paths, index } | null
+  const screenshotCache = useScreenshotCache()
 
   // Fresh load whenever location/scope changes — mirrors loadRenewalsMyCustomers,
   // which resets sort/filter/calendar state on every fresh tab entry too.
@@ -157,6 +165,37 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
     setCustomers((prev) => prev.filter((c) => c.id !== customerId))
   }
 
+  function handleCategorySaved(customerId, category, callingFrequency) {
+    afterMutation(customerId, (c) => ({ ...c, category, calling_frequency: callingFrequency }))
+  }
+
+  // Ported from ruSaveCall's tail: patches the calendar cell locally (same
+  // shape a refetch would return), optimistically bumps recovered_amount
+  // (the real value is DB-trigger-derived), then refreshes the Last Call
+  // cell via a real refetch — not a local guess.
+  function handleCallSaved(customerId, { callDate, connected, amountRecovered }) {
+    setCallsMap((prev) => {
+      const next = new Map(prev)
+      next.set(`${customerId}|${callDate}`, { customer_id: customerId, call_date: callDate, connected })
+      return next
+    })
+    if (amountRecovered) {
+      afterMutation(customerId, (c) => ({ ...c, recovered_amount: Number(c.recovered_amount || 0) + amountRecovered }))
+    }
+    fetchLatestCallForCustomer(customerId)
+      .then((lastCall) => afterMutation(customerId, (c) => ({ ...c, _lastCall: lastCall })))
+      .catch(() => {})
+  }
+
+  function handleCloseDetail() {
+    setDetailCustomerId(null)
+    screenshotCache.clear()
+  }
+
+  function handleOpenLightbox(paths, index) {
+    setLightbox({ paths, index })
+  }
+
   const dates = calendarDateList(windowEnd, workingDays)
   const columns = RU_COLUMNS.filter((col) => isColumnVisible(columnPrefs, col.key, { isMIS, fullDataAccess }))
 
@@ -179,6 +218,8 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
 
   if (loading) return <p className="text-text-muted text-[13.5px]">Loading…</p>
   if (error) return <p className="text-danger text-[13.5px]">⚠️ {error}</p>
+
+  const detailCustomer = customers.find((c) => c.id === detailCustomerId) || null
 
   return (
     <div>
@@ -233,9 +274,31 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={handleSort}
-        onReassigned={handleReassigned}
         afterMutation={afterMutation}
+        onOpenDetail={setDetailCustomerId}
+        onCallSaved={handleCallSaved}
         emptyMessage={emptyMessage}
+      />
+
+      <CustomerDetailModal
+        open={!!detailCustomerId}
+        customer={detailCustomer}
+        persons={persons}
+        crmPerson={crmPerson}
+        getUrl={screenshotCache.getUrl}
+        clearScreenshotCache={screenshotCache.clear}
+        onClose={handleCloseDetail}
+        onCategorySaved={handleCategorySaved}
+        onReassigned={handleReassigned}
+        onOpenLightbox={handleOpenLightbox}
+      />
+
+      <ScreenshotLightbox
+        paths={lightbox?.paths ?? null}
+        index={lightbox?.index ?? 0}
+        getUrl={screenshotCache.getUrl}
+        onIndexChange={(index) => setLightbox((l) => l && { ...l, index })}
+        onClose={() => setLightbox(null)}
       />
     </div>
   )

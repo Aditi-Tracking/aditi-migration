@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import EditableCell from './EditableCell'
 import CalendarCallCell from './CalendarCallCell'
+import CallLogPanel from './CallLogPanel'
 import {
   RU_CRM_STATUS_OPTIONS,
   RU_SORTABLE_KEYS,
@@ -9,7 +10,6 @@ import {
   assignedPersonName,
   updateCustomerField,
   updateCustomerStatus,
-  reassignCustomer,
 } from '../../../lib/renewals'
 
 function SortArrow({ active, dir }) {
@@ -33,9 +33,13 @@ function formatDateHeader(d) {
 }
 
 // Ported from old-portal/js/renewals.js's _ruRenderMyCustomersTableBody/
-// ruCustomerRowHtml — everything except the Call button + its inline
-// call-log panel (Phase 1b) and the row-click customer detail modal
-// (also Phase 1b, since that's where the call history it shows lives).
+// ruCustomerRowHtml, including the Call button + its inline call-log panel
+// (ruToggleCallPanel — multiple rows' panels can be open at once, since
+// toggling one never closes any other) and the row-click customer detail
+// modal. Reassign is NOT rendered inline here — production's row has no
+// reassign select at all; it only exists inside the customer detail modal
+// (see CustomerDetailModal), which is where a Phase 1a mistake had placed
+// one here instead.
 //
 // One deliberate simplification vs. byte-for-byte production: the synced
 // top-scrollbar-strip + separate "frozen header" table (a workaround for a
@@ -58,10 +62,13 @@ export default function MyCustomersTable({
   sortKey,
   sortDir,
   onSort,
-  onReassigned,
   afterMutation,
+  onOpenDetail,
+  onCallSaved,
   emptyMessage,
 }) {
+  const [openCallRowIds, setOpenCallRowIds] = useState(new Set())
+
   if (calendarLoading && callsMap === null) {
     return <p className="text-text-muted text-[13px]">Loading call history…</p>
   }
@@ -83,24 +90,30 @@ export default function MyCustomersTable({
     }
   }
 
-  async function handleReassignChange(customer, e) {
-    const value = e.target.value
-    if (!value) return
-    const newPersonId = value === '__unassign__' ? null : value
-    const label =
-      value === '__unassign__' ? 'move this customer to the unassigned pool' : 'reassign this customer to the selected person'
-    if (!confirm(`Are you sure you want to ${label}? It will disappear from your list.`)) {
-      e.target.value = ''
-      return
-    }
-    try {
-      await reassignCustomer({ customerId: customer.id, newPersonId })
-      onReassigned(customer.id)
-    } catch (err) {
-      alert('❌ Could not reassign: ' + err.message)
-      e.target.value = ''
-    }
+  function toggleCallPanel(customerId) {
+    setOpenCallRowIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(customerId)) next.delete(customerId)
+      else next.add(customerId)
+      return next
+    })
   }
+
+  function closeCallPanel(customerId) {
+    setOpenCallRowIds((prev) => {
+      if (!prev.has(customerId)) return prev
+      const next = new Set(prev)
+      next.delete(customerId)
+      return next
+    })
+  }
+
+  function handleCallSaved(customerId, info) {
+    closeCallPanel(customerId)
+    onCallSaved(customerId, info)
+  }
+
+  const colCount = 1 + columns.length + 1 + dates.length
 
   return (
     <div>
@@ -135,12 +148,16 @@ export default function MyCustomersTable({
                 customer={c}
                 columns={columns}
                 dates={dates}
+                colCount={colCount}
                 callsMap={callsMap}
                 crmPerson={crmPerson}
                 persons={persons}
+                callPanelOpen={openCallRowIds.has(c.id)}
+                onToggleCallPanel={() => toggleCallPanel(c.id)}
+                onCallSaved={(info) => handleCallSaved(c.id, info)}
                 onStatusChange={handleStatusChange}
-                onReassignChange={handleReassignChange}
                 afterMutation={afterMutation}
+                onOpenDetail={() => onOpenDetail(c.id)}
               />
             ))}
           </tbody>
@@ -175,20 +192,57 @@ function CategoryCard({ category, freq, count, start, end, children }) {
   )
 }
 
-function CustomerRow({ customer: c, columns, dates, callsMap, crmPerson, persons, onStatusChange, onReassignChange, afterMutation }) {
+function CustomerRow({
+  customer: c,
+  columns,
+  dates,
+  colCount,
+  callsMap,
+  crmPerson,
+  persons,
+  callPanelOpen,
+  onToggleCallPanel,
+  onCallSaved,
+  onStatusChange,
+  afterMutation,
+  onOpenDetail,
+}) {
   return (
-    <tr className="border-b border-border last:border-b-0 hover:bg-surface-2/60">
-      <td className="px-2.5 py-1.5 text-text whitespace-normal break-words min-w-[220px]">{c.billing_name}</td>
-      {columns.map((col) => (
-        <ColumnCell key={col.key} colKey={col.key} customer={c} persons={persons} onStatusChange={onStatusChange} afterMutation={afterMutation} />
-      ))}
-      <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
-        <ReassignSelect customer={c} persons={persons} crmPerson={crmPerson} onReassignChange={onReassignChange} />
-      </td>
-      {dates.map((d) => (
-        <CalendarCallCell key={d} customerId={c.id} date={d} call={callsMap ? callsMap.get(`${c.id}|${d}`) : null} />
-      ))}
-    </tr>
+    <>
+      <tr className="border-b border-border last:border-b-0 hover:bg-surface-2/60 cursor-pointer" onClick={onOpenDetail}>
+        <td className="px-2.5 py-1.5 text-text whitespace-normal break-words min-w-[220px]">{c.billing_name}</td>
+        {columns.map((col) => (
+          <ColumnCell key={col.key} colKey={col.key} customer={c} persons={persons} onStatusChange={onStatusChange} afterMutation={afterMutation} />
+        ))}
+        <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
+          {/* Logging a call requires attributing it to a real crm_persons row
+              (collection_calls.called_by is NOT NULL) — MIS/owner accounts
+              don't have one, so there's nothing valid to log the call under. */}
+          {crmPerson && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleCallPanel()
+              }}
+              className="rounded-lg border border-primary/40 bg-primary-tint text-primary font-bold text-[11.5px] px-3 py-1"
+            >
+              Call
+            </button>
+          )}
+        </td>
+        {dates.map((d) => (
+          <CalendarCallCell key={d} customerId={c.id} date={d} call={callsMap ? callsMap.get(`${c.id}|${d}`) : null} />
+        ))}
+      </tr>
+      {callPanelOpen && (
+        <tr>
+          <td colSpan={colCount} className="px-2 pb-2.5 pt-0">
+            <CallLogPanel customer={c} crmPerson={crmPerson} onSaved={onCallSaved} onCancel={onToggleCallPanel} />
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -244,7 +298,7 @@ function StatusCell({ customer: c, onStatusChange }) {
   const opt = RU_CRM_STATUS_OPTIONS.find((o) => o.value === current)
   const color = opt ? opt.color : '#9aa3b2'
   return (
-    <td className="px-2.5 py-1.5">
+    <td className="px-2.5 py-1.5" onClick={(e) => e.stopPropagation()}>
       <select
         value={current}
         onChange={(e) => onStatusChange(c.id, e.target.value)}
@@ -259,25 +313,5 @@ function StatusCell({ customer: c, onStatusChange }) {
         ))}
       </select>
     </td>
-  )
-}
-
-function ReassignSelect({ customer: c, persons, crmPerson, onReassignChange }) {
-  return (
-    <select
-      defaultValue=""
-      onChange={(e) => onReassignChange(c, e)}
-      className="rounded-md border border-border bg-surface-2 text-text text-[11.5px] px-1.5 py-1"
-    >
-      <option value="">Reassign…</option>
-      <option value="__unassign__">— Move to unassigned pool —</option>
-      {persons
-        .filter((p) => p.id !== crmPerson?.id)
-        .map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-    </select>
   )
 }
