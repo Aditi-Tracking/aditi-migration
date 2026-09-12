@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { FileViewerProvider } from '../../context/FileViewerContext'
 import { CelebrationsProvider } from '../../context/CelebrationsContext'
 import { TaskChecklistNavProvider } from '../../context/TaskChecklistNavContext'
+import { RenewalsNavProvider } from '../../context/RenewalsNavContext'
 import { trackPageSwitch } from '../../lib/activityTracking'
 import { NAV_ITEMS } from './navItems'
 import Sidebar from './Sidebar'
@@ -36,6 +37,7 @@ import SmartFleetPanel from '../panels/smartfleet/SmartFleetPanel'
 import DashboardsHubPanel from '../panels/dashboardshub/DashboardsHubPanel'
 import TaskChecklistPanel from '../panels/taskchecklist/TaskChecklistPanel'
 import FMSPanel from '../panels/fms/FMSPanel'
+import RenewalsPanel from '../panels/renewals/RenewalsPanel'
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -47,6 +49,7 @@ const PANEL_COMPONENTS = {
   dashboardshub: DashboardsHubPanel,
   tasks: TaskChecklistPanel,
   fms: FMSPanel,
+  renewals: RenewalsPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,
@@ -82,6 +85,7 @@ export default function PortalShell() {
 
   return (
     <TaskChecklistNavProvider>
+    <RenewalsNavProvider>
       <FileViewerProvider>
         <CelebrationsProvider>
           <div className="min-h-screen flex bg-surface-2">
@@ -135,6 +139,7 @@ export default function PortalShell() {
           </div>
         </CelebrationsProvider>
       </FileViewerProvider>
+    </RenewalsNavProvider>
     </TaskChecklistNavProvider>
   )
 }

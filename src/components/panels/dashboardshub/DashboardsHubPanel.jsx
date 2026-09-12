@@ -1,5 +1,6 @@
 import { useAuth } from '../../../context/AuthContext'
 import { useTaskChecklistNav } from '../../../context/TaskChecklistNavContext'
+import { useRenewalsNav } from '../../../context/RenewalsNavContext'
 import { NAV_ITEMS, isNavItemVisible } from '../../shell/navItems'
 
 // Ported from old-portal/js/app.js's DASHBOARD_HUB_TILES + _renderDashboardsHub().
@@ -130,17 +131,19 @@ const DASHBOARDS_CHILDREN = NAV_ITEMS.find((i) => i.id === 'dashboardshub')?.chi
 export default function DashboardsHubPanel({ onNavigate }) {
   const { currentUser, permissions } = useAuth()
   const { navVisible: taskChecklistVisible } = useTaskChecklistNav()
+  const { navVisible: renewalsVisible } = useRenewalsNav()
 
   // Never re-implements a visibility rule — looks each tile's rule up from
   // the same NAV_ITEMS children the sidebar/mobile menu already use, so a
   // tile starts appearing automatically the moment that module's real rule
   // replaces 'notYetBuilt', with no change needed here. Must pass the same
-  // ctx shape as Sidebar/MobileMenuSheet (including taskChecklistVisible) —
-  // this was missed on the first pass, which silently hid the Task
-  // Checklist tile regardless of the real nav-reveal state.
+  // ctx shape as Sidebar/MobileMenuSheet (including taskChecklistVisible/
+  // renewalsVisible) — missing one of these was already caught once (Task
+  // Checklist), which silently hid its tile regardless of the real
+  // nav-reveal state.
   const visibleTiles = HUB_TILES.filter((t) => {
     const navChild = DASHBOARDS_CHILDREN.find((c) => c.id === t.id)
-    return navChild && isNavItemVisible(navChild.visibility, { currentUser, permissions, taskChecklistVisible })
+    return navChild && isNavItemVisible(navChild.visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible })
   })
 
   return (

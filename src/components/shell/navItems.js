@@ -23,7 +23,7 @@ export const NAV_ITEMS = [
       { id: 'leads', label: 'SmartFleet', badge: 'Live', visibility: 'leadsPerm' },
       { id: 'entsol', label: 'Enterprise Solutions', badge: 'Live', visibility: 'notYetBuilt' },
       { id: 'enterprise', label: 'Enterprise Lead', badge: 'Live', visibility: 'notYetBuilt' },
-      { id: 'renewals', label: 'Renewals & Collections', visibility: 'notYetBuilt' },
+      { id: 'renewals', label: 'Renewals & Collections', visibility: 'renewalsAsync' },
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
       { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistAsync' },
       { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'notYetBuilt' },
@@ -65,13 +65,18 @@ export const NAV_ITEMS = [
 // - Referral is hidden entirely unless the user has at least one of its 4
 //   permissions/admin-rights (see referralPermissions.js) — ported from
 //   old-portal/js/referral.js's _applyReferralNavVisibility
+// - Renewals & Collections uses the real async rule ported from
+//   _applyRenewalsNavVisibility: MIS/owner, a matching active crm_persons
+//   row, or an Accounts-tier grant (renewals_accounts_access) — resolved
+//   once per login by RenewalsNavContext, no live-sync poll (production has
+//   none for this one either)
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
 // 'notYetBuilt' items own their real check in a module we haven't built yet
-// (js/tasks.js, js/renewals.js, js/ims.js, ...) — they stay hidden here
+// (js/tasks.js, js/ims.js, ...) — they stay hidden here
 // until that module ships, at which point its real rule replaces this one.
-export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible }) {
+export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible }) {
   switch (visibility) {
     case 'notYetBuilt':
       return false
@@ -88,6 +93,10 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
     // can never drift out of sync with each other.
     case 'taskChecklistAsync':
       return !!taskChecklistVisible
+    // Resolved by RenewalsNavContext — MIS/owner, an active crm_persons
+    // match, or an Accounts-tier grant (see _applyRenewalsNavVisibility).
+    case 'renewalsAsync':
+      return !!renewalsVisible
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
