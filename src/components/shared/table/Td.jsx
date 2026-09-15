@@ -4,7 +4,7 @@
 export default function Td({ children, align = 'left', numeric = false, className = '', ...rest }) {
   const alignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
   return (
-    <td className={`px-3.5 py-2.5 ${alignClass} ${numeric ? 'tabular-nums' : ''} ${className}`} {...rest}>
+    <td className={`px-3.5 py-2 ${alignClass} ${numeric ? 'tabular-nums' : ''} ${className}`} {...rest}>
       {children}
     </td>
   )

@@ -8,7 +8,7 @@ export default function Th({ children, align = 'left', sortable = false, sortKey
   return (
     <th
       onClick={sortable ? () => onSort(sortKey) : undefined}
-      className={`px-3.5 py-2.5 font-semibold text-text-muted uppercase text-[10px] tracking-wide whitespace-nowrap ${alignClass} ${
+      className={`px-3.5 py-2 font-semibold text-text-muted uppercase text-[10px] tracking-wide whitespace-nowrap ${alignClass} ${
         sortable ? 'cursor-pointer select-none' : ''
       } ${className}`}
     >

@@ -90,11 +90,13 @@ const PANEL_LABELS = NAV_ITEMS.reduce((acc, item) => {
   return acc
 }, {})
 
-// Per-panel content-width override — Home is piloting a wider container
-// (max-w-7xl) to reclaim the dead side margin every panel gets from the
-// shared max-w-5xl default on wide viewports. Every other panel is
-// untouched unless added here.
-const PANEL_MAX_WIDTH = { home: 'max-w-7xl' }
+// max-w-7xl reclaims the dead side margin every panel used to get from a
+// narrower max-w-5xl default on wide viewports (validated on Home first,
+// then rolled out everywhere). PANEL_MAX_WIDTH stays as a lookup — empty
+// for now — so a specific panel can still get a narrower/wider exception
+// later without restructuring this.
+const DEFAULT_MAX_WIDTH = 'max-w-7xl'
+const PANEL_MAX_WIDTH = {}
 
 export default function PortalShell() {
   const { theme, toggleTheme } = useTheme()
@@ -130,7 +132,7 @@ export default function PortalShell() {
             <MobileHeader theme={theme} onToggleTheme={toggleTheme} />
 
             <main className="flex-1 min-w-0 pt-[52px] md:pt-0 pb-16 md:pb-0">
-              <div className={`${PANEL_MAX_WIDTH[activePanel] || 'max-w-5xl'} mx-auto`}>
+              <div className={`${PANEL_MAX_WIDTH[activePanel] || DEFAULT_MAX_WIDTH} mx-auto`}>
                 {ActivePanelComponent ? (
                   <ActivePanelComponent onNavigate={navigate} />
                 ) : (

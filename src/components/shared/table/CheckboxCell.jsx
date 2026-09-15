@@ -13,7 +13,7 @@ export function CheckboxTh({ checked, indeterminate, onChange }) {
     if (ref.current) ref.current.indeterminate = !!indeterminate
   }, [indeterminate])
   return (
-    <th className="px-2 py-2.5 w-8 text-center">
+    <th className="px-2 py-2 w-8 text-center">
       <input ref={ref} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </th>
   )
@@ -21,7 +21,7 @@ export function CheckboxTh({ checked, indeterminate, onChange }) {
 
 export function CheckboxTd({ checked, onChange }) {
   return (
-    <td className="px-2 py-2.5 w-8 text-center" onClick={(e) => e.stopPropagation()}>
+    <td className="px-2 py-2 w-8 text-center" onClick={(e) => e.stopPropagation()}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </td>
   )
