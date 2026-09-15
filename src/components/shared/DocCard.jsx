@@ -31,7 +31,7 @@ export default function DocCard({ icon, name, desc, meta, onClick, onDelete }) {
       <button
         type="button"
         onClick={onClick}
-        className="text-left w-full rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:shadow-sm transition-all flex flex-col gap-3"
+        className="text-left w-full h-full rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:shadow-sm transition-all flex flex-col gap-3"
       >
         <div className="w-10 h-10 rounded-lg bg-primary-tint border border-primary/20 flex items-center justify-center text-primary">
           {icon}
