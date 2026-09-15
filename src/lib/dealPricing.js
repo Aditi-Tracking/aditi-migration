@@ -1,4 +1,4 @@
-import { SB_HDRS, SB_HDRS_JSON, SUPABASE_URL } from './supabaseClient'
+import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL } from './supabaseClient'
 
 // Ported from old-portal/js/dealPricing.js. Tables: pricing_products,
 // pricing_state_costs, pricing_quotes, pricing_quote_lines,
@@ -129,4 +129,98 @@ export async function submitQuote({ state, customerName, lines }) {
     throw new Error(errBody.message || 'HTTP ' + res.status)
   }
   return res.json()
+}
+
+// ── Cost Master — MD-office only (is_pricing_admin() RPC, independent of
+// can_view_pricing). Reads/writes pricing_products and pricing_state_costs
+// directly (no RPC) — RLS on both tables already restricts this to
+// is_pricing_admin() users. ───────────────────────────────────────────────
+export const DP_PRODUCT_CATEGORIES = ['Hardware', 'Sensors', 'Subscription', 'Services']
+
+export function productFloor(product) {
+  return round2(product.cost_price * (1 + product.default_margin_pct / 100))
+}
+
+// Uses the PRODUCT's own default margin, not a per-override one — matches
+// production exactly.
+export function overrideFloor(costPrice, product) {
+  return round2(costPrice * (1 + product.default_margin_pct / 100))
+}
+
+export async function fetchCostMasterData() {
+  const [prodRes, overridesRes] = await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/pricing_products?select=*&order=category.asc,name.asc`, { headers: SB_HDRS() }),
+    fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs?select=*`, { headers: SB_HDRS() }),
+  ])
+  if (!prodRes.ok) throw new Error('HTTP ' + prodRes.status)
+  const products = await prodRes.json()
+  const overrides = overridesRes.ok ? await overridesRes.json() : []
+  const overridesByProduct = {}
+  overrides.forEach((o) => {
+    ;(overridesByProduct[o.product_id] = overridesByProduct[o.product_id] || []).push(o)
+  })
+  return { products, overridesByProduct }
+}
+
+// Soft-delete only, never a hard DELETE — old quotes' floor_price snapshots
+// stay meaningful for audit even after a product is retired.
+export async function toggleProductActive(productId, newActive) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_products?id=eq.${productId}`, {
+    method: 'PATCH',
+    headers: SB_HDRS_MIN(),
+    body: JSON.stringify({ is_active: newActive, updated_at: new Date().toISOString() }),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+}
+
+// Returns the created row on insert (needed to switch the modal into edit
+// mode immediately), nothing meaningful on update.
+export async function saveProduct(productId, payload) {
+  if (productId) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_products?id=eq.${productId}`, {
+      method: 'PATCH',
+      headers: SB_HDRS_MIN(),
+      body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() }),
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return null
+  }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_products`, {
+    method: 'POST',
+    headers: SB_HDRS_REPR(),
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  const [created] = await res.json()
+  return created
+}
+
+// ── State overrides — each row commits to pricing_state_costs immediately,
+// independent of the base product's own Save button. ─────────────────────
+export async function addOverride(productId, state, costPrice) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs`, {
+    method: 'POST',
+    headers: SB_HDRS_REPR(),
+    body: JSON.stringify({ product_id: productId, state, cost_price: costPrice }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  const [created] = await res.json()
+  return created
+}
+
+export async function updateOverride(overrideId, costPrice) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs?id=eq.${overrideId}`, {
+    method: 'PATCH',
+    headers: SB_HDRS_MIN(),
+    body: JSON.stringify({ cost_price: costPrice }),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+}
+
+export async function deleteOverride(overrideId) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs?id=eq.${overrideId}`, {
+    method: 'DELETE',
+    headers: SB_HDRS(),
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
 }
