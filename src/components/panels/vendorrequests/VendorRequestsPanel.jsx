@@ -102,6 +102,20 @@ export default function VendorRequestsPanel({ onNavigate }) {
   const vendorOptions = buildVendorFilterOptions(requests)
   const requesterOptions = buildRequesterFilterOptions(requests, nameMap)
 
+  // Single combined row of 8 compact KPI cards (4 counts + 4 amounts) —
+  // matches production's one-row layout, replacing the previous two
+  // separate 4-column grids that wrapped to 2 rows.
+  const kpiTiles = [
+    { label: 'Total', value: countKpis.total, color: '#4e9af1', icon: '📋' },
+    { label: 'On Hold', value: countKpis.onHold, color: '#f59e0b', icon: '🔒' },
+    { label: 'Approved', value: countKpis.approved, color: '#22c55e', icon: '✅' },
+    { label: 'Paid', value: countKpis.paid, color: '#a855f7', icon: '💳' },
+    { label: 'Total Requested (₹)', value: formatINR(amountKpis.total), color: '#4e9af1', icon: '💰' },
+    { label: 'Approved Amount (₹)', value: formatINR(amountKpis.approved), color: '#22c55e', icon: '✅' },
+    { label: 'Paid Amount (₹)', value: formatINR(amountKpis.paid), color: '#a855f7', icon: '💳' },
+    { label: 'Unpaid Amount (₹)', value: formatINR(amountKpis.unpaid), color: '#ef4444', icon: '⏳' },
+  ]
+
   function toggleSelect(id, checked) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -171,6 +185,19 @@ export default function VendorRequestsPanel({ onNavigate }) {
               🔁 Recurring
             </button>
           )}
+          {FILTER_CHIPS.map(([mode, label]) => {
+            const active = mode === 'all' ? filterModes.size === 0 : filterModes.has(mode)
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => toggleChip(mode)}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border ${active ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'}`}
+              >
+                {label}
+              </button>
+            )
+          })}
           {selectedIds.size > 0 && (
             <button type="button" onClick={handleBulkPay} disabled={bulkPaying} className="text-[12px] font-bold text-primary border border-primary/30 bg-primary-tint rounded-md px-3 py-1.5 disabled:opacity-60">
               💳 Pay Selected ({selectedIds.size})
@@ -192,35 +219,14 @@ export default function VendorRequestsPanel({ onNavigate }) {
 
       {!loading && !error && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-            {[
-              { label: 'Total', value: countKpis.total, color: '#4e9af1', icon: '📋' },
-              { label: 'On Hold', value: countKpis.onHold, color: '#f59e0b', icon: '🔒' },
-              { label: 'Approved', value: countKpis.approved, color: '#22c55e', icon: '✅' },
-              { label: 'Paid', value: countKpis.paid, color: '#a855f7', icon: '💳' },
-            ].map((k) => (
-              <div key={k.label} className="rounded-xl border border-border bg-surface p-3 border-l-4" style={{ borderLeftColor: k.color }}>
-                <div className="text-[16px] mb-0.5">{k.icon}</div>
-                <div className="text-[18px] font-extrabold" style={{ color: k.color }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
+            {kpiTiles.map((k) => (
+              <div key={k.label} className="rounded-xl border border-border bg-surface p-2.5 border-l-4" style={{ borderLeftColor: k.color }}>
+                <div className="text-[13px] mb-0.5">{k.icon}</div>
+                <div className="text-[14px] font-extrabold" style={{ color: k.color }}>
                   {k.value}
                 </div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wide">{k.label}</div>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-            {[
-              { label: 'Total Requested (₹)', value: amountKpis.total, color: '#4e9af1', icon: '💰' },
-              { label: 'Approved Amount (₹)', value: amountKpis.approved, color: '#22c55e', icon: '✅' },
-              { label: 'Paid Amount (₹)', value: amountKpis.paid, color: '#a855f7', icon: '💳' },
-              { label: 'Unpaid Amount (₹)', value: amountKpis.unpaid, color: '#ef4444', icon: '⏳' },
-            ].map((k) => (
-              <div key={k.label} className="rounded-xl border border-border bg-surface p-3 border-l-4" style={{ borderLeftColor: k.color }}>
-                <div className="text-[16px] mb-0.5">{k.icon}</div>
-                <div className="text-[16px] font-extrabold" style={{ color: k.color }}>
-                  {formatINR(k.value)}
-                </div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wide">{k.label}</div>
+                <div className="text-[9px] font-bold text-text-muted uppercase tracking-wide">{k.label}</div>
               </div>
             ))}
           </div>
@@ -249,22 +255,6 @@ export default function VendorRequestsPanel({ onNavigate }) {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="flex gap-1.5 flex-wrap mb-4">
-            {FILTER_CHIPS.map(([mode, label]) => {
-              const active = mode === 'all' ? filterModes.size === 0 : filterModes.has(mode)
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => toggleChip(mode)}
-                  className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border ${active ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'}`}
-                >
-                  {label}
-                </button>
-              )
-            })}
           </div>
 
           <VendorRequestsTable
