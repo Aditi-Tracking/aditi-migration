@@ -3,7 +3,9 @@ import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
 import { useAuth } from '../../../context/AuthContext'
 import { logActivity } from '../../../lib/activityTracking'
+import { canUploadFiles, deleteContentNodeCard, invalidateContentNodes } from '../../../lib/cnUploadDelete'
 import DocCard from '../../shared/DocCard'
+import UploadModal from '../../shared/UploadModal'
 import { DOC_ICON } from '../../shared/docIcons'
 import TrainingModuleOverlay from './TrainingModuleOverlay'
 import QuizPreviewModal from './QuizPreviewModal'
@@ -25,6 +27,7 @@ import GradeOverlay from './GradeOverlay'
 export default function TrainingPanel() {
   const { currentUser, permissions } = useAuth()
   const canManageQuizzes = permissions.can_upload_quiz === 'true'
+  const canDelete = canUploadFiles(permissions)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -35,30 +38,48 @@ export default function TrainingPanel() {
   const [myResultsOpen, setMyResultsOpen] = useState(false)
   const [quizAdminOpen, setQuizAdminOpen] = useState(false)
   const [gradeOpen, setGradeOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+
+  function loadCats() {
+    return CN.load().then(() => {
+      const section = CN.getSection('Training')
+      if (!section) {
+        setError('Training section not found in content_nodes')
+        setLoading(false)
+        return
+      }
+      setCats(CN.getCategories(section.id))
+      setLoading(false)
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
-    CN.load()
-      .then(() => {
-        if (cancelled) return
-        const section = CN.getSection('Training')
-        if (!section) {
-          setError('Training section not found in content_nodes')
-          setLoading(false)
-          return
-        }
-        setCats(CN.getCategories(section.id))
-        setLoading(false)
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setError(e.message)
-        setLoading(false)
-      })
+    loadCats().catch((e) => {
+      if (cancelled) return
+      setError(e.message)
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
   }, [])
+
+  // Re-fetches Training's Videos-tab cards after an upload/delete anywhere in this panel.
+  function handleContentChanged() {
+    loadCats()
+  }
+
+  async function handleDeleteCard(cat) {
+    if (!confirm(`⚠️ "${cat.name}" and all its files will be permanently deleted.\nAre you sure?`)) return
+    try {
+      await deleteContentNodeCard(cat.id)
+      await invalidateContentNodes()
+      handleContentChanged()
+    } catch (e) {
+      alert('❌ ' + e.message)
+    }
+  }
 
   function handleSelectQuiz(quizId) {
     setModuleNode(null)
@@ -98,6 +119,15 @@ export default function TrainingPanel() {
           >
             📊 My Results
           </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+            >
+              📤 Upload
+            </button>
+          )}
         </div>
       </div>
 
@@ -125,6 +155,7 @@ export default function TrainingPanel() {
                   })
                   setModuleNode({ id: cat.id, name: cat.name })
                 }}
+                onDelete={canDelete ? () => handleDeleteCard(cat) : undefined}
               />
             )
           })}
@@ -134,9 +165,13 @@ export default function TrainingPanel() {
       <TrainingModuleOverlay
         open={!!moduleNode}
         node={moduleNode}
+        canDelete={canDelete}
+        onContentChanged={handleContentChanged}
         onClose={() => setModuleNode(null)}
         onSelectQuiz={handleSelectQuiz}
       />
+
+      <UploadModal open={uploadOpen} sectionName="Training" onClose={() => setUploadOpen(false)} onUploaded={handleContentChanged} />
 
       <QuizPreviewModal
         open={quizFlow?.screen === 'preview'}

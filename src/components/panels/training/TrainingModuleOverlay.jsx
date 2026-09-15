@@ -7,7 +7,7 @@ import { fetchQuizzesForNode } from '../../../lib/quizzes'
 // _showAssessmentTab — Training is the only module that actually shows
 // this tab bar (Marketing/Products/IT Admin hide it). Videos tab reuses
 // CNCategoryBrowser unchanged; Assessment tab is Training-specific.
-export default function TrainingModuleOverlay({ open, node, onClose, onSelectQuiz }) {
+export default function TrainingModuleOverlay({ open, node, canDelete, onContentChanged, onClose, onSelectQuiz }) {
   const [tab, setTab] = useState('videos')
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function TrainingModuleOverlay({ open, node, onClose, onSelectQui
       </div>
 
       {tab === 'videos' ? (
-        <CNCategoryBrowser rootNodeId={node.id} rootName={node.name} />
+        <CNCategoryBrowser rootNodeId={node.id} rootName={node.name} canDelete={canDelete} onContentChanged={onContentChanged} />
       ) : (
         <QuizList nodeId={node.id} onSelectQuiz={onSelectQuiz} />
       )}

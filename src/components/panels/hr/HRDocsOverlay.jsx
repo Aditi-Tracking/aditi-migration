@@ -23,7 +23,7 @@ function resolveHRDocNode(hrSectionId, moduleName) {
   return node
 }
 
-export default function HRDocsOverlay({ open, module, hrSectionId, onClose }) {
+export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, onContentChanged, onClose }) {
   const [node, setNode] = useState(null)
   const [resolved, setResolved] = useState(false)
 
@@ -71,7 +71,7 @@ export default function HRDocsOverlay({ open, module, hrSectionId, onClose }) {
       {!resolved ? (
         <div className="text-center py-10 text-text-muted text-[12.5px]">Loading…</div>
       ) : node ? (
-        <CNCategoryBrowser rootNodeId={node.id} rootName={module} />
+        <CNCategoryBrowser rootNodeId={node.id} rootName={module} canDelete={canDelete} onContentChanged={onContentChanged} />
       ) : (
         <div className="text-center py-10 text-text-muted text-[12.5px]">No documents found.</div>
       )}

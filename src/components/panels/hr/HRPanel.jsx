@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
 import { clearCardName, setCardName } from '../../../lib/activityTracking'
+import { useAuth } from '../../../context/AuthContext'
+import { canUploadFiles, deleteContentNodeCard, invalidateContentNodes } from '../../../lib/cnUploadDelete'
 import DocCard from '../../shared/DocCard'
+import UploadModal from '../../shared/UploadModal'
 import { DOC_ICON } from '../../shared/docIcons'
 import HRDocsOverlay from './HRDocsOverlay'
 import OrgChartOverlay from './OrgChartOverlay'
@@ -45,6 +48,9 @@ const HOLIDAY_ICON = (
 )
 
 export default function HRPanel() {
+  const { permissions } = useAuth()
+  const canDelete = canUploadFiles(permissions)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [hrSectionId, setHrSectionId] = useState(null)
@@ -55,33 +61,51 @@ export default function HRPanel() {
   const [orgChartOpen, setOrgChartOpen] = useState(false)
   const [directoryOpen, setDirectoryOpen] = useState(false)
   const [holidayOpen, setHolidayOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+
+  function loadSection() {
+    return CN.load().then(() => {
+      const hrSection = CN.getSection('HR')
+      if (!hrSection) {
+        setLoading(false)
+        return
+      }
+      const cats = CN.getCategories(hrSection.id)
+      const docCats = cats.filter((c) => !SPECIAL.includes((c.name || '').toLowerCase().trim()))
+      setHrSectionId(hrSection.id)
+      setKnownCats(docCats.filter((c) => KNOWN_FIRST.includes((c.name || '').toLowerCase().trim())))
+      setNewCats(docCats.filter((c) => !KNOWN_FIRST.includes((c.name || '').toLowerCase().trim())))
+      setLoading(false)
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
-    CN.load()
-      .then(() => {
-        if (cancelled) return
-        const hrSection = CN.getSection('HR')
-        if (!hrSection) {
-          setLoading(false)
-          return
-        }
-        const cats = CN.getCategories(hrSection.id)
-        const docCats = cats.filter((c) => !SPECIAL.includes((c.name || '').toLowerCase().trim()))
-        setHrSectionId(hrSection.id)
-        setKnownCats(docCats.filter((c) => KNOWN_FIRST.includes((c.name || '').toLowerCase().trim())))
-        setNewCats(docCats.filter((c) => !KNOWN_FIRST.includes((c.name || '').toLowerCase().trim())))
-        setLoading(false)
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setLoading(false)
-        setError(e.message)
-      })
+    loadSection().catch((e) => {
+      if (cancelled) return
+      setLoading(false)
+      setError(e.message)
+    })
     return () => {
       cancelled = true
     }
   }, [])
+
+  // Re-fetches HR's cards after an upload/delete anywhere in this panel.
+  function handleContentChanged() {
+    loadSection()
+  }
+
+  async function handleDeleteCard(cat) {
+    if (!confirm(`⚠️ "${cat.name}" and all its files will be permanently deleted.\nAre you sure?`)) return
+    try {
+      await deleteContentNodeCard(cat.id)
+      await invalidateContentNodes()
+      handleContentChanged()
+    } catch (e) {
+      alert('❌ ' + e.message)
+    }
+  }
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -90,8 +114,15 @@ export default function HRPanel() {
           <div className="text-[16px] font-semibold text-text">HR</div>
           <div className="text-[11.5px] text-text-muted mt-0.5">Home › HR</div>
         </div>
-        {/* Upload button omitted for now — part of the deferred MIS
-            upload/delete subsystem (see MIGRATION-NOTES.md). */}
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5 shrink-0"
+          >
+            📤 Upload
+          </button>
+        )}
       </div>
 
       <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide mt-5 mb-3">HR Documents</div>
@@ -112,6 +143,7 @@ export default function HRPanel() {
                 setCardName(cat.name)
                 setDocsModule(cat.name)
               }}
+              onDelete={canDelete ? () => handleDeleteCard(cat) : undefined}
             />
           ))}
 
@@ -159,6 +191,7 @@ export default function HRPanel() {
                 setCardName(cat.name)
                 setDocsModule(cat.name)
               }}
+              onDelete={canDelete ? () => handleDeleteCard(cat) : undefined}
             />
           ))}
         </div>
@@ -168,11 +201,14 @@ export default function HRPanel() {
         open={!!docsModule}
         module={docsModule}
         hrSectionId={hrSectionId}
+        canDelete={canDelete}
+        onContentChanged={handleContentChanged}
         onClose={() => {
           clearCardName()
           setDocsModule(null)
         }}
       />
+      <UploadModal open={uploadOpen} sectionName="HR" onClose={() => setUploadOpen(false)} onUploaded={handleContentChanged} />
       <OrgChartOverlay open={orgChartOpen} hrSectionId={hrSectionId} onClose={() => setOrgChartOpen(false)} />
       <DirectoryOverlay open={directoryOpen} hrSectionId={hrSectionId} onClose={() => setDirectoryOpen(false)} />
       <HolidayOverlay
