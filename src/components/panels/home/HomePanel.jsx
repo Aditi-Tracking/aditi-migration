@@ -178,7 +178,7 @@ export default function HomePanel({ onNavigate }) {
           <span className="text-[18px]">🎙️</span>
           <span className="text-[13.5px] font-semibold text-text">Message from the MD</span>
         </div>
-        <div className="text-[12.5px] text-text-muted leading-relaxed space-y-3">
+        <div className="text-sm text-text-muted leading-relaxed space-y-3">
           <p>Welcome to the Aditi Tracking Knowledge Base Portal</p>
           <p>
             Dear Aditi Tracking Team, Think of global brands like McDonald's 🍔 — known for delivering consistent
