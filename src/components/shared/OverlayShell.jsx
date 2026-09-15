@@ -15,7 +15,7 @@ export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', ch
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface-2 border border-border text-text-muted flex items-center justify-center z-10"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface-2 border border-border text-text-muted flex items-center justify-center z-20"
         >
           ✕
         </button>
