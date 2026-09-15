@@ -11,6 +11,12 @@ import {
   taskRequiresAttachment,
   undoTask,
 } from '../../../lib/taskChecklist'
+import Table from '../../shared/table/Table'
+import TableHead from '../../shared/table/TableHead'
+import Th from '../../shared/table/Th'
+import Td from '../../shared/table/Td'
+import Tr from '../../shared/table/Tr'
+import { CheckboxTh, CheckboxTd } from '../../shared/table/CheckboxCell'
 
 function tomorrowISO() {
   const d = new Date()
@@ -21,6 +27,13 @@ function tomorrowISO() {
 // Ported from old-portal/js/tasks.js's tRenderTable + deptShowRemarksInput/
 // deptSubmitDone/tUndoTask/tShowOngoing/tSubmitOngoing. No single-row
 // delete exists in production — delete is bulk-checkbox-only.
+// Migrated onto the shared table system (src/components/shared/table/) —
+// markup/styling only, the bulk-delete flow itself (including the
+// tFetchTasks() reload fix) lives in TaskChecklistPanel.jsx and is
+// untouched here. Also restores the select-all checkbox's indeterminate
+// state (old-portal/js/tasks.js:1020's `all.indeterminate = ...`), which
+// the original React port never carried over — a straight production-
+// parity fix, not a new behavior.
 export default function TaskTable({
   rows,
   total,
@@ -43,6 +56,7 @@ export default function TaskTable({
 
   const canUndoUser = canUndoCheck(currentUser)
   const allChecked = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
+  const someSelectedOnPage = rows.some((r) => selectedIds.has(r.id))
 
   function toggleSelected(id) {
     const next = new Set(selectedIds)
@@ -125,267 +139,252 @@ export default function TaskTable({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border flex-wrap">
-        <span className="text-[13px] font-semibold text-text">All Tasks</span>
-        <div className="flex items-center gap-3 ml-auto">
-          <span className="text-[11.5px] text-text-muted">{total} task{total !== 1 ? 's' : ''}</span>
-          {canDelete && selectedIds.size > 0 && (
-            <button
-              type="button"
-              onClick={onDeleteSelected}
-              className="text-[11.5px] font-semibold text-danger bg-danger-tint border border-danger/25 rounded-md px-3 py-1.5"
-            >
-              🗑️ Delete Selected ({selectedIds.size})
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            <tr className="bg-surface-2 border-b border-border text-left">
-              {canDelete && (
-                <th className="px-2 py-2.5 w-8 text-center">
-                  <input type="checkbox" checked={allChecked} onChange={(e) => toggleSelectAll(e.target.checked)} />
-                </th>
-              )}
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Name</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Task</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Planned</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Actual</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Remarks</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Action</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px]">Ongoing</th>
-              <th className="px-3 py-2.5 font-semibold text-text-muted uppercase text-[10px] text-center">Upload</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!rows.length && (
-              <tr>
-                <td colSpan={9} className="text-center py-10 text-text-muted">
-                  No tasks found
-                </td>
-              </tr>
-            )}
-            {rows.map((row) => {
-              const done = isDone(row)
-              const ongoing = !done && isOngoing(row)
-              const needsAttach = taskRequiresAttachment(row.task)
-              const attachMissing = needsAttach && !hasAttachment(row)
-              const saving = savingId === row.id
-
-              return (
-                <tr key={row.id} className="border-b border-border last:border-b-0">
-                  {canDelete && (
-                    <td className="px-2 py-2 text-center">
-                      <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleSelected(row.id)} />
-                    </td>
-                  )}
-                  <td className="px-3 py-2 font-semibold text-text whitespace-nowrap">{row.name || '—'}</td>
-                  <td className="px-3 py-2 text-text max-w-[200px] truncate" title={row.task}>
-                    {row.task || '—'}
-                    {needsAttach && <span className="text-danger font-bold ml-1" title="Attachment Mandatory">*</span>}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {ongoing && row.expectedDate ? (
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-primary">{fmtDate(row.expectedDate)}</span>
-                        <span className="text-[10.5px] text-text-muted">from {fmtDate(row.planned)}</span>
-                      </div>
-                    ) : (
-                      <span className="text-text-muted">{fmtDate(row.planned)}</span>
-                    )}
-                  </td>
-                  <td className={`px-3 py-2 whitespace-nowrap ${row.actual ? 'text-primary' : 'text-text-muted'}`}>
-                    {fmtDateTime(row.actual)}
-                  </td>
-                  <td className="px-3 py-2 max-w-[160px]">
-                    {row.remarks ? (
-                      <span className="bg-surface-2 rounded px-1.5 py-0.5 text-text block truncate" title={row.remarks}>
-                        {row.remarks}
-                      </span>
-                    ) : (
-                      <span className="text-text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 min-w-[130px]">
-                    {done ? (
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="text-primary font-semibold flex items-center gap-1">✅ Done</span>
-                        {canUndoUser && (
-                          <button
-                            type="button"
-                            onClick={() => handleUndo(row)}
-                            disabled={saving}
-                            className="w-full text-[11px] font-semibold text-danger bg-danger-tint border border-danger/25 rounded-md px-2 py-1 disabled:opacity-60"
-                          >
-                            ↩️ Undo
-                          </button>
-                        )}
-                      </div>
-                    ) : markDoneRowId === row.id ? (
-                      <div className="flex flex-col gap-1">
-                        <input
-                          type="text"
-                          value={remarksDraft}
-                          onChange={(e) => setRemarksDraft(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && submitMarkDone(row)}
-                          placeholder="Remarks (optional)..."
-                          autoFocus
-                          className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[11.5px] text-text outline-none"
-                        />
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => submitMarkDone(row)}
-                            disabled={saving}
-                            className="flex-1 text-[11px] font-semibold bg-primary text-white rounded-md py-1 disabled:opacity-60"
-                          >
-                            ✅ Submit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMarkDoneRowId(null)}
-                            className="text-[11px] text-text-muted border border-border rounded-md px-2"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ) : attachMissing ? (
-                      <button
-                        type="button"
-                        onClick={blockedMarkDone}
-                        title="First upload 📎 the document"
-                        className="w-full text-[11px] font-semibold text-danger bg-danger-tint border border-dashed border-danger/40 rounded-md px-2 py-1.5"
-                      >
-                        📎 Upload Required
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openMarkDone(row)}
-                        className="w-full text-[11px] font-semibold text-white bg-primary rounded-md px-2 py-1.5"
-                      >
-                        ✅ Mark Done
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 min-w-[120px]">
-                    {done ? (
-                      <span className="text-primary font-semibold text-[11.5px]">✅ Done</span>
-                    ) : ongoing ? (
-                      <div className="flex flex-col">
-                        <span className="text-primary font-semibold text-[11.5px]">🔄 Ongoing</span>
-                        {row.expectedDate && <span className="text-[10.5px] text-text-muted">📅 {fmtDate(row.expectedDate)}</span>}
-                      </div>
-                    ) : ongoingRowId === row.id ? (
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[9.5px] text-text-muted uppercase tracking-wide">Expected Completion</label>
-                        <input
-                          type="date"
-                          value={ongoingDraft}
-                          min={new Date().toISOString().slice(0, 10)}
-                          onChange={(e) => setOngoingDraft(e.target.value)}
-                          className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[11.5px] text-text outline-none"
-                        />
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => submitOngoing(row)}
-                            disabled={savingId === row.id}
-                            className="flex-1 text-[11px] font-semibold bg-primary text-white rounded-md py-1 disabled:opacity-60"
-                          >
-                            ✓ Set
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setOngoingRowId(null)}
-                            className="text-[11px] text-text-muted border border-border rounded-md px-2"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openOngoing(row)}
-                        className="w-full text-[11px] font-semibold text-primary bg-primary-tint border border-primary/25 rounded-md px-2 py-1.5"
-                      >
-                        🔄 Ongoing
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    {row.uploadUrl ? (
-                      <a
-                        href={row.uploadUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="See your uploaded file"
-                        className="inline-flex w-8 h-8 items-center justify-center rounded-md bg-primary-tint border border-primary/25 text-primary"
-                      >
-                        📄
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onOpenUpload(row.id, row.task)}
-                        title={attachMissing ? 'Mandatory — File/PDF' : 'Upload file'}
-                        className={`relative inline-flex w-8 h-8 items-center justify-center rounded-md border ${
-                          attachMissing ? 'bg-danger-tint border-danger/40 text-danger' : 'bg-primary-tint border-primary/25 text-primary'
-                        }`}
-                      >
-                        📎
-                        {needsAttach && <span className="absolute -top-1 -right-1 text-danger font-bold text-[11px]">*</span>}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-          <span className="text-[11px] text-text-muted mr-2">
-            Page {page} of {totalPages}
-          </span>
+    <Table
+      title="All Tasks"
+      count={total}
+      countLabel="task"
+      actions={
+        canDelete &&
+        selectedIds.size > 0 && (
           <button
             type="button"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-            className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+            onClick={onDeleteSelected}
+            className="text-[11.5px] font-semibold text-danger bg-danger-tint border border-danger/25 rounded-md px-3 py-1.5"
           >
-            ‹
+            🗑️ Delete Selected ({selectedIds.size})
           </button>
-          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
+        )
+      }
+      footer={
+        totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
+            <span className="text-[11px] text-text-muted mr-2">
+              Page {page} of {totalPages}
+            </span>
             <button
-              key={p}
               type="button"
-              onClick={() => onPageChange(p)}
-              className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
-                p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
-              }`}
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
             >
-              {p}
+              ‹
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-            className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-          >
-            ›
-          </button>
-        </div>
-      )}
-    </div>
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onPageChange(p)}
+                className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
+                  p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page === totalPages}
+              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+            >
+              ›
+            </button>
+          </div>
+        )
+      }
+    >
+      <TableHead>
+        {canDelete && <CheckboxTh checked={allChecked} indeterminate={someSelectedOnPage && !allChecked} onChange={toggleSelectAll} />}
+        <Th>Name</Th>
+        <Th>Task</Th>
+        <Th>Planned</Th>
+        <Th>Actual</Th>
+        <Th>Remarks</Th>
+        <Th>Action</Th>
+        <Th>Ongoing</Th>
+        <Th align="center">Upload</Th>
+      </TableHead>
+      <tbody>
+        {!rows.length && (
+          <tr>
+            <Td colSpan={9} align="center" className="py-10 text-text-muted">
+              No tasks found
+            </Td>
+          </tr>
+        )}
+        {rows.map((row) => {
+          const done = isDone(row)
+          const ongoing = !done && isOngoing(row)
+          const needsAttach = taskRequiresAttachment(row.task)
+          const attachMissing = needsAttach && !hasAttachment(row)
+          const saving = savingId === row.id
+
+          return (
+            <Tr key={row.id}>
+              {canDelete && <CheckboxTd checked={selectedIds.has(row.id)} onChange={() => toggleSelected(row.id)} />}
+              <Td className="font-semibold text-text whitespace-nowrap">{row.name || '—'}</Td>
+              <Td className="text-text max-w-[200px] truncate" title={row.task}>
+                {row.task || '—'}
+                {needsAttach && <span className="text-danger font-bold ml-1" title="Attachment Mandatory">*</span>}
+              </Td>
+              <Td className="whitespace-nowrap">
+                {ongoing && row.expectedDate ? (
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-primary">{fmtDate(row.expectedDate)}</span>
+                    <span className="text-[10.5px] text-text-muted">from {fmtDate(row.planned)}</span>
+                  </div>
+                ) : (
+                  <span className="text-text-muted">{fmtDate(row.planned)}</span>
+                )}
+              </Td>
+              <Td className={`whitespace-nowrap ${row.actual ? 'text-primary' : 'text-text-muted'}`}>{fmtDateTime(row.actual)}</Td>
+              <Td className="max-w-[160px]">
+                {row.remarks ? (
+                  <span className="bg-surface-2 rounded px-1.5 py-0.5 text-text block truncate" title={row.remarks}>
+                    {row.remarks}
+                  </span>
+                ) : (
+                  <span className="text-text-muted">—</span>
+                )}
+              </Td>
+              <Td className="min-w-[130px]">
+                {done ? (
+                  <div className="flex flex-col items-start gap-1">
+                    <span className="text-primary font-semibold flex items-center gap-1">✅ Done</span>
+                    {canUndoUser && (
+                      <button
+                        type="button"
+                        onClick={() => handleUndo(row)}
+                        disabled={saving}
+                        className="w-full text-[11px] font-semibold text-danger bg-danger-tint border border-danger/25 rounded-md px-2 py-1 disabled:opacity-60"
+                      >
+                        ↩️ Undo
+                      </button>
+                    )}
+                  </div>
+                ) : markDoneRowId === row.id ? (
+                  <div className="flex flex-col gap-1">
+                    <input
+                      type="text"
+                      value={remarksDraft}
+                      onChange={(e) => setRemarksDraft(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && submitMarkDone(row)}
+                      placeholder="Remarks (optional)..."
+                      autoFocus
+                      className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[11.5px] text-text outline-none"
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => submitMarkDone(row)}
+                        disabled={saving}
+                        className="flex-1 text-[11px] font-semibold bg-primary text-white rounded-md py-1 disabled:opacity-60"
+                      >
+                        ✅ Submit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMarkDoneRowId(null)}
+                        className="text-[11px] text-text-muted border border-border rounded-md px-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ) : attachMissing ? (
+                  <button
+                    type="button"
+                    onClick={blockedMarkDone}
+                    title="First upload 📎 the document"
+                    className="w-full text-[11px] font-semibold text-danger bg-danger-tint border border-dashed border-danger/40 rounded-md px-2 py-1.5"
+                  >
+                    📎 Upload Required
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openMarkDone(row)}
+                    className="w-full text-[11px] font-semibold text-white bg-primary rounded-md px-2 py-1.5"
+                  >
+                    ✅ Mark Done
+                  </button>
+                )}
+              </Td>
+              <Td className="min-w-[120px]">
+                {done ? (
+                  <span className="text-primary font-semibold text-[11.5px]">✅ Done</span>
+                ) : ongoing ? (
+                  <div className="flex flex-col">
+                    <span className="text-primary font-semibold text-[11.5px]">🔄 Ongoing</span>
+                    {row.expectedDate && <span className="text-[10.5px] text-text-muted">📅 {fmtDate(row.expectedDate)}</span>}
+                  </div>
+                ) : ongoingRowId === row.id ? (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9.5px] text-text-muted uppercase tracking-wide">Expected Completion</label>
+                    <input
+                      type="date"
+                      value={ongoingDraft}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setOngoingDraft(e.target.value)}
+                      className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[11.5px] text-text outline-none"
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => submitOngoing(row)}
+                        disabled={savingId === row.id}
+                        className="flex-1 text-[11px] font-semibold bg-primary text-white rounded-md py-1 disabled:opacity-60"
+                      >
+                        ✓ Set
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOngoingRowId(null)}
+                        className="text-[11px] text-text-muted border border-border rounded-md px-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openOngoing(row)}
+                    className="w-full text-[11px] font-semibold text-primary bg-primary-tint border border-primary/25 rounded-md px-2 py-1.5"
+                  >
+                    🔄 Ongoing
+                  </button>
+                )}
+              </Td>
+              <Td align="center">
+                {row.uploadUrl ? (
+                  <a
+                    href={row.uploadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="See your uploaded file"
+                    className="inline-flex w-8 h-8 items-center justify-center rounded-md bg-primary-tint border border-primary/25 text-primary"
+                  >
+                    📄
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onOpenUpload(row.id, row.task)}
+                    title={attachMissing ? 'Mandatory — File/PDF' : 'Upload file'}
+                    className={`relative inline-flex w-8 h-8 items-center justify-center rounded-md border ${
+                      attachMissing ? 'bg-danger-tint border-danger/40 text-danger' : 'bg-primary-tint border-primary/25 text-primary'
+                    }`}
+                  >
+                    📎
+                    {needsAttach && <span className="absolute -top-1 -right-1 text-danger font-bold text-[11px]">*</span>}
+                  </button>
+                )}
+              </Td>
+            </Tr>
+          )
+        })}
+      </tbody>
+    </Table>
   )
 }
