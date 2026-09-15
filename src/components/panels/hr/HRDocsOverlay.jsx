@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import OverlayShell from '../../shared/OverlayShell'
 import CNCategoryBrowser from '../../shared/CNCategoryBrowser'
+import UploadModal from '../../shared/UploadModal'
 import { CN } from '../../../lib/contentNodes'
 
 // Ported from old-portal/js/hr.js's openHRDocsOverlay — resolves the CN
@@ -26,6 +27,7 @@ function resolveHRDocNode(hrSectionId, moduleName) {
 export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, onContentChanged, onClose }) {
   const [node, setNode] = useState(null)
   const [resolved, setResolved] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   useEffect(() => {
     if (!open || !module || !hrSectionId) return
@@ -52,15 +54,19 @@ export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, on
         <div className="text-[15px] font-semibold text-text">{module}</div>
       </div>
 
-      {/* Upload section — Mediclaim only, matches production's current
-          "coming soon" behavior exactly (the real upload wiring is part of
-          the deferred MIS upload/delete subsystem). */}
-      {module === 'Mediclaim' && (
+      {/* Upload section — Mediclaim only. old-portal's handleMediclaimFileSelected was dead code
+          (never wired to a real click) and diverged from the universal upload subsystem on
+          several real points (its own Documents bucket + flat storage path, no file_type on
+          insert, no permission gate at all). Approved decision: use the universal subsystem as-is
+          rather than port that bespoke, untested code — so this button is now gated by
+          can_upload_files (via the same `canDelete` flag already threaded in) and opens the same
+          UploadModal every other module uses, scoped to the HR section. */}
+      {module === 'Mediclaim' && canDelete && (
         <div className="mb-4 rounded-lg border border-dashed border-border bg-surface-2 px-3.5 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="text-[12px] text-text-muted">📤 HR can upload new documents here</div>
           <button
             type="button"
-            onClick={() => alert('Mediclaim upload is being migrated to the new system. Coming soon!')}
+            onClick={() => setUploadOpen(true)}
             className="rounded-md bg-danger text-white text-[12px] font-medium px-3.5 py-1.5"
           >
             Upload File
@@ -74,6 +80,10 @@ export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, on
         <CNCategoryBrowser rootNodeId={node.id} rootName={module} canDelete={canDelete} onContentChanged={onContentChanged} />
       ) : (
         <div className="text-center py-10 text-text-muted text-[12.5px]">No documents found.</div>
+      )}
+
+      {module === 'Mediclaim' && (
+        <UploadModal open={uploadOpen} sectionName="HR" onClose={() => setUploadOpen(false)} onUploaded={onContentChanged} />
       )}
     </OverlayShell>
   )
