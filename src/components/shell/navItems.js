@@ -46,6 +46,10 @@ export const NAV_ITEMS = [
       { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
     ],
   },
+  // Confirmed permanently dead in production, not a pending build — the standalone
+  // Announcements panel is unreachable (hardcoded display:none, nothing ever unhides it) and its
+  // own filter tabs don't even work when hand-triggered. 'notYetBuilt' (== always hidden) is the
+  // correct, final state here, not a placeholder — see MIGRATION-NOTES.md's "Dead code observed".
   { id: 'announcements', label: 'Announcements', visibility: 'notYetBuilt' },
   { id: 'activitylog', label: 'Activity Log', visibility: 'activityLogPerm' },
   { id: 'adminperms', label: 'Access Control', visibility: 'misOnly' },
@@ -119,9 +123,11 @@ export const NAV_ITEMS = [
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
-// 'notYetBuilt' items own their real check in a module we haven't built yet
-// (js/ims.js, ...) — they stay hidden here until that module ships, at
-// which point its real rule replaces this one.
+// 'notYetBuilt' (== always hidden) is now used by exactly one item: 'announcements'. That one is
+// NOT a pending build — the standalone Announcements panel is confirmed permanently unreachable in
+// production itself (see MIGRATION-NOTES.md's "Dead code observed"), so 'notYetBuilt' is its
+// correct, final state, not a placeholder awaiting a real rule. Every other module that once used
+// this value has since been replaced with its own real visibility case below as it was built.
 export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible }) {
   switch (visibility) {
     case 'notYetBuilt':
