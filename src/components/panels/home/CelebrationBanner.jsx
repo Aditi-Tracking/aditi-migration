@@ -120,12 +120,12 @@ export default function CelebrationBanner() {
               ))}
             </div>
           </div>
-          <div className="shrink-0">
+          <div className="shrink-0 self-center mr-2">
             {iAmCelebrant ? (
               <button
                 type="button"
                 onClick={openMyWishesModal}
-                className="flex items-center gap-2 text-[12.5px] font-semibold text-white bg-primary rounded-lg px-3.5 py-2"
+                className="flex items-center gap-2 text-base font-semibold text-white bg-primary rounded-lg px-5 py-2.5"
               >
                 🎁 See Your Wishes
                 <span className="bg-white/25 rounded-full px-2 py-0.5 text-[11px] font-bold min-w-[20px] text-center">
@@ -133,11 +133,11 @@ export default function CelebrationBanner() {
                 </span>
               </button>
             ) : wishBtnState === 'checking' ? (
-              <button type="button" disabled className="text-[12.5px] font-medium text-text-muted border border-border rounded-lg px-3.5 py-2 opacity-60">
+              <button type="button" disabled className="text-base font-medium text-text-muted border border-border rounded-lg px-5 py-2.5 opacity-60">
                 ⏳ Checking…
               </button>
             ) : wishBtnState === 'wished' ? (
-              <button type="button" disabled className="text-[12.5px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded-lg px-3.5 py-2">
+              <button type="button" disabled className="text-base font-semibold text-primary bg-primary-tint border border-primary/20 rounded-lg px-5 py-2.5">
                 ✅ Wished!
               </button>
             ) : (
@@ -147,7 +147,7 @@ export default function CelebrationBanner() {
                   if (birthdays.length) openWishPopup('birthday-others', birthdays[0], null)
                   else if (anniversaries.length) openWishPopup('anniversary-others', anniversaries[0], anniversaries[0].years)
                 }}
-                className="text-[12.5px] font-semibold text-white bg-primary rounded-lg px-3.5 py-2"
+                className="text-base font-semibold text-white bg-primary rounded-lg px-5 py-2.5"
               >
                 🎉 Wish Them!
               </button>
