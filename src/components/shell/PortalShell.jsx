@@ -45,6 +45,7 @@ import FieldServicePanel from '../panels/fieldservice/FieldServicePanel'
 import HREmployeeMasterPanel from '../panels/hremployee/HREmployeeMasterPanel'
 import VendorRequestsPanel from '../panels/vendorrequests/VendorRequestsPanel'
 import RecurringBillsPanel from '../panels/vendorrequests/RecurringBillsPanel'
+import DealPricingPanel from '../panels/dealpricing/DealPricingPanel'
 import MappingPanel from '../panels/mapping/MappingPanel'
 import EnterpriseLeadPanel from '../panels/enterprise/EnterpriseLeadPanel'
 import IMSPanel from '../panels/ims/IMSPanel'
@@ -67,6 +68,7 @@ const PANEL_COMPONENTS = {
   hremployee: HREmployeeMasterPanel,
   vendorrequests: VendorRequestsPanel,
   recurringbills: RecurringBillsPanel,
+  dealpricing: DealPricingPanel,
   mapping: MappingPanel,
   enterprise: EnterpriseLeadPanel,
   ims: IMSPanel,
