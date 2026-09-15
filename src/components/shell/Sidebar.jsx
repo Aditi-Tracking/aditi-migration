@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useTaskChecklistNav } from '../../context/TaskChecklistNavContext'
 import { useRenewalsNav } from '../../context/RenewalsNavContext'
 import { useTaskDelegationNav } from '../../context/TaskDelegationNavContext'
+import { isPushSubscribed, onOneSignalReady, togglePushSubscription } from '../../lib/pushNotifications'
 import { NAV_ITEMS, isNavItemVisible } from './navItems'
 import NavIcon from './NavIcon'
 
@@ -34,6 +36,30 @@ export default function Sidebar({ activePanel, onNavigate, onToggleTheme, theme,
   const { navVisible: renewalsVisible } = useRenewalsNav()
   const { navVisible: taskDelegationVisible } = useTaskDelegationNav()
   const ctx = { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible }
+
+  // Ported from old-portal's osToggle/_osSyncBtn (the "Enable Notifications" bell) — desktop
+  // sidebar only, matching production exactly (no mobile menu-sheet equivalent exists there).
+  const [pushSubscribed, setPushSubscribed] = useState(false)
+  const [pushToast, setPushToast] = useState(null)
+
+  useEffect(() => {
+    onOneSignalReady(() => setPushSubscribed(isPushSubscribed()))
+  }, [])
+
+  function showPushToast(msg) {
+    setPushToast(msg)
+    setTimeout(() => setPushToast(null), 3000)
+  }
+
+  async function handlePushToggle() {
+    const result = await togglePushSubscription()
+    if (result === null) {
+      showPushToast('⏳ Wait')
+      return
+    }
+    setPushSubscribed(result)
+    showPushToast(result ? '🔔 Notifications ON!' : '🔕 Notifications Off')
+  }
 
   return (
     <aside className="hidden md:flex md:flex-col w-56 shrink-0 h-screen sticky top-0 bg-surface border-r border-border">
@@ -94,12 +120,37 @@ export default function Sidebar({ activePanel, onNavigate, onToggleTheme, theme,
         </button>
         <button
           type="button"
+          onClick={handlePushToggle}
+          className={`mt-1 w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11.5px] font-semibold transition-colors ${
+            pushSubscribed
+              ? 'border-primary/50 bg-primary-tint text-primary'
+              : 'border-primary/20 bg-primary-tint/40 text-text hover:bg-primary-tint'
+          }`}
+        >
+          <span>{pushSubscribed ? '🔔' : '🔕'}</span>
+          <span className="flex-1 text-left">{pushSubscribed ? 'Notifications ON' : 'Enable Notifications'}</span>
+          <span
+            className={`rounded-full px-2 py-px text-[9.5px] ${
+              pushSubscribed ? 'bg-primary/20 text-primary' : 'bg-border/50 text-text-muted'
+            }`}
+          >
+            {pushSubscribed ? 'ON' : 'OFF'}
+          </span>
+        </button>
+        <button
+          type="button"
           onClick={logout}
           className="mt-1 w-full rounded-md border border-danger/25 bg-danger-tint py-1 text-[11.5px] font-medium text-danger hover:bg-danger/10 transition-colors"
         >
           Logout
         </button>
       </div>
+
+      {pushToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] rounded-xl bg-text text-white px-5 py-2.5 text-[12.5px] font-semibold shadow-lg">
+          {pushToast}
+        </div>
+      )}
     </aside>
   )
 }

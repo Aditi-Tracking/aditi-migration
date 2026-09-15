@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import OverlayShell from '../../shared/OverlayShell'
 import { postPortalUpdate, updatePortalUpdate } from '../../../lib/announcements'
+import { sendPush } from '../../../lib/pushNotifications'
 import { useAuth } from '../../../context/AuthContext'
 
 // Ported from old-portal/js/announcements.js's openPostUpdateModal/
 // editPortalUpdate/submitPortalUpdate — same validation, same new-vs-edit
-// POST/PATCH split.
+// POST/PATCH split. New posts (not edits) also fire a OneSignal push — ported
+// byte-for-byte including its quirk: the push's own title is always the
+// hardcoded 'New Announcement', regardless of the title actually typed here;
+// only the push body reflects the real title.
 export default function PostUpdateModal({ open, editingUpdate, onClose, onSaved }) {
   const { currentUser } = useAuth()
   const [title, setTitle] = useState('')
@@ -44,6 +48,7 @@ export default function PostUpdateModal({ open, editingUpdate, onClose, onSaved 
         await updatePortalUpdate(editingUpdate.id, { title: t, body: b })
       } else {
         await postPortalUpdate({ title: t, body: b, postedBy: currentUser?.name || 'MIS Team' })
+        sendPush('New Announcement', t + '\nOpen the portal to view — learn.adititracking.com')
       }
       onSaved()
       onClose()
