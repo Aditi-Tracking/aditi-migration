@@ -57,9 +57,13 @@ export default function VendorRequestsTable({ rows, nameMap, currentUser, permis
                   <td className="px-2 py-2 w-8" />
                 )}
                 <Td className="text-text-muted whitespace-nowrap">{dateStr}</Td>
-                <Td className="font-semibold text-text">{nameDisplay}</Td>
-                <Td className="font-semibold text-text">{r.vendor_name || '—'}</Td>
-                <Td className="max-w-[240px]" title={r.product_name || ''}>
+                <Td className="max-w-[130px] truncate font-semibold text-text" title={nameDisplay}>
+                  {nameDisplay}
+                </Td>
+                <Td className="max-w-[160px] truncate font-semibold text-text" title={r.vendor_name || ''}>
+                  {r.vendor_name || '—'}
+                </Td>
+                <Td className="max-w-[180px] truncate" title={r.product_name || ''}>
                   {r.product_name || '—'}
                 </Td>
                 <Td align="right" numeric>
@@ -68,7 +72,9 @@ export default function VendorRequestsTable({ rows, nameMap, currentUser, permis
                 <Td align="right" numeric className="font-bold whitespace-nowrap">
                   {r.amount != null ? formatINR(r.amount) : '—'}
                 </Td>
-                <Td>{r.location || '—'}</Td>
+                <Td className="max-w-[110px] truncate" title={r.location || ''}>
+                  {r.location || '—'}
+                </Td>
                 <Td>
                   <StatusBadge tone={STATUS_TONE[status] || 'warning'}>{status}</StatusBadge>
                 </Td>
