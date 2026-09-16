@@ -226,13 +226,17 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
           ? 'No customers found.'
           : 'No customers assigned to you yet.'
 
-  if (loading) return <p className="text-text-muted text-[13.5px]">Loading…</p>
-  if (error) return <p className="text-danger text-[13.5px]">⚠️ {error}</p>
-
   const detailCustomer = customers.find((c) => c.id === detailCustomerId) || null
 
   return (
     <div>
+      {/* Rendered unconditionally, matching AccountsTab's pattern — a fresh
+          load happens on every tab entry (see the effect above), so gating
+          this whole row behind `loading` used to make it pop in from
+          nothing every time this tab was (re-)opened, right below the
+          stable TabBar/LocationBar. Only the table area below is
+          loading/error-gated now, same as AccountsTab gates just its own
+          table, not its title/filter row. */}
       <div className="flex items-center justify-between gap-2.5 flex-wrap mb-3.5">
         <div className="flex items-center gap-2.5 flex-wrap">
           <input
@@ -271,25 +275,31 @@ export default function MyCustomersTab({ location, isMIS, fullDataAccess, crmPer
         />
       </div>
 
-      <MyCustomersTable
-        groups={groups}
-        dates={dates}
-        start={start}
-        end={end}
-        callsMap={callsMap}
-        calendarLoading={calendarLoading}
-        crmPerson={crmPerson}
-        persons={persons}
-        columns={columns}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={handleSort}
-        afterMutation={afterMutation}
-        onOpenDetail={setDetailCustomerId}
-        onCallSaved={handleCallSaved}
-        onOpenFlagDialog={setFlagDialogCustomerId}
-        emptyMessage={emptyMessage}
-      />
+      {loading ? (
+        <p className="text-text-muted text-[13.5px]">Loading…</p>
+      ) : error ? (
+        <p className="text-danger text-[13.5px]">⚠️ {error}</p>
+      ) : (
+        <MyCustomersTable
+          groups={groups}
+          dates={dates}
+          start={start}
+          end={end}
+          callsMap={callsMap}
+          calendarLoading={calendarLoading}
+          crmPerson={crmPerson}
+          persons={persons}
+          columns={columns}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          afterMutation={afterMutation}
+          onOpenDetail={setDetailCustomerId}
+          onCallSaved={handleCallSaved}
+          onOpenFlagDialog={setFlagDialogCustomerId}
+          emptyMessage={emptyMessage}
+        />
+      )}
 
       <NoteActionDialog
         open={!!flagDialogCustomerId}
