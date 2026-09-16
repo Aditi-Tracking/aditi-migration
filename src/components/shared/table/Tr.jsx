@@ -21,11 +21,24 @@
 // nth-child at all, so an interleaved sibling row can never shift it. The
 // interleaved row itself should render as a plain <tr>, not Tr, so it
 // never enters the striping sequence in the first place.
-export default function Tr({ children, onClick, className = '', zebra = true, striped = false }) {
+//
+// `zebra={false}` is also the right tool for a row that needs its own
+// explicit highlight color to win outright over the zebra stripe (e.g.
+// Recurring Bills' urgent/just-submitted rows) — same escape hatch, a
+// different motivating reason: two competing background utility classes
+// on one element are resolved by stylesheet order, not JSX prop order, so
+// nothing here can be relied on to consistently "win" without opting out.
+//
+// `title` is forwarded to the underlying <tr> — previously silently
+// dropped (Tr didn't declare it, and React drops unknown props passed to
+// a component with no warning), which meant VendorRequestsTable's own
+// title="Click row to view details" never actually rendered until this.
+export default function Tr({ children, onClick, className = '', zebra = true, striped = false, title }) {
   const stripeClass = zebra ? 'even:bg-border/15' : striped ? 'bg-border/15' : ''
   return (
     <tr
       onClick={onClick}
+      title={title}
       className={`border-b border-border last:border-b-0 ${stripeClass} ${onClick ? 'hover:bg-surface-2/60 cursor-pointer' : ''} ${className}`}
     >
       {children}

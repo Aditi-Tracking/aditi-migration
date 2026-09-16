@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import OverlayShell from '../../shared/OverlayShell'
 import { canPayVendorRequests, canReviewVendorRequests, formatINR, markPaid, saveDecision } from '../../../lib/vendorRequests'
-import { VendorPayBadge, VendorStatusBadge } from './VendorBadges'
+import StatusBadge from '../../shared/table/StatusBadge'
+
+const STATUS_TONE = { Approved: 'primary', Declined: 'danger', 'On Hold': 'warning' }
 
 // Ported from old-portal/js/vendor.js's openVrModal/vrSaveDecision/vrMarkPaid. The EA section and
 // Accounts section are independently conditional — EA's is gated purely on review rights, while
@@ -99,11 +101,11 @@ export default function VendorRequestReviewModal({ request, nameMap, permissions
         ))}
         <div>
           <div className="text-[10.5px] text-text-muted">Status</div>
-          <VendorStatusBadge status={request.status} />
+          <StatusBadge tone={STATUS_TONE[request.status] || 'warning'}>{request.status || 'On Hold'}</StatusBadge>
         </div>
         <div>
           <div className="text-[10.5px] text-text-muted">Payment</div>
-          <VendorPayBadge status={request.payment_status} />
+          {request.payment_status === 'Paid' ? <StatusBadge tone="purple">💳 Paid</StatusBadge> : <StatusBadge tone="neutral">Unpaid</StatusBadge>}
         </div>
       </div>
 

@@ -19,10 +19,10 @@ export function CheckboxTh({ checked, indeterminate, onChange }) {
   )
 }
 
-export function CheckboxTd({ checked, onChange }) {
+export function CheckboxTd({ checked, onChange, title }) {
   return (
     <td className="px-2 py-2 w-8 text-center" onClick={(e) => e.stopPropagation()}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} title={title} />
     </td>
   )
 }

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import OverlayShell from '../../shared/OverlayShell'
 import { canEditRecurringBills, canPayRecurringBills, canReviewRecurringBills, markPaid, ordinal, saveBill, saveDecision, submittedThisCycle } from '../../../lib/recurringBills'
 import { LOCATIONS, lookupEmpId } from '../../../lib/vendorRequests'
-import { VendorPayBadge, VendorStatusBadge } from './VendorBadges'
+import StatusBadge from '../../shared/table/StatusBadge'
+
+const STATUS_TONE = { Approved: 'primary', Declined: 'danger', 'On Hold': 'warning' }
 
 // Ported from old-portal/js/vendor.js's openRecurringDetail/rpSaveBill/rpSaveDecision/
 // rpDoMarkPaid. One shared modal for view/edit/approve/pay, same pattern as Vendor Requests'
@@ -114,8 +116,8 @@ export default function RecurringBillDetailModal({ bill, currentUser, permission
       <div className="flex gap-2 flex-wrap mb-4">
         {submitted ? (
           <>
-            <VendorStatusBadge status={bill.status} />
-            <VendorPayBadge status={bill.payment_status} />
+            <StatusBadge tone={STATUS_TONE[bill.status] || 'warning'}>{bill.status}</StatusBadge>
+            {bill.payment_status === 'Paid' ? <StatusBadge tone="purple">💳 Paid</StatusBadge> : <StatusBadge tone="neutral">Unpaid</StatusBadge>}
             {bill.submitted_at && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-surface-2 text-text-muted border border-border">
                 📅 Submitted {new Date(bill.submitted_at).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
