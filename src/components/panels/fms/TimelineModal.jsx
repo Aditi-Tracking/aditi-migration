@@ -162,16 +162,26 @@ export default function TimelineModal({
     await load()
   }
 
+  // py-1 (was py-1.5) — see the vertical-fit pass below; trimmed to help this modal fit within
+  // OverlayShell's max-h-[90vh] at common viewport heights without shrinking the cap itself.
   const row = (label, value, valueClass = '') => (
-    <div className="flex items-baseline py-1.5 border-b border-border last:border-0">
+    <div className="flex items-baseline py-1 border-b border-border last:border-0">
       <span className="min-w-[130px] text-[11.5px] text-text-muted font-semibold shrink-0">{label}</span>
       <span className={`text-[13px] font-semibold text-text flex-1 ${valueClass}`}>{value}</span>
     </div>
   )
 
   return (
-    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-4xl">
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+    // max-w-5xl (was max-w-4xl) — measured: widening further to max-w-6xl gave zero additional
+    // benefit (content stops wrapping past 1024px), so this is the actual sweet spot, not just
+    // "wider is better." Combined with the spacing trims below, this modal's real content
+    // (measured against a fully-populated order) now fits within OverlayShell's max-h-[90vh] at
+    // every common viewport height (900/820/800/768px) without the cap itself growing.
+    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-5xl">
+      {/* pr-9 reserves space for OverlayShell's absolutely-positioned close button (top-4
+          right-4, w-8) — see the OverlayShell geometry quirk in MIGRATION-NOTES.md. Without it,
+          this row's own button group (Payment/Edit/Delete/Reassign) collides with the ✕. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3 pr-9">
         <div className="text-[15px] font-semibold text-text">
           📋 Order: <span className="text-primary">{order.so_number}</span>{' '}
           <span className="text-[11px] font-medium text-text-muted">
@@ -228,7 +238,7 @@ export default function TimelineModal({
       </div>
 
       {/* Pipeline recap */}
-      <div className="flex items-start w-full mb-4 overflow-x-auto">
+      <div className="flex items-start w-full mb-3 overflow-x-auto">
         {stepDefs.map((s, i) => {
           const isDone = s.state === 'done'
           const isActive = s.state === 'active'
@@ -254,8 +264,8 @@ export default function TimelineModal({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <div className="text-[10.5px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Order Details</div>
-          <div className="rounded-lg border border-border bg-surface-2 px-3.5 mb-3">
+          <div className="text-[10.5px] font-bold text-text-muted uppercase tracking-wide mb-1">Order Details</div>
+          <div className="rounded-lg border border-border bg-surface-2 px-3.5 mb-2">
             {row('Client', order.client_name || '—')}
             {row('SO Number', order.so_number || '—', 'text-primary')}
             {row('Ticket No', order.ticket_no || '—')}
@@ -266,7 +276,7 @@ export default function TimelineModal({
             {row('Assigned To', empName(empMap, order.assigned_to_support))}
           </div>
 
-          <div className="text-[10.5px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Payment Details</div>
+          <div className="text-[10.5px] font-bold text-text-muted uppercase tracking-wide mb-1">Payment Details</div>
           <div className="rounded-lg border border-border bg-surface-2 px-3.5">
             {row('Order Amount', `₹${(order.order_amount || 0).toLocaleString('en-IN')}`)}
             {row('Amount Received', `₹${(order.amount_received || 0).toLocaleString('en-IN')}`, 'text-primary')}
@@ -288,7 +298,7 @@ export default function TimelineModal({
         </div>
 
         <div>
-          <div className="text-[10.5px] font-bold text-text-muted uppercase tracking-wide mb-1.5">📝 Notes</div>
+          <div className="text-[10.5px] font-bold text-text-muted uppercase tracking-wide mb-1">📝 Notes</div>
           <div className="flex flex-col gap-2 mb-2.5 max-h-[300px] overflow-y-auto">
             {loading && <div className="text-[12px] text-text-muted">Loading…</div>}
             {!loading && !notes.length && (

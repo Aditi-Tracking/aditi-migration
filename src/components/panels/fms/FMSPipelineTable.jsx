@@ -9,6 +9,12 @@ import {
   productNames,
   stepStateMap,
 } from '../../../lib/fms'
+import Table from '../../shared/table/Table'
+import TableHead from '../../shared/table/TableHead'
+import Th from '../../shared/table/Th'
+import Td from '../../shared/table/Td'
+import Tr from '../../shared/table/Tr'
+import StatusBadge from '../../shared/table/StatusBadge'
 
 const PER_PAGE = 20
 
@@ -16,84 +22,93 @@ const PER_PAGE = 20
 // The action column now mirrors fmsRenderTable's exact status+permission
 // branching — one status-specific action button (falling back to "View"
 // for anyone without the relevant access, or once an order is completed).
+//
+// Migrated onto the shared table system. Despite the dense-looking cell
+// content (multiple stacked lines per cell, a 5-step diagram in the
+// Pipeline cell), this is genuinely one <tr> per order — Table/Th/Tr/Td
+// accommodate it with no extension needed, unlike Renewals (which needed
+// Tr's explicit-parity escape hatch for interleaved rows) or CRM Vehicle
+// (selected-row highlight needing to win over the zebra stripe). No
+// selection state exists here — a row's onClick just opens the timeline
+// overlay — so plain zebra=true default striping applies with nothing
+// special to handle. Pagination kept as the existing flat page-number
+// list (not the buildPageList ellipsis-truncation variant CRM
+// Vehicle/SmartFleet use) — at PER_PAGE=20 this never approaches enough
+// pages to need truncation.
 export default function FMSPipelineTable({ orders, page, onPageChange, locations, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
   const total = orders.length
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
   const pageRows = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
-    <div className="rounded-xl border border-border bg-surface overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            <tr className="bg-surface-2 border-b border-border text-left">
-              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wide">SO Number</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wide">Client</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wide">Pipeline</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wide text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!pageRows.length && (
-              <tr>
-                <td colSpan={4} className="text-center py-10 text-text-muted">
-                  📭 No orders found
-                </td>
-              </tr>
-            )}
-            {pageRows.map((o) => (
-              <OrderRow
-                key={o.id}
-                order={o}
-                locations={locations}
-                products={products}
-                empMap={empMap}
-                currentUser={currentUser}
-                permissions={permissions}
-                onOpenTimeline={onOpenTimeline}
-                onOpenAction={onOpenAction}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-          <span className="text-[11px] text-text-muted mr-2">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-            className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-          >
-            ‹
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+    <Table
+      footer={
+        totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
+            <span className="text-[11px] text-text-muted mr-2">
+              Page {page} of {totalPages}
+            </span>
             <button
-              key={p}
               type="button"
-              onClick={() => onPageChange(p)}
-              className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
-                p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
-              }`}
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
             >
-              {p}
+              ‹
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-            className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-          >
-            ›
-          </button>
-        </div>
-      )}
-    </div>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onPageChange(p)}
+                className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
+                  p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page === totalPages}
+              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+            >
+              ›
+            </button>
+          </div>
+        )
+      }
+    >
+      <TableHead>
+        <Th>SO Number</Th>
+        <Th>Client</Th>
+        <Th>Pipeline</Th>
+        <Th align="center">Action</Th>
+      </TableHead>
+      <tbody>
+        {!pageRows.length && (
+          <tr>
+            <Td colSpan={4} align="center" className="py-10 text-text-muted">
+              📭 No orders found
+            </Td>
+          </tr>
+        )}
+        {pageRows.map((o) => (
+          <OrderRow
+            key={o.id}
+            order={o}
+            locations={locations}
+            products={products}
+            empMap={empMap}
+            currentUser={currentUser}
+            permissions={permissions}
+            onOpenTimeline={onOpenTimeline}
+            onOpenAction={onOpenAction}
+          />
+        ))}
+      </tbody>
+    </Table>
   )
 }
 
@@ -127,9 +142,9 @@ function OrderRow({ order: o, locations, products, empMap, currentUser, permissi
   const action = resolveAction(o, currentUser, permissions)
 
   return (
-    <tr onClick={() => onOpenTimeline(o.id)} className="border-b border-border last:border-0 cursor-pointer hover:bg-surface-2">
-      <td className="px-3 py-2 align-middle">
-        <div className="flex items-center gap-1.5">
+    <Tr onClick={() => onOpenTimeline(o.id)}>
+      <Td className="align-middle">
+        <div className="flex items-center gap-1.5 leading-tight">
           <span className="font-semibold text-primary text-[12.5px]">{o.so_number || '—'}</span>
           {!!proofs.length && (
             <a
@@ -144,28 +159,26 @@ function OrderRow({ order: o, locations, products, empMap, currentUser, permissi
             </a>
           )}
         </div>
-        <div className="text-[10.5px] text-text-muted mt-0.5">
+        <div className="text-[10.5px] text-text-muted leading-tight mt-px">
           {created} · <strong>{o.quantity || 0}</strong> units
         </div>
-      </td>
-      <td className="px-3 py-2 align-middle">
-        <div className="flex items-center gap-1.5">
+      </Td>
+      <Td className="align-middle">
+        <div className="flex items-center gap-1.5 leading-tight">
           <span className="font-semibold text-text text-[12.5px] max-w-[160px] truncate">{o.client_name || '—'}</span>
-          {o.client_type === 'nbd' && (
-            <span className="text-[9.5px] font-semibold bg-primary-tint text-primary border border-primary/20 rounded-full px-1.5 py-0.5 shrink-0">NBD</span>
-          )}
+          {o.client_type === 'nbd' && <StatusBadge tone="primary">NBD</StatusBadge>}
         </div>
-        <div className="text-[10.5px] text-text-muted truncate max-w-[220px]">
+        <div className="text-[10.5px] text-text-muted leading-tight truncate max-w-[220px]">
           {locName} · {empName(empMap, o.assigned_to_support)}
         </div>
-        <div className="text-[10px] text-text-muted mt-0.5" title={productNames(o.product_ids, o.product_items, products)}>
+        <div className="text-[10px] text-text-muted leading-tight mt-px" title={productNames(o.product_ids, o.product_items, products)}>
           {productNames(o.product_ids, o.product_items, products)}
         </div>
-      </td>
-      <td className="px-3 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
+      </Td>
+      <Td className="align-middle" onClick={(e) => e.stopPropagation()}>
         <FMSPipelineSteps order={o} states={states} />
-      </td>
-      <td className="px-3 py-2 align-middle text-center border-l border-border" onClick={(e) => e.stopPropagation()}>
+      </Td>
+      <Td align="center" className="align-middle border-l border-border" onClick={(e) => e.stopPropagation()}>
         {action ? (
           <button
             type="button"
@@ -183,8 +196,8 @@ function OrderRow({ order: o, locations, products, empMap, currentUser, permissi
             👁 View
           </button>
         )}
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   )
 }
 
