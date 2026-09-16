@@ -77,7 +77,7 @@ export default function EnterpriseSolutionsTable({ tab, rows, open, onToggleOpen
                     return (
                       <tr key={`${name}-${i}`} className="even:bg-[#fafbff] border-b border-[#f2f4f9] last:border-0">
                         <td className="px-3.5 py-2.5 text-[#94a0b8] tabular-nums">{dispSrNo}</td>
-                        <td className="px-3.5 py-2.5 font-semibold max-w-[220px] truncate">
+                        <td className="px-3.5 py-2.5 font-semibold max-w-[220px] truncate" title={name || ''}>
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-bold text-white mr-2" style={{ background: av.color }}>
                             {av.initial}
                           </span>
@@ -88,7 +88,9 @@ export default function EnterpriseSolutionsTable({ tab, rows, open, onToggleOpen
                             {r._Type}
                           </span>
                         </td>
-                        <td className="px-3.5 py-2.5 text-[#334155]">{r.location || '—'}</td>
+                        <td className="px-3.5 py-2.5 text-[#334155] max-w-[180px] truncate" title={r.location || ''}>
+                          {r.location || '—'}
+                        </td>
                         <td className="px-3.5 py-2.5 font-bold tabular-nums" style={{ color: '#6d28d9' }}>
                           {(r.licenseCount || 0).toLocaleString('en-IN')}
                         </td>
