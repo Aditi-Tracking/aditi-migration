@@ -71,12 +71,16 @@ export default function RenewalsPanel() {
         <div className="text-[11.5px] text-text-muted mt-0.5">Home › Renewals & Collections</div>
       </div>
 
-      {/* Suppressed entirely on Overview — that tab has its own dedicated
-          location/"All" filter, and showing this switcher on top of it
-          would be two location pickers with overlapping jobs. */}
-      {activeTab !== 'overview' && <LocationBar location={location} allowedLocations={allowedLocations} onChange={setLocation} />}
-
+      {/* Tab bar first, always — a control the user just clicked must never
+          shift position because something conditionally rendered above it
+          changed size. LocationBar (suppressed entirely on Overview, which
+          has its own dedicated location/"All" filter — showing this
+          switcher on top of it would be two location pickers with
+          overlapping jobs) comes after, so only content below the tab bar
+          ever reflows on tab switch. */}
       <RenewalsTabBar tabs={tabs} activeTab={activeTab} onChange={setChosenTab} unassignedPoolCount={unassignedPoolCount} />
+
+      {activeTab !== 'overview' && <LocationBar location={location} allowedLocations={allowedLocations} onChange={setLocation} />}
 
       {activeTab === 'myCustomers' && (
         <MyCustomersTab location={location} isMIS={isMIS} fullDataAccess={fullDataAccess} crmPerson={crmPerson} />

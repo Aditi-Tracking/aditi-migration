@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import TabButton from '../../shared/TabButton'
 import { useAuth } from '../../../context/AuthContext'
 import {
   baseRows,
@@ -250,14 +251,9 @@ export default function RecurringBillsPanel() {
             {FILTER_CHIPS.map(([mode, label]) => {
               const active = mode === 'all' ? filterModes.size === 0 : filterModes.has(mode)
               return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => toggleChip(mode)}
-                  className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border ${active ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'}`}
-                >
+                <TabButton key={mode} variant="chip" active={active} onClick={() => toggleChip(mode)}>
                   {label}
-                </button>
+                </TabButton>
               )
             })}
           </div>

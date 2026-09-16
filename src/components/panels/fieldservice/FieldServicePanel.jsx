@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import TabButton from '../../shared/TabButton'
 import { useAuth } from '../../../context/AuthContext'
 import { canCreateFieldService, canViewAllFieldService, hasFieldServiceAccess } from '../../../lib/fieldService'
 import SubmitEntryTab from './SubmitEntryTab'
@@ -39,16 +40,9 @@ export default function FieldServicePanel() {
 
       <div className="flex gap-2 flex-wrap mb-4">
         {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setActiveTab(id)}
-            className={`rounded-lg px-4 py-1.5 text-[12.5px] font-semibold border ${
-              activeTab === id ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'
-            }`}
-          >
+          <TabButton key={id} active={activeTab === id} onClick={() => setActiveTab(id)}>
             {label}
-          </button>
+          </TabButton>
         ))}
       </div>
 

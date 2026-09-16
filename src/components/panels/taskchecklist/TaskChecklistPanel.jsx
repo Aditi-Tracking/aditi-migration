@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import TabButton from '../../shared/TabButton'
 import { useAuth } from '../../../context/AuthContext'
 import { fetchEmployeeId } from '../../../lib/employeeProfile'
 import {
@@ -245,24 +246,12 @@ export default function TaskChecklistPanel() {
           "no bar at all if there's nothing to switch" rule. */}
       {schedulerAllowed && (
         <div className="flex gap-1.5 flex-wrap mb-5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('checklist')}
-            className={`rounded-lg px-4 py-1.5 text-[12.5px] font-semibold border ${
-              activeTab === 'checklist' ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'
-            }`}
-          >
+          <TabButton active={activeTab === 'checklist'} onClick={() => setActiveTab('checklist')}>
             📋 Checklist
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('scheduler')}
-            className={`rounded-lg px-4 py-1.5 text-[12.5px] font-semibold border ${
-              activeTab === 'scheduler' ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'
-            }`}
-          >
+          </TabButton>
+          <TabButton active={activeTab === 'scheduler'} onClick={() => setActiveTab('scheduler')}>
             🗓️ Task Scheduler
-          </button>
+          </TabButton>
         </div>
       )}
 

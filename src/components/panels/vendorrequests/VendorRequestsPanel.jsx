@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import TabButton from '../../shared/TabButton'
 import { useAuth } from '../../../context/AuthContext'
 import {
   bulkMarkPaid,
@@ -188,21 +189,30 @@ export default function VendorRequestsPanel({ onNavigate }) {
           {FILTER_CHIPS.map(([mode, label]) => {
             const active = mode === 'all' ? filterModes.size === 0 : filterModes.has(mode)
             return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => toggleChip(mode)}
-                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border ${active ? 'bg-primary text-white border-primary' : 'bg-surface-2 text-text-muted border-border'}`}
-              >
+              <TabButton key={mode} variant="chip" active={active} onClick={() => toggleChip(mode)}>
                 {label}
-              </button>
+              </TabButton>
             )
           })}
-          {selectedIds.size > 0 && (
-            <button type="button" onClick={handleBulkPay} disabled={bulkPaying} className="text-[12px] font-bold text-primary border border-primary/30 bg-primary-tint rounded-md px-3 py-1.5 disabled:opacity-60">
-              💳 Pay Selected ({selectedIds.size})
-            </button>
-          )}
+          {/* Always mounted (never conditionally rendered) so it reserves its
+              own width — Refresh/+ New Request must not visibly jump left
+              every time a row gets checked/unchecked or a filter clears the
+              selection. Hidden via opacity+pointer-events, not unmounted.
+              Opacity is computed explicitly (not Tailwind's `disabled:`
+              variant) so the "hidden, nothing selected" and "visible, but
+              mid-bulk-pay" dimmed states can never fight over which opacity
+              utility wins the cascade. */}
+          <button
+            type="button"
+            onClick={handleBulkPay}
+            disabled={bulkPaying || selectedIds.size === 0}
+            aria-hidden={selectedIds.size === 0}
+            className={`text-[12px] font-bold text-primary border border-primary/30 bg-primary-tint rounded-md px-3 py-1.5 transition-opacity ${
+              selectedIds.size === 0 ? 'opacity-0 pointer-events-none' : bulkPaying ? 'opacity-60' : ''
+            }`}
+          >
+            💳 Pay Selected ({selectedIds.size})
+          </button>
           <button type="button" onClick={load} className="text-[12px] font-medium text-text-muted border border-border rounded-md px-3 py-1.5">
             🔄 Refresh
           </button>
