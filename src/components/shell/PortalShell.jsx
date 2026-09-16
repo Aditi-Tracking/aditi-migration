@@ -84,19 +84,39 @@ const PANEL_COMPONENTS = {
   products: ProductsPanel,
 }
 
-const PANEL_LABELS = NAV_ITEMS.reduce((acc, item) => {
-  acc[item.id] = item.label
-  if (item.children) item.children.forEach((c) => (acc[c.id] = c.label))
-  return acc
-}, {})
+const PANEL_LABELS = NAV_ITEMS.reduce(
+  (acc, item) => {
+    acc[item.id] = item.label
+    if (item.children) item.children.forEach((c) => (acc[c.id] = c.label))
+    return acc
+  },
+  // Seeded with labels for panels that have no sidebar nav item of their own
+  // (see CARD_LAUNCHED_PANELS below) — needed so a "← Back to X" button can
+  // still show a real label when X is one of these, e.g. Recurring Bills'
+  // back target is Vendor Requests, not a NAV_ITEMS entry.
+  { vendorrequests: 'Vendor Requests', recurringbills: 'Recurring Bills', dealpricing: 'Deal Calculator' }
+)
+
+// Panels reached only via a card/button click, never a sidebar nav item.
+// While one of these is active: the sidebar hides (reclaiming its width,
+// which especially helps wide tables) and a "← Back to <launcher>" button
+// takes its place, going back to whichever panel actually launched it —
+// tracked per-panel in launchSource below, not a hardcoded parent, so
+// Recurring Bills (launched from inside Vendor Requests, not directly from
+// Finance) correctly returns to Vendor Requests rather than skipping past it.
+const CARD_LAUNCHED_PANELS = new Set(['vendorrequests', 'recurringbills', 'dealpricing'])
 
 // max-w-7xl reclaims the dead side margin every panel used to get from a
 // narrower max-w-5xl default on wide viewports (validated on Home first,
-// then rolled out everywhere). PANEL_MAX_WIDTH stays as a lookup — empty
-// for now — so a specific panel can still get a narrower/wider exception
-// later without restructuring this.
+// then rolled out everywhere). PANEL_MAX_WIDTH stays as a lookup so a
+// specific panel can still get a narrower/wider exception later without
+// restructuring this — the card-launched panels are the first such
+// exception: with no sidebar competing for width, their dense KPI
+// grids/tables get a noticeably wider cap instead, derived from
+// CARD_LAUNCHED_PANELS so the two sets can't drift apart.
 const DEFAULT_MAX_WIDTH = 'max-w-7xl'
-const PANEL_MAX_WIDTH = {}
+const WIDE_MAX_WIDTH = 'max-w-[1600px]'
+const PANEL_MAX_WIDTH = Object.fromEntries([...CARD_LAUNCHED_PANELS].map((id) => [id, WIDE_MAX_WIDTH]))
 
 export default function PortalShell() {
   const { theme, toggleTheme } = useTheme()
@@ -105,14 +125,30 @@ export default function PortalShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userSheetOpen, setUserSheetOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  // { [cardLaunchedPanelId]: idOfPanelActiveWhenItWasLaunched } — only ever
+  // written by navigate() below, never by navigateBack(), so returning from
+  // a card-launched panel never overwrites its own recorded launch source.
+  const [launchSource, setLaunchSource] = useState({})
 
   function navigate(id) {
+    if (CARD_LAUNCHED_PANELS.has(id)) {
+      setLaunchSource((prev) => ({ ...prev, [id]: activePanel }))
+    }
     trackPageSwitch(currentUser, id)
     setActivePanel(id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  function navigateBack() {
+    const parent = launchSource[activePanel] || 'home'
+    trackPageSwitch(currentUser, parent)
+    setActivePanel(parent)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const ActivePanelComponent = PANEL_COMPONENTS[activePanel]
+  const showSidebar = !CARD_LAUNCHED_PANELS.has(activePanel)
+  const backTarget = CARD_LAUNCHED_PANELS.has(activePanel) ? launchSource[activePanel] || 'home' : null
 
   return (
     <TaskChecklistNavProvider>
@@ -121,18 +157,31 @@ export default function PortalShell() {
       <FileViewerProvider>
         <CelebrationsProvider>
           <div className="min-h-screen flex bg-surface-2">
-            <Sidebar
-              activePanel={activePanel}
-              onNavigate={navigate}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onOpenProfile={() => setProfileOpen(true)}
-            />
+            {showSidebar && (
+              <Sidebar
+                activePanel={activePanel}
+                onNavigate={navigate}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onOpenProfile={() => setProfileOpen(true)}
+              />
+            )}
 
             <MobileHeader theme={theme} onToggleTheme={toggleTheme} />
 
             <main className="flex-1 min-w-0 pt-[52px] md:pt-0 pb-16 md:pb-0">
               <div className={`${PANEL_MAX_WIDTH[activePanel] || DEFAULT_MAX_WIDTH} mx-auto`}>
+                {backTarget && (
+                  <div className="px-4 sm:px-6 pt-4">
+                    <button
+                      type="button"
+                      onClick={navigateBack}
+                      className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-text-muted hover:text-text transition-colors"
+                    >
+                      ← Back to {PANEL_LABELS[backTarget] || backTarget}
+                    </button>
+                  </div>
+                )}
                 {ActivePanelComponent ? (
                   <ActivePanelComponent onNavigate={navigate} />
                 ) : (
