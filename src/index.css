@@ -26,6 +26,16 @@
   --color-danger-tint: rgba(220, 38, 38, 0.18);
 }
 
+/* Reserves the vertical scrollbar's gutter permanently, so a page
+   transitioning between "short, no scroll needed" (e.g. a bare "Loading…"
+   line) and "tall, scrollbar appears" never shifts the whole content
+   area horizontally by the scrollbar's width. overflow-y:scroll is the
+   fallback for browsers without scrollbar-gutter support. */
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--color-surface-2);
   color: var(--color-text);
