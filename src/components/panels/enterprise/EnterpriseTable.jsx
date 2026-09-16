@@ -1,5 +1,11 @@
 import { PAGE_SIZE, buildPageList } from '../../../lib/smartFleet'
 import { enterpriseStageColor } from '../../../lib/enterpriseLead'
+import Table from '../../shared/table/Table'
+import TableHead from '../../shared/table/TableHead'
+import Th from '../../shared/table/Th'
+import Td from '../../shared/table/Td'
+import Tr from '../../shared/table/Tr'
+import StatusBadge from '../../shared/table/StatusBadge'
 
 // Columns + sortability ported from enRenderTable's `heads` — only Date/Name/Stage/Calls/Revenue
 // are sortable, matching production's `s:true` flags exactly (City/Phone/Source/Product/Owner stay
@@ -18,7 +24,17 @@ const COLUMNS = [
 ]
 
 // Ported from old-portal/js/enterprise.js's enRenderTable/enToggleTable/enGoPage/enPagerHTML.
-// Collapsible via `open`/`onToggleOpen`, sortable/paginated exactly as production.
+// Collapsible via `open`/`onToggleOpen`, sortable/paginated exactly as production. The
+// collapsible header (title + lead count + +/− toggle) stays custom, outside the shared Table —
+// it's panel-level chrome, not table structure, same as how CRMCustomerTable's own search/count
+// row sits outside a bare Table. No detail modal exists for this table (confirmed, no onClick
+// anywhere) — Lead Name's existing truncation gains the title tooltip it was missing (a real gap:
+// it truncated with no way to see the full value at all); City/Phone/Source/Product/Owner stay
+// untruncated, short bounded categorical values unlike Task Delegation's freeform Title/Note.
+// Stage badge uses StatusBadge's color escape hatch uniformly for every stage — enterpriseStageColor
+// always returns a literal hex, and "demo"'s #f0a500 happens to be byte-identical to the warning
+// tone's own definition anyway, so branching onto tone="warning" would render identically with more
+// code. No zebra escape hatch needed — no highlight state, no interleaved rows, no selection.
 export default function EnterpriseTable({ rows, open, onToggleOpen, page, onPageChange, sortKey, sortDir, onSort }) {
   const total = rows.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -37,68 +53,71 @@ export default function EnterpriseTable({ rows, open, onToggleOpen, page, onPage
       </button>
 
       {open && (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px] border-collapse">
-              <thead>
-                <tr className="bg-surface-2 border-b border-border">
-                  {COLUMNS.map((c) => (
-                    <th
-                      key={c.label}
-                      onClick={() => c.sortable && onSort(c.key)}
-                      className={`text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide px-3.5 py-2.5 whitespace-nowrap ${c.sortable ? 'cursor-pointer' : ''}`}
+        <Table
+          footer={
+            totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
+                <span className="text-[11px] text-text-muted mr-2">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page - 1)}
+                  disabled={page === 1}
+                  className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+                >
+                  ‹
+                </button>
+                {buildPageList(page, totalPages).map((p, i) =>
+                  p === '…' ? (
+                    <span key={`e${i}`} className="text-text-muted px-1">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => onPageChange(p)}
+                      className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
+                        p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
+                      }`}
                     >
-                      {c.label}
-                      {c.sortable && sortKey === c.key ? (sortDir === 1 ? ' ↑' : ' ↓') : c.sortable ? ' ↕' : ''}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {!pageRows.length && (
-                  <tr>
-                    <td colSpan={COLUMNS.length} className="text-center py-10 text-text-muted">
-                      No leads found
-                    </td>
-                  </tr>
+                      {p}
+                    </button>
+                  )
                 )}
-                {pageRows.map((r, i) => (
-                  <LeadRow key={`${r.Name}-${r.SrNo}-${i}`} r={r} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-              <span className="text-[11px] text-text-muted mr-2">
-                Page {page} of {totalPages}
-              </span>
-              <button type="button" onClick={() => onPageChange(page - 1)} disabled={page === 1} className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40">
-                ‹
-              </button>
-              {buildPageList(page, totalPages).map((p, i) =>
-                p === '…' ? (
-                  <span key={`e${i}`} className="text-text-muted px-1">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => onPageChange(p)}
-                    className={`text-[11.5px] rounded-md border px-2.5 py-1 ${p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'}`}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-              <button type="button" onClick={() => onPageChange(page + 1)} disabled={page === totalPages} className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40">
-                ›
-              </button>
-            </div>
-          )}
-        </>
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page === totalPages}
+                  className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+            )
+          }
+        >
+          <TableHead>
+            {COLUMNS.map((c) => (
+              <Th key={c.label} sortable={c.sortable} sortKey={c.key} activeSortKey={sortKey} sortDir={sortDir} onSort={onSort}>
+                {c.label}
+              </Th>
+            ))}
+          </TableHead>
+          <tbody>
+            {!pageRows.length && (
+              <tr>
+                <Td colSpan={COLUMNS.length} align="center" className="py-10 text-text-muted">
+                  No leads found
+                </Td>
+              </tr>
+            )}
+            {pageRows.map((r, i) => (
+              <LeadRow key={`${r.Name}-${r.SrNo}-${i}`} r={r} />
+            ))}
+          </tbody>
+        </Table>
       )}
     </div>
   )
@@ -107,21 +126,21 @@ export default function EnterpriseTable({ rows, open, onToggleOpen, page, onPage
 function LeadRow({ r }) {
   const col = enterpriseStageColor(r.CurrentStage)
   return (
-    <tr className="border-b border-border last:border-b-0">
-      <td className="px-3.5 py-2.5 text-text-muted whitespace-nowrap">{r.EntryRaw || '—'}</td>
-      <td className="px-3.5 py-2.5 font-semibold text-text max-w-[170px] truncate">{r.Name || '—'}</td>
-      <td className="px-3.5 py-2.5 text-text-muted">{r.City || '—'}</td>
-      <td className="px-3.5 py-2.5 text-text-muted">{r.Phone || '—'}</td>
-      <td className="px-3.5 py-2.5 text-text-muted">{r.Source}</td>
-      <td className="px-3.5 py-2.5 text-text-muted">{r.Product}</td>
-      <td className="px-3.5 py-2.5 text-text-muted">{r.Owner}</td>
-      <td className="px-3.5 py-2.5">
-        <span className="inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ background: col + '22', color: col }}>
-          {r.CurrentStage}
-        </span>
-      </td>
-      <td className="px-3.5 py-2.5 text-center">{r.CallsMade}</td>
-      <td className="px-3.5 py-2.5 font-semibold text-primary">{r.Revenue ? '₹' + r.Revenue.toLocaleString('en-IN') : '—'}</td>
-    </tr>
+    <Tr>
+      <Td className="text-text-muted whitespace-nowrap">{r.EntryRaw || '—'}</Td>
+      <Td className="font-semibold text-text max-w-[170px] truncate" title={r.Name || ''}>
+        {r.Name || '—'}
+      </Td>
+      <Td className="text-text-muted">{r.City || '—'}</Td>
+      <Td className="text-text-muted">{r.Phone || '—'}</Td>
+      <Td className="text-text-muted">{r.Source}</Td>
+      <Td className="text-text-muted">{r.Product}</Td>
+      <Td className="text-text-muted">{r.Owner}</Td>
+      <Td>
+        <StatusBadge color={col}>{r.CurrentStage}</StatusBadge>
+      </Td>
+      <Td align="center">{r.CallsMade}</Td>
+      <Td className="font-semibold text-primary">{r.Revenue ? '₹' + r.Revenue.toLocaleString('en-IN') : '—'}</Td>
+    </Tr>
   )
 }
