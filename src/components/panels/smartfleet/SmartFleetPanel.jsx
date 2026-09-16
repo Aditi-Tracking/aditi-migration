@@ -14,6 +14,7 @@ import SmartFleetRepLeaderboard from './SmartFleetRepLeaderboard'
 import SmartFleetCharts from './SmartFleetCharts'
 import SmartFleetFilterBar from './SmartFleetFilterBar'
 import SmartFleetTable from './SmartFleetTable'
+import SmartFleetLeadDetailModal from './SmartFleetLeadDetailModal'
 
 const EMPTY_CHART_FILTERS = { source: null, team: null, product: null, lostReason: null }
 
@@ -47,6 +48,7 @@ export default function SmartFleetPanel() {
   const [sortDir, setSortDir] = useState(1)
   const [page, setPage] = useState(1)
   const [repAllMode, setRepAllMode] = useState(false)
+  const [selectedLead, setSelectedLead] = useState(null)
 
   async function load() {
     setLoading(true)
@@ -239,9 +241,12 @@ export default function SmartFleetPanel() {
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
+            onRowClick={setSelectedLead}
           />
         </div>
       )}
+
+      <SmartFleetLeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
     </div>
   )
 }

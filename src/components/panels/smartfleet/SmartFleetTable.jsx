@@ -25,7 +25,7 @@ const COLUMNS = [
 // — the only real behavior change is Revenue now being right-aligned;
 // everything else (px-3.5 py-2.5 cell padding, hairline row dividers,
 // bg-surface-2 header) already matched the new shared convention exactly.
-export default function SmartFleetTable({ rows, page, onPageChange, sortKey, sortDir, onSort }) {
+export default function SmartFleetTable({ rows, page, onPageChange, sortKey, sortDir, onSort, onRowClick }) {
   const total = rows.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -95,14 +95,14 @@ export default function SmartFleetTable({ rows, page, onPageChange, sortKey, sor
           </tr>
         )}
         {pageRows.map((r, i) => (
-          <LeadRow key={`${r.contact_name || r.lead_name}-${i}`} r={r} />
+          <LeadRow key={`${r.contact_name || r.lead_name}-${i}`} r={r} onRowClick={onRowClick} />
         ))}
       </tbody>
     </Table>
   )
 }
 
-function LeadRow({ r }) {
+function LeadRow({ r, onRowClick }) {
   const pr = r.probability || 0
   const prColor = pr >= 70 ? 'text-primary' : pr >= 40 ? 'text-primary' : 'text-danger'
   const prBarColor = pr >= 70 ? 'bg-primary' : pr >= 40 ? 'bg-primary/60' : 'bg-danger'
@@ -113,16 +113,22 @@ function LeadRow({ r }) {
   const rep = r.RepName || '—'
 
   return (
-    <Tr>
+    <Tr onClick={() => onRowClick(r)}>
       <Td>
         <div className="font-semibold text-text max-w-[150px] truncate">{name}</div>
-        <div className="text-[11px] text-text-muted">{r.city || ''}</div>
+        <div className="max-w-[150px] truncate text-[11px] text-text-muted" title={r.city || ''}>
+          {r.city || ''}
+        </div>
       </Td>
-      <Td className="text-text-muted">{r.source_channel || '—'}</Td>
+      <Td className="max-w-[120px] truncate text-text-muted" title={r.source_channel || ''}>
+        {r.source_channel || '—'}
+      </Td>
       <Td>
         <div className="flex items-center gap-2">
           <AvatarChip name={rep} color={repColor(r.salesperson_email)} bg={repBg(r.salesperson_email)} />
-          <span className="text-text">{rep}</span>
+          <span className="max-w-[110px] truncate text-text" title={rep}>
+            {rep}
+          </span>
         </div>
       </Td>
       <Td className="text-text-muted max-w-[140px] truncate">{r.hero_product || '—'}</Td>

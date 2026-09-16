@@ -222,7 +222,9 @@ export default function TaskTable({
           return (
             <Tr key={row.id}>
               {canDelete && <CheckboxTd checked={selectedIds.has(row.id)} onChange={() => toggleSelected(row.id)} />}
-              <Td className="font-semibold text-text whitespace-nowrap">{row.name || '—'}</Td>
+              <Td className="max-w-[130px] truncate font-semibold text-text" title={row.name || ''}>
+                {row.name || '—'}
+              </Td>
               <Td className="text-text max-w-[200px] truncate" title={row.task}>
                 {row.task || '—'}
                 {needsAttach && <span className="text-danger font-bold ml-1" title="Attachment Mandatory">*</span>}
