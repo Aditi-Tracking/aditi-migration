@@ -9,8 +9,11 @@ function DeltaLine({ delta }) {
 // informational only ("no-click" in production); Running/Idle/Stop/Inactive are click-to-filter.
 // When a company row is selected, values switch to that company's own stats — but the delta lines
 // underneath keep showing the last-loaded AGGREGATE deltas, never recomputed per-company, matching
-// production's crmSelectRow (which never touches the delta elements at all).
-export default function CRMKpiCards({ aggregate, selectedRow, tierLabel, deltas, totalDelta, activeStatus, onStatusClick }) {
+// production's crmSelectRow (which never touches the delta elements at all). Every OTHER tile's
+// delta stays exactly this suppressed — only Total Vehicles gets `companyDelta`, a genuinely new
+// (not a port) per-company added/removed delta for the currently active Vehicle Changes date
+// period, explicitly requested rather than something production does.
+export default function CRMKpiCards({ aggregate, selectedRow, tierLabel, deltas, totalDelta, companyDelta, activeStatus, onStatusClick }) {
   const view = selectedRow
     ? {
         customers: 1,
@@ -37,7 +40,7 @@ export default function CRMKpiCards({ aggregate, selectedRow, tierLabel, deltas,
       label: 'Total Vehicles',
       value: view.total,
       sub: selectedRow ? selectedRow.company || '—' : `${view.customers} companies`,
-      delta: selectedRow ? null : totalDelta,
+      delta: selectedRow ? companyDelta : totalDelta,
       clickable: false,
     },
     {

@@ -10,10 +10,15 @@ import {
 } from '../../../lib/crmVehicle'
 import CustomerAlertsBanner from './CustomerAlertsBanner'
 import CRMKpiCards from './CRMKpiCards'
-import VehicleChangesSection from './VehicleChangesSection'
+import useVehicleChanges from './useVehicleChanges'
 import CRMCustomerTable from './CRMCustomerTable'
 
-const REFRESH_MS = 5 * 60 * 1000
+// Bumped from production's 5 minutes to 10 — a modest, low-risk reduction in how often the
+// ~3,938-row fetchAllPaginated burst fires. Deliberately not treated as the real fix for the
+// reported lag — CRMCustomerTable's unbounded render at that row count (which this interval does
+// nothing for, since it also fires on every manual server switch) is the stronger suspect,
+// tracked as its own separate, to-be-profiled task rather than folded in here.
+const REFRESH_MS = 10 * 60 * 1000
 
 // Ported from old-portal/js/crm.js's loadCRMDashboard/crmApplyFilters/crmSwitchServer/
 // crmSwitchTier/crmFilterStatus/crmSelectRow. Access level ('none'/'all'/'restricted'/a literal
@@ -46,6 +51,7 @@ export default function CRMVehiclePanel() {
   const [dataVersion, setDataVersion] = useState(0)
   const [deltas, setDeltas] = useState(null)
   const [totalDelta, setTotalDelta] = useState(null)
+  const [page, setPage] = useState(1)
 
   const latestRef = useRef({ loaded: false, selectedRow: null })
 
@@ -113,6 +119,14 @@ export default function CRMVehiclePanel() {
     return rows
   }, [data, search, tier, status])
 
+  // Jump back to page 1 whenever the filtered set changes composition (search/tier/status/a fresh
+  // load), matching SmartFleetPanel's identical page-reset convention — otherwise a narrower
+  // filter could leave `page` pointing past the new last page.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets pagination on filter change, not a render loop
+    setPage(1)
+  }, [data, search, tier, status])
+
   const aggregate = useMemo(() => {
     const tot = filteredRows.reduce((s, r) => s + (r.total_vehicles || 0), 0)
     const run = filteredRows.reduce((s, r) => s + (r.running_count || 0), 0)
@@ -121,6 +135,23 @@ export default function CRMVehiclePanel() {
     const ina = filteredRows.reduce((s, r) => s + (r.inactive_count || 0), 0)
     return { customers: filteredRows.length, total: tot, running: run, idle: idl, stop: stp, inactive: ina }
   }, [filteredRows])
+
+  // Called unconditionally (hooks can't be conditional) — `enabled: canViewChanges` is this
+  // hook's own internal replacement for the old `canViewChanges && <VehicleChangesSection/>`
+  // gating, so a viewer without this permission still never triggers these fetches at all.
+  const vehicleChanges = useVehicleChanges({
+    enabled: canViewChanges,
+    server,
+    tier,
+    allowedServers,
+    totalVehicles: aggregate.total,
+    dataVersion,
+    selectedRow,
+    onDeltasComputed: (d, td) => {
+      setDeltas(d)
+      setTotalDelta(td)
+    },
+  })
 
   if (accessLevel === 'none') {
     // Defensive fallback only — the nav item/hub tile are already hidden for this case.
@@ -153,39 +184,44 @@ export default function CRMVehiclePanel() {
         )}
       </div>
 
-      <div className="mb-1">
-        <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Server</div>
-        <div className="flex gap-1.5 flex-wrap mb-4">
-          {CRM_SERVERS.filter((s) => allowedServers.includes(s.key)).map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => handleSwitchServer(s.key)}
-              className={`text-[12px] font-medium rounded-md px-3 py-1.5 border ${
-                server === s.key ? 'bg-primary text-white border-primary' : 'border-border text-text-muted'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+      {/* Server + Tier filter rows, side by side — a plain top-to-bottom flow (Server/Tier -> KPI
+          grid -> Vehicle Changes -> table). This undoes the earlier "reclaim right-side space"
+          restructuring that put Vehicle Changes' filter bar in this row instead. */}
+      <div className="flex gap-4 flex-wrap mb-4">
+        <div>
+          <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Server</div>
+          <div className="flex gap-1.5 flex-wrap">
+            {CRM_SERVERS.filter((s) => allowedServers.includes(s.key)).map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => handleSwitchServer(s.key)}
+                className={`text-[12px] font-medium rounded-md px-3 py-1.5 border ${
+                  server === s.key ? 'bg-primary text-white border-primary' : 'border-border text-text-muted'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="mb-1">
-        <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Filter by Tier</div>
-        <div className={`flex gap-1.5 flex-wrap mb-4 ${lockedTier ? 'pointer-events-none' : ''}`}>
-          {CRM_TIERS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => handleSwitchTier(t.key)}
-              className={`text-[12px] font-medium rounded-md px-3 py-1.5 border ${
-                tier === t.key ? 'bg-primary text-white border-primary' : 'border-border text-text-muted'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div>
+          <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Filter by Tier</div>
+          <div className={`flex gap-1.5 flex-wrap ${lockedTier ? 'pointer-events-none' : ''}`}>
+            {CRM_TIERS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => handleSwitchTier(t.key)}
+                className={`text-[12px] font-medium rounded-md px-3 py-1.5 border ${
+                  tier === t.key ? 'bg-primary text-white border-primary' : 'border-border text-text-muted'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -202,25 +238,24 @@ export default function CRMVehiclePanel() {
             tierLabel={tier}
             deltas={deltas}
             totalDelta={totalDelta}
+            companyDelta={vehicleChanges.companyDelta}
             activeStatus={status}
             onStatusClick={handleStatusClick}
           />
 
-          {canViewChanges && (
-            <VehicleChangesSection
-              server={server}
-              tier={tier}
-              allowedServers={allowedServers}
-              totalVehicles={aggregate.total}
-              dataVersion={dataVersion}
-              onDeltasComputed={(d, td) => {
-                setDeltas(d)
-                setTotalDelta(td)
-              }}
-            />
-          )}
+          {canViewChanges && <div className="mb-4">{vehicleChanges.filterBar}</div>}
 
-          <CRMCustomerTable rows={filteredRows} search={search} onSearchChange={setSearch} selectedRow={selectedRow} onSelectRow={setSelectedRow} />
+          {canViewChanges && vehicleChanges.body}
+
+          <CRMCustomerTable
+            rows={filteredRows}
+            search={search}
+            onSearchChange={setSearch}
+            selectedRow={selectedRow}
+            onSelectRow={setSelectedRow}
+            page={page}
+            onPageChange={setPage}
+          />
         </>
       )}
     </div>

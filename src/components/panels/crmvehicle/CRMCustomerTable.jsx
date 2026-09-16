@@ -1,16 +1,41 @@
-import { assigneeColor } from '../../../lib/crmVehicle'
+import { CRM_TABLE_PAGE_SIZE, assigneeColor, buildPageList } from '../../../lib/crmVehicle'
+import Table from '../../shared/table/Table'
+import TableHead from '../../shared/table/TableHead'
+import Th from '../../shared/table/Th'
+import Td from '../../shared/table/Td'
+import Tr from '../../shared/table/Tr'
+import StatusBadge from '../../shared/table/StatusBadge'
 
-const TIER_BADGE = {
-  Platinum: 'bg-[#a855f722] text-[#a855f7]',
-  Gold: 'bg-[#f59e0b22] text-[#f59e0b]',
-  Silver: 'bg-[var(--color-text-muted)]/15 text-text-muted',
-}
+// Platinum's #a855f7 is byte-identical to StatusBadge's own purple tone —
+// tone="purple" directly. Gold's #f59e0b doesn't match StatusBadge's
+// warning tone (#F0A500, a different amber) and this exact hex is reused
+// elsewhere in this same table (idle-count text, the status bar's idle
+// segment) — preserved exactly via the color escape hatch rather than
+// approximated. Silver's original color is var(--color-text-muted), which
+// the color escape hatch can't take (it string-concatenates an alpha
+// suffix onto whatever's passed, which only works for a literal hex) —
+// tone="neutral" is the only clean option, sharing the same text-muted
+// color but a different background hue (the app's neutral surface token,
+// not a tint of text-muted itself) — a minor, confirmed, expected
+// difference, not a bug.
 const TIER_ICON = { Platinum: '💎', Gold: '🥇', Silver: '🥈' }
 
 // Ported from old-portal/js/crm.js's crmRenderTable/crmSelectRow/crmClearSelection. Clicking a row
 // toggles the "selected company" KPI override (see CRMKpiCards) and shows an inline info bar above
-// the search row — no separate detail modal exists in production for this module.
-export default function CRMCustomerTable({ rows, search, onSearchChange, selectedRow, onSelectRow }) {
+// the search row — no separate detail modal exists in production for this module. Migrated onto
+// the shared table system. Running/Idle/Stop/Inactive are quantitative displays (plain colored
+// numbers + a proportional status bar), not status labels — confirmed they don't map onto
+// StatusBadge at all, unlike the tier pill. Numeric columns stay left-aligned, an existing,
+// intentional design choice, not something this migration should "fix."
+//
+// `page`/`onPageChange` — not a port, added after profiling confirmed this table's own unbounded
+// render (at the real ~3,938-row volume) as the dominant lag source. `rows` here is still the full
+// filtered list (search/tier/status already applied by the caller); this component only slices to
+// the current page for rendering, mirroring SmartFleetTable's page/onPageChange contract exactly.
+export default function CRMCustomerTable({ rows, search, onSearchChange, selectedRow, onSelectRow, page, onPageChange }) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / CRM_TABLE_PAGE_SIZE))
+  const pageRows = rows.slice((page - 1) * CRM_TABLE_PAGE_SIZE, page * CRM_TABLE_PAGE_SIZE)
+
   return (
     <div>
       {selectedRow && (
@@ -47,34 +72,84 @@ export default function CRMCustomerTable({ rows, search, onSearchChange, selecte
       </div>
       <div className="text-[11px] text-text-muted italic mb-2.5">Data syncs every 5 minutes · Click any row to see details</div>
 
-      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px]">
-            <thead>
-              <tr className="border-b-2 border-border">
-                {['#', 'Customer Name', 'Tier', 'Total', 'Running', 'Idle', 'Stop', 'Inactive', 'Status Bar', 'Assigned To', 'Last Synced'].map(
-                  (h) => (
-                    <th key={h} className="text-left px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-text-muted whitespace-nowrap">
-                      {h}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {!rows.length ? (
-                <tr>
-                  <td colSpan={11} className="text-center py-10 text-text-muted">
-                    No companies found
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r, i) => <CustomerRow key={`${r.company}-${r.region}-${i}`} row={r} index={i} isSelected={selectedRow === r} onSelect={onSelectRow} />)
+      <Table
+        footer={
+          totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
+              <span className="text-[11px] text-text-muted mr-2">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => onPageChange(page - 1)}
+                disabled={page === 1}
+                className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+              >
+                ‹
+              </button>
+              {buildPageList(page, totalPages).map((p, i) =>
+                p === '…' ? (
+                  <span key={`e${i}`} className="text-text-muted px-1">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => onPageChange(p)}
+                    className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
+                      p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              <button
+                type="button"
+                onClick={() => onPageChange(page + 1)}
+                disabled={page === totalPages}
+                className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+              >
+                ›
+              </button>
+            </div>
+          )
+        }
+      >
+        <TableHead>
+          <Th>#</Th>
+          <Th>Customer Name</Th>
+          <Th>Tier</Th>
+          <Th>Total</Th>
+          <Th>Running</Th>
+          <Th>Idle</Th>
+          <Th>Stop</Th>
+          <Th>Inactive</Th>
+          <Th>Status Bar</Th>
+          <Th>Assigned To</Th>
+          <Th>Last Synced</Th>
+        </TableHead>
+        <tbody>
+          {!rows.length ? (
+            <tr>
+              <Td colSpan={11} align="center" className="py-10 text-text-muted">
+                No companies found
+              </Td>
+            </tr>
+          ) : (
+            pageRows.map((r, i) => (
+              <CustomerRow
+                key={`${r.company}-${r.region}-${i}`}
+                row={r}
+                index={(page - 1) * CRM_TABLE_PAGE_SIZE + i}
+                isSelected={selectedRow === r}
+                onSelect={onSelectRow}
+              />
+            ))
+          )}
+        </tbody>
+      </Table>
     </div>
   )
 }
@@ -89,50 +164,65 @@ function CustomerRow({ row: r, index, isSelected, onSelect }) {
   const color = assigneeColor(r.assigned_to)
 
   return (
-    <tr
+    <Tr
       onClick={() => onSelect(isSelected ? null : r)}
       title={`Click to see ${r.company || ''} details in cards`}
-      className={`border-b border-border last:border-0 hover:bg-surface-2 cursor-pointer ${isSelected ? 'bg-primary-tint' : ''}`}
+      zebra={!isSelected}
+      className={isSelected ? 'bg-primary-tint' : ''}
     >
-      <td className="px-3 py-2.5 text-text-muted">{index + 1}</td>
-      <td className="px-3 py-2.5 font-semibold max-w-[200px] truncate" title={r.company || ''}>
+      <Td className="text-text-muted">{index + 1}</Td>
+      <Td className="font-semibold max-w-[200px] truncate" title={r.company || ''}>
         {r.company || '—'}
-      </td>
-      <td className="px-3 py-2.5">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold ${TIER_BADGE[r.tier] || 'bg-surface-2 text-text-muted'}`}>
-          {TIER_ICON[r.tier] || ''} {r.tier || '—'}
-        </span>
-      </td>
-      <td className="px-3 py-2.5 font-bold" style={{ color: '#0a7bc4' }}>
+      </Td>
+      <Td>
+        {r.tier === 'Platinum' ? (
+          <StatusBadge tone="purple">
+            {TIER_ICON.Platinum} {r.tier}
+          </StatusBadge>
+        ) : r.tier === 'Gold' ? (
+          <StatusBadge color="#f59e0b">
+            {TIER_ICON.Gold} {r.tier}
+          </StatusBadge>
+        ) : r.tier === 'Silver' ? (
+          <StatusBadge tone="neutral">
+            {TIER_ICON.Silver} {r.tier}
+          </StatusBadge>
+        ) : (
+          <StatusBadge tone="neutral">—</StatusBadge>
+        )}
+      </Td>
+      <Td className="font-bold" style={{ color: '#0a7bc4' }}>
         {(r.total_vehicles || 0).toLocaleString()}
-      </td>
-      <td className="px-3 py-2.5 font-semibold" style={{ color: '#10b981' }}>
+      </Td>
+      <Td className="font-semibold" style={{ color: '#10b981' }}>
         {(r.running_count || 0).toLocaleString()}
-      </td>
-      <td className="px-3 py-2.5 font-semibold" style={{ color: '#f59e0b' }}>
+      </Td>
+      <Td className="font-semibold" style={{ color: '#f59e0b' }}>
         {(r.idle_count || 0).toLocaleString()}
-      </td>
-      <td className="px-3 py-2.5 font-semibold" style={{ color: '#64748b' }}>
+      </Td>
+      <Td className="font-semibold" style={{ color: '#64748b' }}>
         {(r.stop_count || 0).toLocaleString()}
-      </td>
-      <td className="px-3 py-2.5 font-semibold" style={{ color: '#ef4444' }}>
+      </Td>
+      <Td className="font-semibold" style={{ color: '#ef4444' }}>
         {(r.inactive_count || 0).toLocaleString()}
-      </td>
-      <td className="px-3 py-2.5">
+      </Td>
+      <Td>
         <div className="flex h-2 w-20 overflow-hidden rounded-full bg-border">
           <div style={{ width: bR, background: '#10b981' }} />
           <div style={{ width: bI, background: '#f59e0b' }} />
           <div style={{ width: bS, background: '#64748b' }} />
           <div style={{ width: bN, background: '#ef4444' }} />
         </div>
-      </td>
-      <td className="px-3 py-2.5">
-        <span className="inline-flex items-center gap-1.5 text-[11.5px]">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-          {r.assigned_to || '—'}
+      </Td>
+      <Td>
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] max-w-[110px]">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+          <span className="truncate" title={r.assigned_to || ''}>
+            {r.assigned_to || '—'}
+          </span>
         </span>
-      </td>
-      <td className="px-3 py-2.5 text-[11px] text-text-muted whitespace-nowrap">{synced}</td>
-    </tr>
+      </Td>
+      <Td className="text-[11px] text-text-muted whitespace-nowrap">{synced}</Td>
+    </Tr>
   )
 }

@@ -200,25 +200,36 @@ function regionFilterClause(server, allowedServers) {
 // Ported from crmChgLoad's fetchChanges — powers both the Added/Removed summary cards and the
 // company-breakdown detail panel. Applies the tier filter when one is active (see the
 // tier-inconsistency wrinkle vs. fetchVehicleChangeCount, which deliberately does not).
+//
+// Uses fetchAllPaginated instead of a single fetch with a client-side &limit — that limit was
+// never actually effective: PostgREST's own server-side max-rows setting (1000, the same one
+// fetchAllPaginated exists to bypass) silently truncates any single response regardless of what
+// limit the client requests, unless the request is paginated via Range headers. A busy tier/date
+// range could genuinely exceed 1000 change rows, so this was a real, unintentional cap, not a
+// deliberate one.
 export async function fetchVehicleChanges(type, { fromDate, toDate, server, tier, allowedServers }) {
   let url = `${SUPABASE_URL}/rest/v1/vehicle_changes?select=imeino,vehicle_no,vehicle_name,company,tier,region,change_date&change_type=eq.${type}&change_date=gte.${fromDate}&change_date=lte.${toDate}`
   url += regionFilterClause(server, allowedServers)
   if (tier) url += `&tier=eq.${encodeURIComponent(tier)}`
-  url += `&order=change_date.desc&limit=5000`
-  const res = await fetch(url, { headers: SB_HDRS() })
-  const rows = await res.json()
-  return Array.isArray(rows) ? rows : []
+  url += `&order=change_date.desc`
+  return fetchAllPaginated(url)
 }
 
 // Ported from crmLoadKpiDeltas's fetchCount — deliberately has NO tier clause, unlike
-// fetchVehicleChanges above (see the Total-Vehicles-delta tier-inconsistency wrinkle).
-export async function fetchVehicleChangeCount(type, { fromDate, toDate, server, allowedServers }) {
+// fetchVehicleChanges above (see the Total-Vehicles-delta tier-inconsistency wrinkle). Same
+// fetchAllPaginated fix as fetchVehicleChanges above, for the same reason.
+//
+// `company` is a new, optional filter (not a port — vehicle_changes already has a `company`
+// column, just never used as a filter clause here before) that powers the per-selected-company
+// added/removed delta on the Total Vehicles KPI tile. Deliberately not combined with `tier` for
+// the same reason this function never took a tier clause — a company is uniquely identified on
+// its own, no need to also constrain by a property of that same row.
+export async function fetchVehicleChangeCount(type, { fromDate, toDate, server, allowedServers, company }) {
   let url = `${SUPABASE_URL}/rest/v1/vehicle_changes?select=imeino&change_type=eq.${type}&change_date=gte.${fromDate}&change_date=lte.${toDate}`
   url += regionFilterClause(server, allowedServers)
-  url += `&limit=5000`
-  const res = await fetch(url, { headers: SB_HDRS() })
-  const data = await res.json()
-  return Array.isArray(data) ? data.length : 0
+  if (company) url += `&company=eq.${encodeURIComponent(company)}`
+  const rows = await fetchAllPaginated(url)
+  return rows.length
 }
 
 // Ported from crmLoadKpiDeltas's statsUrl — tier=eq.All is a sentinel for "whole-fleet snapshot",
@@ -293,6 +304,32 @@ export function totalVehiclesDeltaText(net) {
   const arrow = net > 0 ? '▲' : '▼'
   const sign = net > 0 ? '+' : ''
   return { text: `${arrow} ${sign}${net.toLocaleString()} vehicles`, tone: net > 0 ? 'up' : 'down' }
+}
+
+// ── Customer table pagination ────────────────────────────────────────────────────────────────
+// Not a port — production's crmRenderTable rendered the full filtered list every time. Added
+// after profiling confirmed CRMCustomerTable's own unbounded render (not the KPI grid, not
+// Vehicle Changes' grouping) was the dominant, user-facing lag at the real ~3,938-row volume:
+// ~700-1000ms per render, including on every search keystroke. Mirrors SmartFleetTable's
+// pagination exactly (same shared Table `footer` slot, same buildPageList ellipsis truncation) —
+// picked over EnterpriseSolutions'/Enterprise's plain full-page-number-list variant because at
+// ~3,938 rows this table can have dozens of pages, where an unellipsized page-number list would
+// itself become unwieldy. buildPageList is duplicated here rather than imported from
+// lib/smartFleet.js, matching this project's existing per-panel duplication convention (see
+// lib/enterpriseSolutions.js's own copy) rather than introducing a cross-panel lib dependency.
+export const CRM_TABLE_PAGE_SIZE = 50
+
+export function buildPageList(cur, tot) {
+  const delta = 2
+  const range = [1]
+  for (let i = Math.max(2, cur - delta); i <= Math.min(tot - 1, cur + delta); i++) range.push(i)
+  if (tot > 1) range.push(tot)
+  const out = []
+  range.forEach((p, i) => {
+    if (i && p - range[i - 1] > 1) out.push('…')
+    out.push(p)
+  })
+  return out
 }
 
 // Groups vehicle_changes rows by company for the detail breakdown panel — ported from
