@@ -6,7 +6,14 @@ import { useState } from 'react'
 // (React-idiomatic technique swap — contentEditable fights React's own
 // render/state model) but the same interaction: click in, type, blur or
 // Enter commits.
-export default function EditableCell({ value, onSave, className = '' }) {
+//
+// `inputClassName` is an escape hatch for bounding the display box (e.g.
+// max-w + truncate, matching the shared table system's fixed-row-height
+// convention) without touching edit behavior — the full value is always
+// still typeable/selectable, CSS truncation only affects the unfocused
+// visual, and CustomerDetailModal (My Customers' row-click fallback)
+// already shows the untruncated value.
+export default function EditableCell({ value, onSave, className = '', inputClassName = '' }) {
   const [draft, setDraft] = useState(value || '')
   const [flash, setFlash] = useState(null) // 'success' | 'error' | null
 
@@ -40,7 +47,8 @@ export default function EditableCell({ value, onSave, className = '' }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-        className="w-full bg-transparent outline-none text-[12.5px] text-text"
+        title={draft}
+        className={`w-full bg-transparent outline-none text-[12.5px] text-text ${inputClassName}`}
       />
     </td>
   )
