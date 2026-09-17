@@ -3,18 +3,22 @@ import { formatINR } from '../../../lib/smartFleet'
 // Ported from old-portal/js/leads.js's lRenderKPIs. Values always reflect
 // the full source-scoped list (never re-filtered by the active KPI click
 // itself) — only the "active" highlight and the resulting chart/table
-// filtering respond to the click. Colors unified to the single primary
-// palette (production uses a distinct pastel background per tile).
+// filtering respond to the click. A deliberate, explicit exception to this
+// project's app-wide unified-blue palette (approved for SmartFleet's KPI
+// icons specifically, not a reversion) — subtler than production's own
+// full-card pastel tint: only the icon square (pastel bg + accent glyph)
+// and the sub-label (accent text) carry per-tile color; the card itself
+// stays neutral bg-surface, matching every other module's KPI tiles.
 export default function SmartFleetKpiGrid({ summary, activeKpi, onKpiClick }) {
   const pct = (v) => (summary.total ? ((v / summary.total) * 100).toFixed(0) : 0)
   const todayLabel = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
 
   const tiles = [
-    { key: 'all', icon: '📊', label: 'Total Leads', value: summary.total, sub: 'All time', clickable: true },
-    { key: 'calls', icon: '📞', label: 'No. of Calls', value: summary.calls, sub: `${pct(summary.calls)}% of leads`, clickable: true },
-    { key: 'demo', icon: '🖥', label: 'Demo', value: summary.demo, sub: `${pct(summary.demo)}% of leads`, clickable: true },
-    { key: 'quoted', icon: '📄', label: 'Quotation', value: summary.quoted, sub: `${pct(summary.quoted)}% of leads`, clickable: true },
-    { key: 'won', icon: '✅', label: 'Won Lead', value: summary.wonCount, sub: `${pct(summary.wonCount)}% conv.`, clickable: true },
+    { key: 'all', icon: '📊', label: 'Total Leads', value: summary.total, sub: 'All time', clickable: true, bg: '#dbeafe', accent: '#3b82f6' },
+    { key: 'calls', icon: '📞', label: 'No. of Calls', value: summary.calls, sub: `${pct(summary.calls)}% of leads`, clickable: true, bg: '#cffafe', accent: '#06b6d4' },
+    { key: 'demo', icon: '🖥', label: 'Demo', value: summary.demo, sub: `${pct(summary.demo)}% of leads`, clickable: true, bg: '#ede9fe', accent: '#8b5cf6' },
+    { key: 'quoted', icon: '📄', label: 'Quotation', value: summary.quoted, sub: `${pct(summary.quoted)}% of leads`, clickable: true, bg: '#fae8ff', accent: '#d946ef' },
+    { key: 'won', icon: '✅', label: 'Won Lead', value: summary.wonCount, sub: `${pct(summary.wonCount)}% conv.`, clickable: true, bg: '#d1fae5', accent: '#10b981' },
     {
       key: null,
       icon: '💰',
@@ -22,8 +26,10 @@ export default function SmartFleetKpiGrid({ summary, activeKpi, onKpiClick }) {
       value: '₹' + formatINR(summary.wonRevenue),
       sub: `${summary.wonCount} won deal${summary.wonCount !== 1 ? 's' : ''}`,
       clickable: false,
+      bg: '#fef3c7',
+      accent: '#f59e0b',
     },
-    { key: 'today', icon: '📅', label: 'Daily Lead', value: summary.todayCount, sub: `Today · ${todayLabel}`, clickable: true },
+    { key: 'today', icon: '📅', label: 'Daily Lead', value: summary.todayCount, sub: `Today · ${todayLabel}`, clickable: true, bg: '#ffe4e6', accent: '#f43f5e' },
   ]
 
   return (
@@ -36,16 +42,19 @@ export default function SmartFleetKpiGrid({ summary, activeKpi, onKpiClick }) {
             type="button"
             disabled={!t.clickable}
             onClick={() => t.clickable && onKpiClick(t.key)}
-            className={`text-left rounded-xl border p-3.5 ${
+            className={`text-left rounded-xl border p-3 ${
               isActive ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
             } ${t.clickable ? '' : 'cursor-default'}`}
           >
-            <div className="w-8 h-8 rounded-lg bg-primary-tint border border-primary/20 flex items-center justify-center text-[15px] mb-2">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[15px] mb-2"
+              style={{ background: t.bg, color: t.accent }}
+            >
               {t.icon}
             </div>
             <div className="text-[19px] font-bold text-text">{t.value}</div>
             <div className="text-[11px] text-text-muted mt-0.5">{t.label}</div>
-            <div className="text-[10.5px] font-semibold text-primary mt-1">{t.sub}</div>
+            <div className="text-[10.5px] font-semibold mt-1" style={{ color: t.accent }}>{t.sub}</div>
             {t.clickable && <div className="text-[10px] text-primary mt-1">{isActive ? '✕ Clear' : '↗ Filter'}</div>}
           </button>
         )

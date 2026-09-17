@@ -274,7 +274,7 @@ function ChartCard({ title, children }) {
         <span className="w-1.5 h-1.5 rounded-full bg-primary" />
         {title}
       </div>
-      <div className="h-[220px]">{children}</div>
+      <div className="h-[190px]">{children}</div>
     </div>
   )
 }
