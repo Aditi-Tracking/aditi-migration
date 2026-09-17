@@ -38,8 +38,8 @@ export default function DashboardEngineerChart({ rows }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-3.5">
-      <div className="text-[13px] font-semibold text-text mb-2">Top Engineers</div>
+    <div className="rounded-xl border border-border bg-surface px-3.5 py-2.5">
+      <div className="text-[13px] font-semibold text-text mb-1.5">Top Engineers</div>
       <div style={{ height: 198 }}>
         <Bar data={data} options={options} plugins={[ChartDataLabels]} />
       </div>

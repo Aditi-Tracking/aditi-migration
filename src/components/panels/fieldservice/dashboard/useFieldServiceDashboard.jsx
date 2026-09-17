@@ -12,16 +12,21 @@ import DashboardEntriesTable from './DashboardEntriesTable'
 const INITIAL_FILTERS = { preset: '30d', customFrom: '', customTo: '', jobType: '', engineerId: '' }
 
 // Ported from old-portal/js/fieldservice-dashboard.js's loadFieldServiceDashboard/_fsdLoadAll.
-// Self-contained (filters + data all owned here) rather than splitting state with
-// FieldServicePanel — the filter bar's production placement (inline on the tab-selector row) is
-// purely cosmetic, agreed to simplify to "its own row here" rather than lifting state up for no
-// functional gain.
+// A hook, not a component: FieldServicePanel needs to place the filter bar in the same row as the
+// tab buttons (matching production's #fsTabBar/#fsdInlineFilters side-by-side layout, previously
+// deliberately split into two rows — now reverted) while the KPI tiles/charts/table render
+// separately in the tab content area — two DOM locations that can't both be a single component's
+// own JSX tree. Returning { filterBar, body } as pre-rendered JSX from one hook call keeps all the
+// state/fetch logic in exactly one place (no prop-drilling, no risk of two separate state copies
+// drifting out of sync), the same pattern as CRM Vehicle's useVehicleChanges. Still fully
+// self-contained (filters + data all owned here, not split with FieldServicePanel) — only *where*
+// the filter bar's JSX renders moved, not who owns its state.
 //
 // Unlike Phase 1's EntriesListTab (which loads once, the first time it's activated), this
 // refetches on EVERY activation — matches production's loadFieldServiceDashboard(), which
 // unconditionally calls _fsdLoadAll() each time the tab is switched to; only the filter bar's own
 // render (and the engineer-options fetch, already cached by Phase 1) is one-shot.
-export default function FieldServiceDashboardTab({ active }) {
+export default function useFieldServiceDashboard({ active }) {
   const { currentUser, permissions } = useAuth()
   const viewAll = canViewAllFieldService(currentUser, permissions)
 
@@ -117,31 +122,35 @@ export default function FieldServiceDashboardTab({ active }) {
     loadEntries(p)
   }
 
-  return (
-    <div>
-      <DashboardFilterBar
-        preset={filters.preset}
-        customFrom={filters.customFrom}
-        customTo={filters.customTo}
-        jobType={filters.jobType}
-        engineerId={filters.engineerId}
-        engineerOptions={engineerOptions}
-        viewAll={viewAll}
-        onChange={handleFilterChange}
-        onClear={handleClearFilters}
-      />
+  const filterBar = (
+    <DashboardFilterBar
+      preset={filters.preset}
+      customFrom={filters.customFrom}
+      customTo={filters.customTo}
+      jobType={filters.jobType}
+      engineerId={filters.engineerId}
+      engineerOptions={engineerOptions}
+      viewAll={viewAll}
+      onChange={handleFilterChange}
+      onClear={handleClearFilters}
+    />
+  )
 
+  const body = (
+    <div>
       <DashboardKpiTiles summaryRows={summaryRows} kpiComparisons={kpiComparisons} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 mb-1.5">
         <DashboardJobTypeChart rows={summaryRows} />
         {viewAll && <DashboardEngineerChart rows={summaryRows} />}
       </div>
-      <div className="mb-3">
+      <div className="mb-2.5">
         <DashboardTrendChart rows={summaryRows} />
       </div>
 
       <DashboardEntriesTable rows={entriesRows} total={entriesTotal} page={page} onPageChange={handlePageChange} viewAll={viewAll} loading={loading} error={error} />
     </div>
   )
+
+  return { filterBar, body }
 }

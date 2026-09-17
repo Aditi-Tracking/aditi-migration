@@ -31,8 +31,12 @@ export default function DashboardTrendChart({ rows }) {
     // layout.padding.top reserves canvas-level space above the plot area so a label sitting
     // above the highest point isn't clipped by the canvas edge; suggestedMax adds scale headroom
     // so the highest point isn't drawn flush against the top gridline. Both are needed — one
-    // fixes the canvas boundary, the other fixes the data range.
-    layout: { padding: { top: 16 } },
+    // fixes the canvas boundary, the other fixes the data range. padding.bottom (new) gives the
+    // rotated x-axis date labels reliable breathing room below the plot area, beyond whatever
+    // Chart.js's own auto-computed tick-label space provides — paired with a matching height
+    // reduction below (242→234) so the card's total height doesn't change at all, just how that
+    // same 242px is split between plot area and label margin.
+    layout: { padding: { top: 16, bottom: 8 } },
     plugins: {
       legend: { display: false },
       datalabels: { align: 'top', anchor: 'end', color: tickColor, font: { family: 'DM Sans', size: 8 }, backgroundColor: null, padding: 2 },
@@ -46,9 +50,9 @@ export default function DashboardTrendChart({ rows }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-3.5">
-      <div className="text-[13px] font-semibold text-text mb-2">Jobs Done — Trend</div>
-      <div style={{ height: 242 }}>
+    <div className="rounded-xl border border-border bg-surface px-3.5 py-2.5">
+      <div className="text-[13px] font-semibold text-text mb-1.5">Jobs Done — Trend</div>
+      <div style={{ height: 234 }}>
         <Line data={data} options={options} plugins={[ChartDataLabels]} />
       </div>
     </div>

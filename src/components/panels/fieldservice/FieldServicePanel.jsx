@@ -4,7 +4,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { canCreateFieldService, canViewAllFieldService, hasFieldServiceAccess } from '../../../lib/fieldService'
 import SubmitEntryTab from './SubmitEntryTab'
 import EntriesListTab from './EntriesListTab'
-import FieldServiceDashboardTab from './dashboard/FieldServiceDashboardTab'
+import useFieldServiceDashboard from './dashboard/useFieldServiceDashboard'
 
 // Ported from old-portal/js/fieldservice.js's loadFieldService/_fsRenderTabBar/_fsSwitchTabView.
 // Phase 1 (Submit + List + delete) and Phase 2 (Dashboard, js/fieldservice-dashboard.js) are both
@@ -22,6 +22,11 @@ export default function FieldServicePanel() {
   const viewAll = canViewAllFieldService(currentUser, permissions)
   const [activeTab, setActiveTab] = useState(canCreate ? 'submit' : 'list')
 
+  // Called unconditionally (hooks can't be conditional) — `active` is this hook's own internal
+  // gate on refetching/reloading, so the Dashboard tab's data only loads while it's actually the
+  // active tab, matching the exact behavior `FieldServiceDashboardTab` had before this restructure.
+  const dashboard = useFieldServiceDashboard({ active: activeTab === 'dashboard' })
+
   if (!hasFieldServiceAccess(currentUser, permissions)) {
     return <div className="px-4 sm:px-6 py-16 text-center text-text-muted text-[13px]">You don't have access to this dashboard.</div>
   }
@@ -38,12 +43,19 @@ export default function FieldServicePanel() {
         <div className="text-[11.5px] text-text-muted mt-0.5">Home › Field Service</div>
       </div>
 
-      <div className="flex gap-2 flex-wrap mb-4">
-        {tabs.map(([id, label]) => (
-          <TabButton key={id} active={activeTab === id} onClick={() => setActiveTab(id)}>
-            {label}
-          </TabButton>
-        ))}
+      {/* Tab row + Dashboard-only filter bar share one row (tabs left, filters right via
+          justify-between) — matches production's #fsTabBar/#fsdInlineFilters side-by-side
+          layout. Reverses an earlier session's deliberate two-row split, per explicit
+          instruction, not a mistake being silently fixed. */}
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+        <div className="flex gap-2 flex-wrap">
+          {tabs.map(([id, label]) => (
+            <TabButton key={id} active={activeTab === id} onClick={() => setActiveTab(id)}>
+              {label}
+            </TabButton>
+          ))}
+        </div>
+        {activeTab === 'dashboard' && dashboard.filterBar}
       </div>
 
       {/* Both tabs stay mounted, toggled via `hidden` — a half-filled Submit form survives
@@ -58,9 +70,7 @@ export default function FieldServicePanel() {
       <div hidden={activeTab !== 'list'}>
         <EntriesListTab active={activeTab === 'list'} />
       </div>
-      <div hidden={activeTab !== 'dashboard'}>
-        <FieldServiceDashboardTab active={activeTab === 'dashboard'} />
-      </div>
+      <div hidden={activeTab !== 'dashboard'}>{dashboard.body}</div>
     </div>
   )
 }

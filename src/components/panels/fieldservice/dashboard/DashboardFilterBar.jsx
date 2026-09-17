@@ -10,14 +10,14 @@ const PRESETS = [
   ['custom', 'Custom'],
 ]
 
-// Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderFilters/_fsdOnPresetChange.
-// Structurally this sits on its own row directly above the KPI tiles rather than inline on the
-// tab-selector row (production's #fsdInlineFilters lives there) — a deliberate, purely cosmetic
-// simplification agreed on before building, since the placement has no functional/stacking
-// dependency, just layout.
+// Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderFilters/_fsdOnPresetChange. Now
+// rendered inline on the tab-selector row (matching production's #fsdInlineFilters placement) —
+// an earlier session's deliberate two-row split is reversed here, per explicit instruction. No
+// margin-bottom of its own anymore: as a flex child sharing FieldServicePanel's tab row, its
+// vertical spacing comes from that row's own mb-4, not from here.
 export default function DashboardFilterBar({ preset, customFrom, customTo, jobType, engineerId, engineerOptions, viewAll, onChange, onClear }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap mb-3.5">
+    <div className="flex items-center justify-end gap-2 flex-wrap">
       <select
         value={preset}
         onChange={(e) => onChange({ preset: e.target.value })}

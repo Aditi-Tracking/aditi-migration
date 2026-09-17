@@ -6,6 +6,23 @@ import { groupSum, pctChange } from '../../../../lib/fieldServiceDashboard'
 // to real calendar windows no matter what preset is selected; only "Highest Jobs Done in a Day"
 // reads from `summaryRows`, the one fetch actually scoped by the active range/job-type/engineer
 // filters.
+//
+// Accent stripe + uppercase label mirror production's shared .kpi-card CSS (the same one FMS's
+// KPI grid picked up) — confirmed none of these 4 tiles carry a per-tile --card-accent override
+// in production, so a single primary-color stripe matches production's own behavior here, not
+// just our unified-palette convention. Deliberately no hover-lift, unlike FMS's KPI grid: all 4
+// tiles here are purely informational (no onClick, matching production's _fsdRenderKpis, which
+// never attaches one either) — lifting a non-clickable card on hover would imply clickability
+// that isn't there.
+//
+// Padding/gap/label size here are tighter than FMS's KPI grid — measured against production's own
+// #fsDashboardTab-scoped CSS overrides (padding:13px 13px 9px, kpi-grid gap:8px;margin-bottom:11px,
+// kpi-label font-size:0.62rem), part of fitting the whole dashboard (KPI + 3 charts) within one
+// viewport height without scrolling.
+function AccentStripe() {
+  return <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl bg-primary" />
+}
+
 export default function DashboardKpiTiles({ summaryRows, kpiComparisons }) {
   const kc = kpiComparisons || { today: 0, thisWeek: 0, lastWeek: 0, thisMonth: 0, lastMonth: 0 }
 
@@ -39,10 +56,11 @@ export default function DashboardKpiTiles({ summaryRows, kpiComparisons }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2.5">
       {tiles.map((t) => (
-        <div key={t.label} className="rounded-xl border border-border bg-surface p-3.5">
-          <div className="text-[11px] text-text-muted">{t.label}</div>
+        <div key={t.label} className="relative overflow-hidden rounded-xl border border-border bg-surface pt-3 px-3 pb-2">
+          <AccentStripe />
+          <div className="text-[10px] text-text-muted uppercase tracking-wide">{t.label}</div>
           <div className="text-[19px] font-bold text-text mt-0.5">{t.value.toLocaleString()}</div>
           {t.sub && <div className="text-[10.5px] text-text-muted mt-0.5">{t.sub}</div>}
         </div>
