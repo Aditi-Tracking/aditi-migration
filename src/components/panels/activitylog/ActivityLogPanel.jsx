@@ -11,6 +11,7 @@ import {
   formatDuration,
   getEmpDisplayName,
 } from '../../../lib/activityLog'
+import TopPagination from '../../shared/table/TopPagination'
 
 const PER_PAGE = 50
 
@@ -70,7 +71,6 @@ export default function ActivityLogPanel() {
   )
   const stats = useMemo(() => computeStats(filtered), [filtered])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const pageRows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   function clearFilters() {
@@ -212,6 +212,11 @@ export default function ActivityLogPanel() {
 
           {/* Table */}
           <div className="rounded-xl border border-border bg-surface overflow-hidden">
+            <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-border">
+              <span className="text-[13px] font-semibold text-text">Activity Records</span>
+              <TopPagination page={page} pageSize={PER_PAGE} total={filtered.length} onPageChange={setPage} />
+            </div>
+
             {!filtered.length && (
               <div className="text-center py-12 text-text-muted text-[12.5px]">
                 <div className="text-[28px] mb-2">🗒️</div>
@@ -243,30 +248,6 @@ export default function ActivityLogPanel() {
                       ))}
                     </tbody>
                   </table>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-t border-border">
-                  <div className="text-[11.5px] text-text-muted">
-                    Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length} records
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page <= 1}
-                      className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-3 py-1.5 disabled:opacity-50"
-                    >
-                      ← Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page >= totalPages}
-                      className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-3 py-1.5 disabled:opacity-50"
-                    >
-                      Next →
-                    </button>
-                  </div>
                 </div>
               </>
             )}

@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import { JOB_TYPE_CONFIG, engineerName, publicPhotoUrl } from '../../../../lib/fieldService'
 import { FSD_PAGE_SIZE } from '../../../../lib/fieldServiceDashboard'
+import TopPagination from '../../../shared/table/TopPagination'
 
 // Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderTable/_fsdToggleRow/
 // _fsdRenderExpandedRow/_fsdRenderPagination. Row-expand toggles re-render from the already-
@@ -8,11 +9,13 @@ import { FSD_PAGE_SIZE } from '../../../../lib/fieldServiceDashboard'
 // cache.
 export default function DashboardEntriesTable({ rows, total, page, onPageChange, viewAll, loading, error }) {
   const [expandedId, setExpandedId] = useState(null)
-  const totalPages = Math.max(1, Math.ceil(total / FSD_PAGE_SIZE))
 
   return (
     <div className="rounded-xl border border-border bg-surface p-3.5">
-      <div className="text-[13px] font-semibold text-text mb-2.5">Entries</div>
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="text-[13px] font-semibold text-text">Entries</div>
+        <TopPagination page={page} pageSize={FSD_PAGE_SIZE} total={total} onPageChange={onPageChange} zeroIndexed />
+      </div>
 
       {loading && <div className="text-center py-10 text-text-muted text-[13px]">⏳ Loading entries…</div>}
       {!loading && error && <div className="text-center py-10 text-danger text-[13px]">⚠️ Could not load entries — please try again.</div>}
@@ -62,28 +65,6 @@ export default function DashboardEntriesTable({ rows, total, page, onPageChange,
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div className="flex items-center justify-center gap-2.5 mt-3.5">
-            <button
-              type="button"
-              disabled={page <= 0}
-              onClick={() => onPageChange(page - 1)}
-              className="px-3 py-1.5 rounded-md border border-border text-text-muted text-[12px] font-semibold disabled:opacity-50"
-            >
-              ‹ Prev
-            </button>
-            <span className="text-[12px] text-text-muted px-2.5">
-              Page {page + 1} of {totalPages} ({total} total)
-            </span>
-            <button
-              type="button"
-              disabled={page + 1 >= totalPages}
-              onClick={() => onPageChange(page + 1)}
-              className="px-3 py-1.5 rounded-md border border-border text-text-muted text-[12px] font-semibold disabled:opacity-50"
-            >
-              Next ›
-            </button>
           </div>
         </>
       )}
