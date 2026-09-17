@@ -5,7 +5,6 @@ import {
   empName,
   formatTat,
   isCertOrder,
-  parseProofUrls,
   productNames,
   stepStateMap,
 } from '../../../lib/fms'
@@ -14,7 +13,6 @@ import TableHead from '../../shared/table/TableHead'
 import Th from '../../shared/table/Th'
 import Td from '../../shared/table/Td'
 import Tr from '../../shared/table/Tr'
-import StatusBadge from '../../shared/table/StatusBadge'
 
 const PER_PAGE = 20
 
@@ -35,13 +33,20 @@ const PER_PAGE = 20
 // list (not the buildPageList ellipsis-truncation variant CRM
 // Vehicle/SmartFleet use) — at PER_PAGE=20 this never approaches enough
 // pages to need truncation.
-export default function FMSPipelineTable({ orders, page, onPageChange, locations, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
+export default function FMSPipelineTable({ orders, page, onPageChange, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
   const total = orders.length
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
   const pageRows = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
     <Table
+      // Measured via canvas.measureText() against real SO Number/Product samples, using Segoe
+      // UI (this app never actually loads Inter, so that's the real rendered fallback font) at
+      // each cell's actual size/weight. Client is a good-faith estimate pending real 526-order
+      // data — its title tooltip below is the safety net for names longer than this. Reclaimed
+      // slack from SO Number/Client/Product (15+80+20=115px) went entirely to Pipeline
+      // (290->405) so the total stays 1020px — nothing else shifts.
+      colWidths={['85px', '180px', '120px', '130px', '405px', '100px']}
       footer={
         totalPages > 1 && (
           <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
@@ -83,13 +88,15 @@ export default function FMSPipelineTable({ orders, page, onPageChange, locations
       <TableHead>
         <Th>SO Number</Th>
         <Th>Client</Th>
+        <Th>Product</Th>
+        <Th>Created By</Th>
         <Th>Pipeline</Th>
         <Th align="center">Action</Th>
       </TableHead>
       <tbody>
         {!pageRows.length && (
           <tr>
-            <Td colSpan={4} align="center" className="py-10 text-text-muted">
+            <Td colSpan={6} align="center" className="py-10 text-text-muted">
               📭 No orders found
             </Td>
           </tr>
@@ -98,7 +105,6 @@ export default function FMSPipelineTable({ orders, page, onPageChange, locations
           <OrderRow
             key={o.id}
             order={o}
-            locations={locations}
             products={products}
             empMap={empMap}
             currentUser={currentUser}
@@ -134,46 +140,24 @@ function resolveAction(order, currentUser, permissions) {
   return null
 }
 
-function OrderRow({ order: o, locations, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
-  const locName = o.location_type === 'outside' ? o.location_manual || 'Outside' : locations.find((l) => l.id === o.location_id)?.location_name || '—'
-  const created = o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+function OrderRow({ order: o, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
   const states = stepStateMap(o.status)
-  const proofs = parseProofUrls(o.payment_proof_url)
   const action = resolveAction(o, currentUser, permissions)
+  const productLabel = productNames(o.product_ids, o.product_items, products)
 
   return (
     <Tr onClick={() => onOpenTimeline(o.id)}>
       <Td className="align-middle">
-        <div className="flex items-center gap-1.5 leading-tight">
-          <span className="font-semibold text-primary text-[12.5px]">{o.so_number || '—'}</span>
-          {!!proofs.length && (
-            <a
-              href={proofs[0]}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-primary"
-              title={`View proof (${proofs.length})`}
-            >
-              📎{proofs.length > 1 ? ` ${proofs.length}` : ''}
-            </a>
-          )}
-        </div>
-        <div className="text-[10.5px] text-text-muted leading-tight mt-px">
-          {created} · <strong>{o.quantity || 0}</strong> units
-        </div>
+        <span className="font-semibold text-primary text-[12.5px] truncate block">{o.so_number || '—'}</span>
+      </Td>
+      <Td className="align-middle" title={o.client_name || ''}>
+        <span className="font-semibold text-text text-[12.5px] truncate block">{o.client_name || '—'}</span>
+      </Td>
+      <Td className="align-middle" title={productLabel}>
+        <span className="text-text-muted text-[12.5px] truncate block">{productLabel}</span>
       </Td>
       <Td className="align-middle">
-        <div className="flex items-center gap-1.5 leading-tight">
-          <span className="font-semibold text-text text-[12.5px] max-w-[160px] truncate">{o.client_name || '—'}</span>
-          {o.client_type === 'nbd' && <StatusBadge tone="primary">NBD</StatusBadge>}
-        </div>
-        <div className="text-[10.5px] text-text-muted leading-tight truncate max-w-[220px]">
-          {locName} · {empName(empMap, o.assigned_to_support)}
-        </div>
-        <div className="text-[10px] text-text-muted leading-tight mt-px" title={productNames(o.product_ids, o.product_items, products)}>
-          {productNames(o.product_ids, o.product_items, products)}
-        </div>
+        <span className="text-text text-[12.5px] truncate block">{empName(empMap, o.created_by)}</span>
       </Td>
       <Td className="align-middle" onClick={(e) => e.stopPropagation()}>
         <FMSPipelineSteps order={o} states={states} />

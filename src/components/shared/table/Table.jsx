@@ -16,6 +16,15 @@
 // Verified live against real data (Renewals' My Customers, DevTools open):
 // stuck/unstuck toggles correctly and the header stays visibly pinned.
 //
+// `colWidths` (optional, e.g. for FMS's explicit column-width allocation):
+// an array of CSS width strings, one per column, rendered as a <colgroup>
+// with table-layout:fixed. Orthogonal to the sticky-clone mechanism above —
+// useStickyClonedHeader measures each real <th>'s actual rendered width via
+// getBoundingClientRect() and writes that onto the clone, regardless of
+// which layout algorithm produced it, so this needs no changes there.
+// Omitted (every other table today), the table keeps its current
+// table-layout:auto with no colgroup — fully backward compatible.
+//
 // The clone also carries a faux horizontal-scrollbar strip directly under
 // the header cells (rendered whenever the clone itself is stuck) — for a
 // long table, the real scrollbar sits at the very bottom of the whole
@@ -28,7 +37,7 @@ import { createPortal } from 'react-dom'
 import TableHead from './TableHead'
 import { useStickyClonedHeader } from './useStickyClonedHeader'
 
-const Table = forwardRef(function Table({ title, count, countLabel = 'row', actions, footer, children }, ref) {
+const Table = forwardRef(function Table({ title, count, countLabel = 'row', actions, footer, colWidths, children }, ref) {
   const scrollRef = useRef(null)
   const cloneWrapRef = useRef(null)
   const stripRef = useRef(null)
@@ -60,7 +69,16 @@ const Table = forwardRef(function Table({ title, count, countLabel = 'row', acti
           else if (ref) ref.current = node
         }}
       >
-        <table className="w-full text-[12.5px] border-collapse">{children}</table>
+        <table className="w-full text-[12.5px] border-collapse" style={colWidths ? { tableLayout: 'fixed' } : undefined}>
+          {colWidths && (
+            <colgroup>
+              {colWidths.map((w, i) => (
+                <col key={i} style={{ width: w }} />
+              ))}
+            </colgroup>
+          )}
+          {children}
+        </table>
       </div>
       {footer}
 
