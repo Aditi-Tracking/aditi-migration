@@ -63,13 +63,17 @@ export default function Sidebar({ activePanel, onNavigate, onToggleTheme, theme,
 
   return (
     <aside className="hidden md:flex md:flex-col w-56 shrink-0 h-screen sticky top-0 bg-surface border-r border-border">
-      <div className="flex items-center gap-2 px-3 h-11 border-b border-border shrink-0">
-        <span className="text-[14px] font-bold text-text">
-          <span className="text-primary">a</span>DITI
-        </span>
-        <span className="text-[9px] text-text-muted uppercase tracking-wide leading-none">
-          Tracking Portal
-        </span>
+      <div className="flex items-center px-3 h-16 border-b border-border shrink-0">
+        {/* Same source PNG + object-cover crop technique as LoginPage.jsx (a square canvas
+            with the real icon+wordmark art sitting in a ~3:1 band, padded blank above/below)
+            — height-driven here since the bar's fixed height is the binding constraint, not
+            available width. Logo scaled down another 0.8x (60px -> 48px); bar shrunk
+            proportionally (h-20 -> h-16) to keep similar breathing room around it. */}
+        <img
+          src={`${import.meta.env.BASE_URL}aditi_tracking_logoo.png`}
+          alt="Aditi Tracking"
+          className="h-12 aspect-[3/1] object-cover block"
+        />
       </div>
 
       <div className="px-3 py-2 border-b border-border shrink-0">
