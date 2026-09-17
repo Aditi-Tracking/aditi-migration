@@ -205,7 +205,6 @@ export default function TaskChecklistPanel() {
     await load(dateFrom, dateTo)
   }
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PER_PAGE))
   const pageRows = filteredRows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   function afterMutation(updater) {
@@ -317,7 +316,7 @@ export default function TaskChecklistPanel() {
             rows={pageRows}
             total={filteredRows.length}
             page={page}
-            totalPages={totalPages}
+            pageSize={PER_PAGE}
             onPageChange={setPage}
             canDelete={canDeleteTasks(permissions)}
             currentUser={currentUser}

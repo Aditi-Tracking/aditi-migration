@@ -17,6 +17,7 @@ import Th from '../../shared/table/Th'
 import Td from '../../shared/table/Td'
 import Tr from '../../shared/table/Tr'
 import { CheckboxTh, CheckboxTd } from '../../shared/table/CheckboxCell'
+import TopPagination from '../../shared/table/TopPagination'
 
 function tomorrowISO() {
   const d = new Date()
@@ -38,7 +39,7 @@ export default function TaskTable({
   rows,
   total,
   page,
-  totalPages,
+  pageSize,
   onPageChange,
   canDelete,
   currentUser,
@@ -141,56 +142,19 @@ export default function TaskTable({
   return (
     <Table
       title="All Tasks"
-      count={total}
-      countLabel="task"
       actions={
-        canDelete &&
-        selectedIds.size > 0 && (
-          <button
-            type="button"
-            onClick={onDeleteSelected}
-            className="text-[11.5px] font-semibold text-danger bg-danger-tint border border-danger/25 rounded-md px-3 py-1.5"
-          >
-            🗑️ Delete Selected ({selectedIds.size})
-          </button>
-        )
-      }
-      footer={
-        totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-            <span className="text-[11px] text-text-muted mr-2">
-              Page {page} of {totalPages}
-            </span>
+        <div className="flex items-center gap-2">
+          {canDelete && selectedIds.size > 0 && (
             <button
               type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page === 1}
-              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
+              onClick={onDeleteSelected}
+              className="text-[11.5px] font-semibold text-danger bg-danger-tint border border-danger/25 rounded-md px-3 py-1.5"
             >
-              ‹
+              🗑️ Delete Selected ({selectedIds.size})
             </button>
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => onPageChange(p)}
-                className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
-                  p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page === totalPages}
-              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-            >
-              ›
-            </button>
-          </div>
-        )
+          )}
+          <TopPagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
+        </div>
       }
     >
       <TableHead>
