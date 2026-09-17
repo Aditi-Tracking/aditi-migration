@@ -32,7 +32,6 @@ export const PERM_LABELS = {
   can_view_announcements: '🔔 View Announcements',
   can_post_announcements: '📢 Post Announcements',
   can_upload_files: '📤 Upload & Delete Files',
-  can_upload_quiz: '🎯 Create & Manage Quizzes',
   can_download_video: '⬇️ Download Training Videos',
   checklist_scope: '✅ Task Checklist Scope',
   can_delete_tasks: '🗑️ Task Checklist — Delete Tasks',
@@ -52,6 +51,10 @@ export const PERM_LABELS = {
 // field_service_create is no longer permission-gated anywhere (frontend or
 // RLS) but role_defaults still has an inert row for it — filtered out here
 // exactly as old-portal does, rather than rendering a dead toggle.
+// can_upload_quiz is the same shape: the Assessment/Quiz subsystem it once
+// gated was deliberately removed (see MIGRATION-NOTES.md), but the
+// permission key/value lives on in the backend untouched — filtered out
+// here so it renders nowhere, rather than falling back to its raw key.
 export async function fetchAllUsersPermissions(callerEmail) {
   const res = await fetch(`${PAPI_URL}/api/admin/all-users-permissions`, {
     headers: { 'X-User-Email': callerEmail },
@@ -60,7 +63,7 @@ export async function fetchAllUsersPermissions(callerEmail) {
   const data = await res.json()
   return {
     users: data.users || [],
-    allKeys: (data.all_permission_keys || []).filter((k) => k !== 'field_service_create'),
+    allKeys: (data.all_permission_keys || []).filter((k) => k !== 'field_service_create' && k !== 'can_upload_quiz'),
   }
 }
 
