@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../context/AuthContext'
 import { FileViewerProvider } from '../../context/FileViewerContext'
@@ -20,36 +20,48 @@ import FileViewerModal from '../shared/FileViewerModal'
 import CelebrationWishPopup from '../panels/home/CelebrationWishPopup'
 import MyWishesModal from '../panels/home/MyWishesModal'
 import PlaceholderPanel from '../panels/PlaceholderPanel'
-import HRPanel from '../panels/hr/HRPanel'
-import SalesPanel from '../panels/sales/SalesPanel'
-import AfterSalesPanel from '../panels/aftersales/AfterSalesPanel'
-import ITAdminPanel from '../panels/itadmin/ITAdminPanel'
-import MarketingPanel from '../panels/marketing/MarketingPanel'
-import FinancePanel from '../panels/finance/FinancePanel'
-import ResourcesPanel from '../panels/resources/ResourcesPanel'
-import ReferralPanel from '../panels/referral/ReferralPanel'
-import ProductsPanel from '../panels/products/ProductsPanel'
-import HomePanel from '../panels/home/HomePanel'
-import AboutPanel from '../panels/about/AboutPanel'
-import TrainingPanel from '../panels/training/TrainingPanel'
-import AccessControlPanel from '../panels/accesscontrol/AccessControlPanel'
-import ActivityLogPanel from '../panels/activitylog/ActivityLogPanel'
-import SmartFleetPanel from '../panels/smartfleet/SmartFleetPanel'
-import DashboardsHubPanel from '../panels/dashboardshub/DashboardsHubPanel'
-import TaskChecklistPanel from '../panels/taskchecklist/TaskChecklistPanel'
-import FMSPanel from '../panels/fms/FMSPanel'
-import RenewalsPanel from '../panels/renewals/RenewalsPanel'
-import TaskDelegationPanel from '../panels/taskdelegation/TaskDelegationPanel'
-import CRMVehiclePanel from '../panels/crmvehicle/CRMVehiclePanel'
-import FieldServicePanel from '../panels/fieldservice/FieldServicePanel'
-import HREmployeeMasterPanel from '../panels/hremployee/HREmployeeMasterPanel'
-import VendorRequestsPanel from '../panels/vendorrequests/VendorRequestsPanel'
-import RecurringBillsPanel from '../panels/vendorrequests/RecurringBillsPanel'
-import DealPricingPanel from '../panels/dealpricing/DealPricingPanel'
-import MappingPanel from '../panels/mapping/MappingPanel'
-import EnterpriseLeadPanel from '../panels/enterprise/EnterpriseLeadPanel'
-import IMSPanel from '../panels/ims/IMSPanel'
-import EnterpriseSolutionsPanel from '../panels/enterprisesolutions/EnterpriseSolutionsPanel'
+import ErrorBoundary from '../shared/ErrorBoundary'
+
+// Panel components are lazy-loaded — each one's code (and everything it pulls in: charts,
+// tables, modals) is only fetched the first time a user actually navigates to it, instead of
+// every panel being bundled into one eager chunk regardless of which ones a given user ever
+// opens. Safe with respect to every "stay mounted across tab switches" pattern in this app
+// (Field Service's Submit/List/Dashboard tabs, Task Checklist's Scheduler tab, Vendor
+// Requests' internal tabs) — confirmed by reading PortalShell's own render logic: exactly one
+// top-level panel is ever mounted at a time via the single ActivePanelComponent slot below, so
+// switching activePanel already fully unmounts/remounts panels today regardless of import
+// style. Those three panels' internal persistence relies only on themselves staying mounted
+// as the active panel, which lazy-loading doesn't change once a panel's chunk has loaded.
+const HRPanel = lazy(() => import('../panels/hr/HRPanel'))
+const SalesPanel = lazy(() => import('../panels/sales/SalesPanel'))
+const AfterSalesPanel = lazy(() => import('../panels/aftersales/AfterSalesPanel'))
+const ITAdminPanel = lazy(() => import('../panels/itadmin/ITAdminPanel'))
+const MarketingPanel = lazy(() => import('../panels/marketing/MarketingPanel'))
+const FinancePanel = lazy(() => import('../panels/finance/FinancePanel'))
+const ResourcesPanel = lazy(() => import('../panels/resources/ResourcesPanel'))
+const ReferralPanel = lazy(() => import('../panels/referral/ReferralPanel'))
+const ProductsPanel = lazy(() => import('../panels/products/ProductsPanel'))
+const HomePanel = lazy(() => import('../panels/home/HomePanel'))
+const AboutPanel = lazy(() => import('../panels/about/AboutPanel'))
+const TrainingPanel = lazy(() => import('../panels/training/TrainingPanel'))
+const AccessControlPanel = lazy(() => import('../panels/accesscontrol/AccessControlPanel'))
+const ActivityLogPanel = lazy(() => import('../panels/activitylog/ActivityLogPanel'))
+const SmartFleetPanel = lazy(() => import('../panels/smartfleet/SmartFleetPanel'))
+const DashboardsHubPanel = lazy(() => import('../panels/dashboardshub/DashboardsHubPanel'))
+const TaskChecklistPanel = lazy(() => import('../panels/taskchecklist/TaskChecklistPanel'))
+const FMSPanel = lazy(() => import('../panels/fms/FMSPanel'))
+const RenewalsPanel = lazy(() => import('../panels/renewals/RenewalsPanel'))
+const TaskDelegationPanel = lazy(() => import('../panels/taskdelegation/TaskDelegationPanel'))
+const CRMVehiclePanel = lazy(() => import('../panels/crmvehicle/CRMVehiclePanel'))
+const FieldServicePanel = lazy(() => import('../panels/fieldservice/FieldServicePanel'))
+const HREmployeeMasterPanel = lazy(() => import('../panels/hremployee/HREmployeeMasterPanel'))
+const VendorRequestsPanel = lazy(() => import('../panels/vendorrequests/VendorRequestsPanel'))
+const RecurringBillsPanel = lazy(() => import('../panels/vendorrequests/RecurringBillsPanel'))
+const DealPricingPanel = lazy(() => import('../panels/dealpricing/DealPricingPanel'))
+const MappingPanel = lazy(() => import('../panels/mapping/MappingPanel'))
+const EnterpriseLeadPanel = lazy(() => import('../panels/enterprise/EnterpriseLeadPanel'))
+const IMSPanel = lazy(() => import('../panels/ims/IMSPanel'))
+const EnterpriseSolutionsPanel = lazy(() => import('../panels/enterprisesolutions/EnterpriseSolutionsPanel'))
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -183,7 +195,11 @@ export default function PortalShell() {
                   </div>
                 )}
                 {ActivePanelComponent ? (
-                  <ActivePanelComponent onNavigate={navigate} />
+                  <ErrorBoundary key={activePanel}>
+                    <Suspense fallback={<div className="text-center py-16 text-text-muted text-[13px]">⏳ Loading…</div>}>
+                      <ActivePanelComponent onNavigate={navigate} />
+                    </Suspense>
+                  </ErrorBoundary>
                 ) : (
                   <PlaceholderPanel label={PANEL_LABELS[activePanel] || activePanel} />
                 )}
