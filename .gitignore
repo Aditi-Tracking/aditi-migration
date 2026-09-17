@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Environment variables — real values are per-developer/per-deploy, never committed.
+# .env.example (committed) documents which keys are needed.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

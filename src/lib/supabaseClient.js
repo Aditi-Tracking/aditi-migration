@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Same project + anon key as old-portal/js/app.js and old-portal/js/auth.js — never change
-// one without the other.
-export const SUPABASE_URL = 'https://rramdtpabwjsndgkohbi.supabase.co'
-export const SUPABASE_ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyYW1kdHBhYndqc25kZ2tvaGJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MDQ4ODUsImV4cCI6MjA5MTQ4MDg4NX0.hpdTOkhRrbqmbPM6VJWEtz2oEjkeXAjYJQS9rgzheec'
+// one without the other. Read from env (see .env.example) rather than hardcoded, so
+// dev/staging/prod can point at different projects without a code change.
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+export const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Used only for Supabase Auth (sign in/out, session). All data access goes through
 // raw REST fetch() calls with SB_HDRS(), matching old-portal's pattern exactly —
