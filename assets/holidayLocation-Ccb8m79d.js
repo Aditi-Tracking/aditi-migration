@@ -1,0 +1,1 @@
+function e(e){let t=(e||``).toLowerCase().trim();return t.includes(`goa`)?`Goa`:t.includes(`bangalore`)||t.includes(`bengaluru`)?`Bangalore`:t.includes(`gujarat`)||t.includes(`surat`)||t.includes(`ahmedabad`)?`Gujarat`:t.includes(`mumbai`)||t.includes(`head office`)||t.includes(`headoffice`)||t.includes(`head-office`)?`Mumbai`:e||`All`}export{e as t};
