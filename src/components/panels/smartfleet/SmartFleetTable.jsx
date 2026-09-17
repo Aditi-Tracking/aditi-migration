@@ -1,4 +1,4 @@
-import { PAGE_SIZE, buildPageList, repBg, repColor } from '../../../lib/smartFleet'
+import { PAGE_SIZE, repBg, repColor } from '../../../lib/smartFleet'
 import Table from '../../shared/table/Table'
 import TableHead from '../../shared/table/TableHead'
 import Th from '../../shared/table/Th'
@@ -6,6 +6,7 @@ import Td from '../../shared/table/Td'
 import Tr from '../../shared/table/Tr'
 import StatusBadge from '../../shared/table/StatusBadge'
 import AvatarChip from '../../shared/table/AvatarChip'
+import TopPagination from '../../shared/table/TopPagination'
 
 const COLUMNS = [
   { key: 'contact_name', label: 'Customer', sortable: true },
@@ -27,58 +28,10 @@ const COLUMNS = [
 // bg-surface-2 header) already matched the new shared convention exactly.
 export default function SmartFleetTable({ rows, page, onPageChange, sortKey, sortDir, onSort, onRowClick }) {
   const total = rows.length
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <Table
-      title="All Leads"
-      count={total}
-      countLabel="lead"
-      footer={
-        totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-            <span className="text-[11px] text-text-muted mr-2">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page === 1}
-              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-            >
-              ‹
-            </button>
-            {buildPageList(page, totalPages).map((p, i) =>
-              p === '…' ? (
-                <span key={`e${i}`} className="text-text-muted px-1">
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => onPageChange(p)}
-                  className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
-                    p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
-                  }`}
-                >
-                  {p}
-                </button>
-              )
-            )}
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page === totalPages}
-              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-            >
-              ›
-            </button>
-          </div>
-        )
-      }
-    >
+    <Table title="All Leads" actions={<TopPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={onPageChange} />}>
       <TableHead>
         {COLUMNS.map((c) => (
           <Th key={c.label} align={c.align} sortable={c.sortable} sortKey={c.key} activeSortKey={sortKey} sortDir={sortDir} onSort={onSort}>
