@@ -32,6 +32,11 @@ export default function useFieldServiceDashboard({ active }) {
 
   const [filters, setFilters] = useState(INITIAL_FILTERS)
   const [engineerOptions, setEngineerOptions] = useState([])
+  // Distinct from engineerOptions.length === 0 — that alone can't tell "not fetched yet" apart
+  // from "fetched, and genuinely empty" (e.g. the Flask call failing closed to []). This flag is
+  // the real readiness signal DashboardEngineerChart gates its render on, so it never paints with
+  // the module-level name cache still unresolved.
+  const [engineerOptionsLoaded, setEngineerOptionsLoaded] = useState(false)
   const [summaryRows, setSummaryRows] = useState([])
   const [kpiComparisons, setKpiComparisons] = useState(null)
   const [entriesRows, setEntriesRows] = useState([])
@@ -78,8 +83,11 @@ export default function useFieldServiceDashboard({ active }) {
 
   useEffect(() => {
     if (!active) return
-    if (viewAll && engineerOptions.length === 0) {
-      fetchEngineerOptions(currentUser?.email).then(setEngineerOptions)
+    if (viewAll && !engineerOptionsLoaded) {
+      fetchEngineerOptions(currentUser?.email).then((eng) => {
+        setEngineerOptions(eng)
+        setEngineerOptionsLoaded(true)
+      })
     }
     // Reloads with whatever page the table was left at — production never resets pagination on
     // a mere tab re-activation, only on an actual filter change or Clear (see the effect below).
@@ -142,7 +150,7 @@ export default function useFieldServiceDashboard({ active }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 mb-1.5">
         <DashboardJobTypeChart rows={summaryRows} />
-        {viewAll && <DashboardEngineerChart rows={summaryRows} />}
+        {viewAll && <DashboardEngineerChart rows={summaryRows} engineerOptions={engineerOptions} loading={!engineerOptionsLoaded} />}
       </div>
       <div className="mb-2.5">
         <DashboardTrendChart rows={summaryRows} />
