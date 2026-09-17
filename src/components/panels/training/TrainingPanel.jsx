@@ -8,25 +8,13 @@ import DocCard from '../../shared/DocCard'
 import UploadModal from '../../shared/UploadModal'
 import { DOC_ICON } from '../../shared/docIcons'
 import TrainingModuleOverlay from './TrainingModuleOverlay'
-import QuizPreviewModal from './QuizPreviewModal'
-import QuizTakingOverlay from './QuizTakingOverlay'
-import QuizResultOverlay from './QuizResultOverlay'
-import MyResultsOverlay from './MyResultsOverlay'
-import QuizAdminOverlay from './QuizAdminOverlay'
-import GradeOverlay from './GradeOverlay'
 
 // Ported from old-portal/js/training.js's loadTrainingSection() (plain
-// content_nodes grid) plus the quiz flow entry points. Restructured away
-// from Phase 1's thin CNSectionPanel wrapper because Training's overlay
-// needs its own Videos/Assessment tab bar (see TrainingModuleOverlay) —
-// the Videos tab behavior itself is unchanged.
-//
-// Quiz flow: selecting a quiz inside the module overlay closes that
-// overlay and opens Preview -> Take Quiz -> Result, mirroring
-// openQuizPreviewFromOverlay's closeMarketingOverlay()-then-open sequence.
+// content_nodes grid). Videos-only — the Assessment/Quiz subsystem (quiz
+// creation, taking, grading, results) was deliberately removed as a
+// product decision, not a port gap; see MIGRATION-NOTES.md.
 export default function TrainingPanel() {
   const { currentUser, permissions } = useAuth()
-  const canManageQuizzes = permissions.can_upload_quiz === 'true'
   const canDelete = canUploadFiles(permissions)
 
   const [loading, setLoading] = useState(true)
@@ -34,10 +22,6 @@ export default function TrainingPanel() {
   const [cats, setCats] = useState([])
 
   const [moduleNode, setModuleNode] = useState(null) // { id, name } | null
-  const [quizFlow, setQuizFlow] = useState(null) // { screen: 'preview'|'taking'|'result', quizId, result } | null
-  const [myResultsOpen, setMyResultsOpen] = useState(false)
-  const [quizAdminOpen, setQuizAdminOpen] = useState(false)
-  const [gradeOpen, setGradeOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
 
   function loadCats() {
@@ -81,11 +65,6 @@ export default function TrainingPanel() {
     }
   }
 
-  function handleSelectQuiz(quizId) {
-    setModuleNode(null)
-    setQuizFlow({ screen: 'preview', quizId })
-  }
-
   return (
     <div className="px-4 sm:px-6 py-5">
       <div className="flex items-center justify-between gap-3 mb-1">
@@ -94,31 +73,6 @@ export default function TrainingPanel() {
           <div className="text-[11.5px] text-text-muted mt-0.5">Home › Training</div>
         </div>
         <div className="flex items-center gap-2">
-          {canManageQuizzes && (
-            <button
-              type="button"
-              onClick={() => setQuizAdminOpen(true)}
-              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
-            >
-              ➕ Create Quiz
-            </button>
-          )}
-          {canManageQuizzes && (
-            <button
-              type="button"
-              onClick={() => setGradeOpen(true)}
-              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
-            >
-              ✏️ Grade
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setMyResultsOpen(true)}
-            className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
-          >
-            📊 My Results
-          </button>
           {canDelete && (
             <button
               type="button"
@@ -168,35 +122,9 @@ export default function TrainingPanel() {
         canDelete={canDelete}
         onContentChanged={handleContentChanged}
         onClose={() => setModuleNode(null)}
-        onSelectQuiz={handleSelectQuiz}
       />
 
       <UploadModal open={uploadOpen} sectionName="Training" onClose={() => setUploadOpen(false)} onUploaded={handleContentChanged} />
-
-      <QuizPreviewModal
-        open={quizFlow?.screen === 'preview'}
-        quizId={quizFlow?.quizId}
-        onClose={() => setQuizFlow(null)}
-        onStart={(quizId) => setQuizFlow({ screen: 'taking', quizId })}
-      />
-
-      <QuizTakingOverlay
-        open={quizFlow?.screen === 'taking'}
-        quizId={quizFlow?.quizId}
-        onClose={() => setQuizFlow(null)}
-        onFinished={(result) => setQuizFlow({ screen: 'result', quizId: quizFlow.quizId, result })}
-      />
-
-      <QuizResultOverlay
-        result={quizFlow?.screen === 'result' ? quizFlow.result : null}
-        onClose={() => setQuizFlow(null)}
-        onRetake={() => setQuizFlow({ screen: 'taking', quizId: quizFlow.quizId })}
-      />
-
-      <MyResultsOverlay open={myResultsOpen} onClose={() => setMyResultsOpen(false)} />
-
-      {canManageQuizzes && <QuizAdminOverlay open={quizAdminOpen} onClose={() => setQuizAdminOpen(false)} />}
-      {canManageQuizzes && <GradeOverlay open={gradeOpen} onClose={() => setGradeOpen(false)} />}
     </div>
   )
 }
