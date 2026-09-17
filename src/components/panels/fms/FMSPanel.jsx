@@ -15,9 +15,10 @@ import {
 } from '../../../lib/fms'
 import FMSKpiGrid from './FMSKpiGrid'
 import FMSFilterBar from './FMSFilterBar'
-import FMSPipelineTable from './FMSPipelineTable'
+import FMSPipelineTable, { PER_PAGE } from './FMSPipelineTable'
 import NewOrderModal from './NewOrderModal'
 import UpdatePaymentModal from './UpdatePaymentModal'
+import TopPagination from '../../shared/table/TopPagination'
 import TimelineModal from './TimelineModal'
 import SupportAssignModal from './SupportAssignModal'
 import ReassignModal from './ReassignModal'
@@ -219,14 +220,12 @@ export default function FMSPanel() {
             dateTo={dateTo}
             onDateToChange={setDateTo}
             onReset={handleReset}
-            count={`${filteredOrders.length} order${filteredOrders.length !== 1 ? 's' : ''}`}
+            pagination={<TopPagination page={page} pageSize={PER_PAGE} total={filteredOrders.length} onPageChange={setPage} />}
           />
 
           <FMSPipelineTable
             orders={filteredOrders}
             page={page}
-            onPageChange={setPage}
-            locations={locations}
             products={products}
             empMap={empMap}
             currentUser={currentUser}

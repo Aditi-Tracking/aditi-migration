@@ -1,10 +1,11 @@
-import { CRM_TABLE_PAGE_SIZE, assigneeColor, buildPageList } from '../../../lib/crmVehicle'
+import { CRM_TABLE_PAGE_SIZE, assigneeColor } from '../../../lib/crmVehicle'
 import Table from '../../shared/table/Table'
 import TableHead from '../../shared/table/TableHead'
 import Th from '../../shared/table/Th'
 import Td from '../../shared/table/Td'
 import Tr from '../../shared/table/Tr'
 import StatusBadge from '../../shared/table/StatusBadge'
+import TopPagination from '../../shared/table/TopPagination'
 
 // Platinum's #a855f7 is byte-identical to StatusBadge's own purple tone —
 // tone="purple" directly. Gold's #f59e0b doesn't match StatusBadge's
@@ -33,7 +34,6 @@ const TIER_ICON = { Platinum: '💎', Gold: '🥇', Silver: '🥈' }
 // filtered list (search/tier/status already applied by the caller); this component only slices to
 // the current page for rendering, mirroring SmartFleetTable's page/onPageChange contract exactly.
 export default function CRMCustomerTable({ rows, search, onSearchChange, selectedRow, onSelectRow, page, onPageChange }) {
-  const totalPages = Math.max(1, Math.ceil(rows.length / CRM_TABLE_PAGE_SIZE))
   const pageRows = rows.slice((page - 1) * CRM_TABLE_PAGE_SIZE, page * CRM_TABLE_PAGE_SIZE)
 
   return (
@@ -66,57 +66,11 @@ export default function CRMCustomerTable({ rows, search, onSearchChange, selecte
           placeholder="🔍  Search company name..."
           className="flex-1 min-w-[220px] box-border px-3 py-2 rounded-lg border border-border bg-surface-2 text-text text-[13px] outline-none"
         />
-        <div className="text-[12px] text-text-muted">
-          Showing <span className="font-bold text-text">{rows.length}</span> companies
-        </div>
+        <TopPagination page={page} pageSize={CRM_TABLE_PAGE_SIZE} total={rows.length} onPageChange={onPageChange} />
       </div>
       <div className="text-[11px] text-text-muted italic mb-2.5">Data syncs every 5 minutes · Click any row to see details</div>
 
-      <Table
-        footer={
-          totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-              <span className="text-[11px] text-text-muted mr-2">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => onPageChange(page - 1)}
-                disabled={page === 1}
-                className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-              >
-                ‹
-              </button>
-              {buildPageList(page, totalPages).map((p, i) =>
-                p === '…' ? (
-                  <span key={`e${i}`} className="text-text-muted px-1">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => onPageChange(p)}
-                    className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
-                      p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-              <button
-                type="button"
-                onClick={() => onPageChange(page + 1)}
-                disabled={page === totalPages}
-                className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-              >
-                ›
-              </button>
-            </div>
-          )
-        }
-      >
+      <Table>
         <TableHead>
           <Th>#</Th>
           <Th>Customer Name</Th>

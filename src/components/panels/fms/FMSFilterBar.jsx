@@ -18,7 +18,7 @@ export default function FMSFilterBar({
   dateTo,
   onDateToChange,
   onReset,
-  count,
+  pagination,
 }) {
   const inputClass = 'bg-surface border border-border rounded-md px-3 py-1.5 text-[12.5px] text-text'
 
@@ -59,7 +59,7 @@ export default function FMSFilterBar({
       <button type="button" onClick={onReset} className="text-[12px] text-text-muted border border-border rounded-md px-3 py-1.5">
         Reset
       </button>
-      <span className="text-[11.5px] text-text-muted ml-1">{count}</span>
+      <span className="ml-1">{pagination}</span>
     </div>
   )
 }

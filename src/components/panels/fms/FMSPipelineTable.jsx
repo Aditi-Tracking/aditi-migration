@@ -14,7 +14,7 @@ import Th from '../../shared/table/Th'
 import Td from '../../shared/table/Td'
 import Tr from '../../shared/table/Tr'
 
-const PER_PAGE = 20
+export const PER_PAGE = 20
 
 // Ported from old-portal/js/fms.js's fmsRenderTable/fmsBuildPipelineRow.
 // The action column now mirrors fmsRenderTable's exact status+permission
@@ -29,13 +29,10 @@ const PER_PAGE = 20
 // (selected-row highlight needing to win over the zebra stripe). No
 // selection state exists here — a row's onClick just opens the timeline
 // overlay — so plain zebra=true default striping applies with nothing
-// special to handle. Pagination kept as the existing flat page-number
-// list (not the buildPageList ellipsis-truncation variant CRM
-// Vehicle/SmartFleet use) — at PER_PAGE=20 this never approaches enough
-// pages to need truncation.
-export default function FMSPipelineTable({ orders, page, onPageChange, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
-  const total = orders.length
-  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
+// special to handle. Pagination itself lives in FMSFilterBar (TopPagination,
+// via FMSPanel's `pagination` prop) rather than here — PER_PAGE is exported
+// so FMSPanel can pass the right pageSize without duplicating the constant.
+export default function FMSPipelineTable({ orders, page, products, empMap, currentUser, permissions, onOpenTimeline, onOpenAction }) {
   const pageRows = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
@@ -47,43 +44,6 @@ export default function FMSPipelineTable({ orders, page, onPageChange, products,
       // slack from SO Number/Client/Product (15+80+20=115px) went entirely to Pipeline
       // (290->405) so the total stays 1020px — nothing else shifts.
       colWidths={['85px', '180px', '120px', '130px', '405px', '100px']}
-      footer={
-        totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-border flex-wrap">
-            <span className="text-[11px] text-text-muted mr-2">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page === 1}
-              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-            >
-              ‹
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => onPageChange(p)}
-                className={`text-[11.5px] rounded-md border px-2.5 py-1 ${
-                  p === page ? 'bg-primary text-white border-primary' : 'border-border bg-surface-2 text-text'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page === totalPages}
-              className="text-[11.5px] rounded-md border border-border bg-surface-2 text-text px-2.5 py-1 disabled:opacity-40"
-            >
-              ›
-            </button>
-          </div>
-        )
-      }
     >
       <TableHead>
         <Th>SO Number</Th>
