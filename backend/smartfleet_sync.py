@@ -1,0 +1,495 @@
+import requests, schedule, time, urllib3
+from datetime import datetime, timezone, timedelta
+from supabase import create_client
+import os
+try:
+    import pytz
+    IST = pytz.timezone('Asia/Kolkata')
+    HAS_PYTZ = True
+except ImportError:
+    HAS_PYTZ = False
+    print("WARNING: pytz not installed — snapshot will use UTC hour. Run: pip install pytz")
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+SUPABASE_URL       = os.environ.get("SUPABASE_URL",       "")
+SUPABASE_KEY       = os.environ.get("SUPABASE_KEY",       "")
+PREMIUM_USERNAME   = os.environ.get("PREMIUM_USERNAME",   "")
+PREMIUM_PASSWORD   = os.environ.get("PREMIUM_PASSWORD",   "")
+PREMIUM2_USERNAME  = os.environ.get("PREMIUM2_USERNAME",  "")
+PREMIUM2_PASSWORD  = os.environ.get("PREMIUM2_PASSWORD",  "")
+PREMIUM3_USERNAME  = os.environ.get("PREMIUM3_USERNAME",  "")
+PREMIUM3_PASSWORD  = os.environ.get("PREMIUM3_PASSWORD",  "")
+PREMIUM4_USERNAME  = os.environ.get("PREMIUM4_USERNAME",  "")
+PREMIUM4_PASSWORD  = os.environ.get("PREMIUM4_PASSWORD",  "")
+PRO_USERNAME       = os.environ.get("PRO_USERNAME",       "")
+PRO_PASSWORD       = os.environ.get("PRO_PASSWORD",       "")
+GOA_USERNAME       = os.environ.get("GOA_USERNAME",       "")
+GOA_PASSWORD       = os.environ.get("GOA_PASSWORD",       "")
+BANGALORE_USERNAME = os.environ.get("BANGALORE_USERNAME", "")
+BANGALORE_PASSWORD = os.environ.get("BANGALORE_PASSWORD", "")
+GUJARAT_USERNAME   = os.environ.get("GUJARAT_USERNAME",   "")
+GUJARAT_PASSWORD   = os.environ.get("GUJARAT_PASSWORD",   "")
+
+SYNC_EVERY_MINUTES = 5
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+SERVERS = [
+    {"name": "Premium Server",   "username": PREMIUM_USERNAME,   "password": PREMIUM_PASSWORD,   "ip": "13.126.244.90",  "project_id": "37"},
+    {"name": "Premium Server",   "username": PREMIUM2_USERNAME,  "password": PREMIUM2_PASSWORD,  "ip": "13.126.244.90",  "project_id": "37"},
+    {"name": "Premium Server",   "username": PREMIUM3_USERNAME,  "password": PREMIUM3_PASSWORD,  "ip": "13.126.244.90",  "project_id": "37"},
+    {"name": "Premium Server",   "username": PREMIUM4_USERNAME,  "password": PREMIUM4_PASSWORD,  "ip": "13.126.244.90",  "project_id": "37"},
+    {"name": "PRO Server",       "username": PRO_USERNAME,       "password": PRO_PASSWORD,       "ip": "43.204.188.112", "project_id": "16"},
+    {"name": "Goa Server",       "username": GOA_USERNAME,       "password": GOA_PASSWORD,       "ip": "3.7.238.246",    "project_id": "37"},
+    {"name": "Bangalore Server", "username": BANGALORE_USERNAME, "password": BANGALORE_PASSWORD, "ip": "13.126.244.90",  "project_id": "37"},
+    {"name": "Gujarat Server",   "username": GUJARAT_USERNAME,   "password": GUJARAT_PASSWORD,   "ip": "13.126.244.90",  "project_id": "37"},
+]
+
+_snapshotted_today = set()
+_tier_map_cache = {}
+
+TIER_MAP = {
+    "platinum": "Platinum",
+    "gold":     "Gold",
+    "silver":   "Silver",
+}
+
+def fetch_all_rows(table_name, select_cols, filters=None, page_size=1000):
+    """
+    Supabase/PostgREST har REST response ko project ke "Max Rows" setting
+    (default 1000) tak cap karta hai jab tak .range() se pagination na ho.
+    Yeh function .range() se loop karke poora result set guarantee karta hai.
+    """
+    all_rows = []
+    start = 0
+    while True:
+        q = supabase.table(table_name).select(select_cols)
+        for col, val in (filters or {}).items():
+            q = q.eq(col, val)
+        res = q.range(start, start + page_size - 1).execute()
+        rows = res.data or []
+        all_rows.extend(rows)
+        if len(rows) < page_size:
+            break
+        start += page_size
+    return all_rows
+
+def get_ist_now():
+    if HAS_PYTZ:
+        return datetime.now(IST)
+    else:
+        return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+
+def should_take_snapshot():
+    now_ist = get_ist_now()
+    # Moved from :50 to :45 for safety margin — a full sync_all() cycle can
+    # take a few minutes, and the old :50 start left little room before
+    # midnight if a cycle ran long.
+    return now_ist.hour == 23 and now_ist.minute >= 45
+
+def get_snapshot_date():
+    return get_ist_now().strftime('%Y-%m-%d')
+
+def get_yesterday_date():
+    return (get_ist_now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+def get_session(ip):
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "PostmanRuntime/7.36.3",
+        "Accept": "*/*",
+        "Content-Type": "application/json"
+    })
+    try:
+        session.get(f"https://{ip}/webservice", verify=False, timeout=10)
+    except Exception:
+        pass
+    return session
+
+def get_token(server, session):
+    url = f"https://{server['ip']}/webservice?token=generateAccessToken"
+    try:
+        res = session.get(
+            url,
+            json={"username": server["username"], "password": server["password"]},
+            verify=False, timeout=15
+        )
+        token = res.json().get("data", {}).get("token")
+        if token:
+            print(f"  Token OK — {server['name']}")
+        else:
+            print(f"  No token — {server['name']} — {res.text[:100]}")
+        return token
+    except Exception as e:
+        print(f"  Token error ({server['name']}): {e}")
+        return None
+
+def pull_vehicles(server, token, session):
+    url = f"https://{server['ip']}/webservice?token=getTokenBaseLiveData&ProjectId={server['project_id']}"
+    headers = {
+        "auth-code": token,
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    body = {"company_names": "", "vehicle_nos": "", "imei_nos": "", "format": "json"}
+    try:
+        res = session.post(url, json=body, headers=headers, verify=False, timeout=30)
+        raw = res.json()
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, dict):
+            if "root" in raw and isinstance(raw["root"], dict):
+                return raw["root"].get("VehicleData", [])
+            for k in ["VehicleData", "data", "vehicles"]:
+                if k in raw and isinstance(raw[k], list):
+                    return raw[k]
+        return []
+    except Exception as e:
+        print(f"   Pull error ({server['name']}): {e}")
+        return []
+
+def map_vehicle(v, region, sync_time):
+    imei = str(v.get("Imeino", "")).strip()
+    return {
+        "synced_at": sync_time, "region": region,
+        "vehicle_name": v.get("Vehicle_Name", ""), "vehicle_no": v.get("Vehicle_No", ""),
+        "company": v.get("Company", ""), "branch": v.get("Branch", ""),
+        "vehicletype": v.get("Vehicletype", ""), "status": v.get("Status", ""),
+        "gps": v.get("GPS", ""), "ign": v.get("IGN", ""), "ac": v.get("AC", ""),
+        "speed": v.get("Speed", ""), "location": v.get("Location", ""),
+        "latitude": v.get("Latitude", ""), "longitude": v.get("Longitude", ""),
+        "odometer": str(v.get("Odometer", "")), "gps_actual_time": v.get("GPSActualTime", ""),
+        "device_datetime": v.get("Datetime", ""), "temperature": v.get("Temperature", ""),
+        "heartbeat": v.get("heartbeat", ""), "device_model": v.get("DeviceModel", ""),
+        "imeino": imei, "satellite_count": int(v.get("satellite_count", 0) or 0),
+        "battery_percentage": int(v.get("battery_percentage", 0) or 0),
+        "power": v.get("Power", ""), "sos": v.get("SOS", ""),
+        "immobilize_state": v.get("Immobilize_State", ""),
+        "driver_first_name": v.get("Driver_First_Name", ""),
+        "driver_last_name": v.get("Driver_Last_Name", ""),
+        "username": v.get("username", ""), "altitude": str(v.get("Altitude", "")),
+        "angle": str(v.get("Angle", "")), "external_volt": v.get("ExternalVolt", ""),
+        "vin": v.get("Vin", ""), "poi": v.get("POI", ""),
+        "can_odometer": str(v.get("can_odometer", "")), "gps_hdop": v.get("gps_hdop", ""),
+        "mcc": v.get("mcc", ""), "mnc": v.get("mnc", ""), "cellid": v.get("cellid", ""),
+        "lac": v.get("lac", ""), "door1": v.get("Door1", ""), "door2": v.get("Door2", ""),
+        "door3": v.get("Door3", ""), "door4": v.get("Door4", ""), "elock": v.get("elock", ""),
+        "ibutton_rfid": v.get("Ibutton/RFID", ""), "course": str(v.get("course", ""))
+    }
+
+def refresh_tier_map():
+    """
+    Fetch company_name -> tier mapping from customer_crm table.
+    FIX (16-Jun-2026): SmartFleet's live API does NOT return a Tier/tier/customer_tier
+    field at all — that's why every vehicle was falling back to "Other" before.
+    The actual tier (Platinum/Gold/Silver) lives in Supabase's customer_crm table,
+    keyed by company_name. This refreshes a cached lookup once per sync_all() cycle
+    (every 10 min) instead of querying it per-vehicle.
+    """
+    global _tier_map_cache
+    try:
+        rows = fetch_all_rows("customer_crm", "company_name,tier")
+        new_map = {}
+        for r in rows:
+            name = str(r.get("company_name", "")).strip().lower()
+            tier = str(r.get("tier", "")).strip()
+            if name and tier:
+                new_map[name] = tier
+        _tier_map_cache = new_map
+        print(f"  📋 Tier map refreshed — {len(_tier_map_cache)} companies loaded")
+    except Exception as e:
+        print(f"  ⚠️ Tier map refresh error: {e} — keeping previous cache ({len(_tier_map_cache)} companies)")
+
+def get_tier(v):
+    """Look up tier via company name in the cached customer_crm map"""
+    company = str(v.get("Company", "")).strip().lower()
+    tier = _tier_map_cache.get(company)
+    if tier in ("Platinum", "Gold", "Silver"):
+        return tier
+    return "Other"
+
+def save_daily_snapshot(server_name, vehicles):
+    """Save full vehicle list snapshot — used for change detection.
+    Caller (sync_all) is responsible for only calling this during the
+    snapshot window — no time check in here, so it can't be evaluated
+    separately per-region and land on different sides of the window."""
+    today = get_snapshot_date()
+    snapshot_key = f"snapshot_{server_name}_{today}"
+    if snapshot_key in _snapshotted_today:
+        return
+
+    print(f"  [{server_name}] 🌙 Saving daily snapshot for {today}...")
+
+    # Dedupe by imeino (last-write-wins) before building rows — a source
+    # (e.g. Goa Server) can occasionally return the same imeino twice in
+    # one fetch, which would otherwise trip "ON CONFLICT DO UPDATE command
+    # cannot affect row a second time" on upsert. Same pattern sync_server()
+    # already uses for the live-data path.
+    seen = {}
+    for v in vehicles:
+        imei = str(v.get("Imeino", "")).strip()
+        if not imei or imei.lower() == "null":
+            continue
+        seen[imei] = v
+
+    rows = []
+    for imei, v in seen.items():
+        rows.append({
+            "snapshot_date": today,
+            "region":        server_name,
+            "imeino":        imei,
+            "vehicle_no":    v.get("Vehicle_No", ""),
+            "vehicle_name":  v.get("Vehicle_Name", ""),
+            "company":       v.get("Company", ""),
+            "tier":          get_tier(v),
+            "status":        v.get("Status", ""),
+        })
+
+    if not rows:
+        return
+
+    # Sanity guard: if today's count looks suspiciously low next to
+    # yesterday's for this same region (e.g. a credential's token failed
+    # this cycle, or something else cut the fetch short), don't lock the
+    # key — log it and let the next 5-min cycle retry. The upsert below
+    # still runs (partial data now is better than none), but skipping the
+    # lock means a later, more-complete cycle can still fill in the rest
+    # today instead of being permanently blocked by an early partial save.
+    try:
+        prev_rows = fetch_all_rows(
+            "vehicle_daily_snapshot", "imeino",
+            filters={"snapshot_date": get_yesterday_date(), "region": server_name},
+        )
+        prev_count = len(prev_rows)
+    except Exception as e:
+        print(f"  [{server_name}] Could not fetch yesterday's snapshot count: {e}")
+        prev_count = 0
+
+    partial = prev_count > 0 and len(rows) < prev_count * 0.7
+    if partial:
+        print(f"  [{server_name}] ⚠️ WARNING: today's snapshot has {len(rows)} vehicles vs "
+              f"{prev_count} yesterday — under 70% threshold. Saving what we have, but NOT "
+              f"locking the snapshot key so the next cycle retries.")
+
+    saved = 0
+    for i in range(0, len(rows), 500):
+        chunk = rows[i:i+500]
+        try:
+            supabase.table("vehicle_daily_snapshot").upsert(
+                chunk, on_conflict="snapshot_date,region,imeino"
+            ).execute()
+            saved += len(chunk)
+        except Exception as e:
+            print(f"  [{server_name}] Snapshot save error: {e}")
+
+    print(f"  [{server_name}] ✅ Snapshot saved — {saved} vehicles")
+
+    if not partial:
+        _snapshotted_today.add(snapshot_key)
+
+def save_daily_stats(server_name, vehicles):
+    """Save aggregated counts per server+tier — used for KPI change indicators.
+    Caller (sync_all) is responsible for only calling this during the
+    snapshot window — see save_daily_snapshot's docstring for why."""
+    today = get_snapshot_date()
+    stats_key = f"stats_{server_name}_{today}"
+    if stats_key in _snapshotted_today:
+        return
+
+    print(f"  [{server_name}] 📊 Saving daily stats for {today}...")
+
+    # Count by tier
+    tier_stats = {}
+    all_stats = {"total": 0, "active": 0, "running": 0, "idle": 0, "stop": 0, "inactive": 0}
+
+    for v in vehicles:
+        imei = str(v.get("Imeino", "")).strip()
+        if not imei or imei.lower() == "null":
+            continue
+
+        tier = get_tier(v)
+        status = str(v.get("Status", "")).strip().lower()
+
+        if tier not in tier_stats:
+            tier_stats[tier] = {"total": 0, "active": 0, "running": 0, "idle": 0, "stop": 0, "inactive": 0}
+
+        # Count total
+        tier_stats[tier]["total"] += 1
+        all_stats["total"] += 1
+
+        # Count by status
+        if status == "running":
+            tier_stats[tier]["running"] += 1
+            tier_stats[tier]["active"] += 1
+            all_stats["running"] += 1
+            all_stats["active"] += 1
+        elif status == "idle":
+            tier_stats[tier]["idle"] += 1
+            tier_stats[tier]["active"] += 1
+            all_stats["idle"] += 1
+            all_stats["active"] += 1
+        elif status == "stop":
+            tier_stats[tier]["stop"] += 1
+            all_stats["stop"] += 1
+        elif status in ["inactive", "no data"]:
+            tier_stats[tier]["inactive"] += 1
+            all_stats["inactive"] += 1
+
+    rows = []
+
+    # Save "All" tier — overall stats for this server
+    rows.append({
+        "snapshot_date":    today,
+        "region":           server_name,
+        "tier":             "All",
+        "total_vehicles":   all_stats["total"],
+        "active_vehicles":  all_stats["active"],
+        "running_vehicles": all_stats["running"],
+        "idle_vehicles":    all_stats["idle"],
+        "stop_vehicles":    all_stats["stop"],
+        "inactive_vehicles":all_stats["inactive"],
+    })
+
+    # Save per tier
+    for tier, counts in tier_stats.items():
+        rows.append({
+            "snapshot_date":    today,
+            "region":           server_name,
+            "tier":             tier,
+            "total_vehicles":   counts["total"],
+            "active_vehicles":  counts["active"],
+            "running_vehicles": counts["running"],
+            "idle_vehicles":    counts["idle"],
+            "stop_vehicles":    counts["stop"],
+            "inactive_vehicles":counts["inactive"],
+        })
+
+    for i in range(0, len(rows), 500):
+        try:
+            supabase.table("daily_fleet_stats").upsert(
+                rows[i:i+500], on_conflict="snapshot_date,region,tier"
+            ).execute()
+        except Exception as e:
+            print(f"  [{server_name}] Stats save error: {e}")
+
+    print(f"  [{server_name}] ✅ Stats saved — {len(rows)} tier rows")
+    _snapshotted_today.add(stats_key)
+
+def reset_snapshot_tracker():
+    global _snapshotted_today
+    _snapshotted_today = set()
+    print(f"  🔄 Snapshot tracker reset ({get_snapshot_date()})")
+
+def sync_server(server, sync_time=None):
+    """Syncs one credential's live data and returns (region_name, vehicles)
+    so sync_all() can merge multiple credentials sharing the same region
+    name (the 4 Premium Server credentials each cover a different fleet)
+    into one combined list before taking the daily snapshot — this
+    function no longer saves the snapshot/stats itself."""
+    if sync_time is None:
+        sync_time = datetime.now(timezone.utc).isoformat()
+    print(f"\n  [{server['name']}] Syncing...")
+
+    session = get_session(server["ip"])
+    token   = get_token(server, session)
+    if not token:
+        return server["name"], []
+
+    vehicles = pull_vehicles(server, token, session)
+    print(f"  [{server['name']}] Vehicles found: {len(vehicles)}")
+
+    rows = []
+    skipped = 0
+    for v in vehicles:
+        imei = str(v.get("Imeino", "")).strip()
+        if not imei or imei.lower() == "null":
+            skipped += 1
+            continue
+        rows.append(map_vehicle(v, server["name"], sync_time))
+
+    print(f"  [{server['name']}] Valid: {len(rows)} | Skipped: {skipped}")
+    if not rows:
+        return server["name"], vehicles
+
+    # Deduplicate
+    seen = {}
+    for row in rows:
+        seen[row["imeino"]] = row
+    unique_rows = list(seen.values())
+
+    # Upsert live data
+    total = 0
+    for i in range(0, len(unique_rows), 100):
+        chunk = unique_rows[i:i+100]
+        try:
+            supabase.table("vehicle_live_data").upsert(
+                chunk, on_conflict="imeino,region"
+            ).execute()
+            total += len(chunk)
+        except Exception as e:
+            print(f"  [{server['name']}] Save error: {e}")
+
+    print(f"  [{server['name']}] Saved {total} rows")
+
+    # Delete stale
+    try:
+        supabase.table("vehicle_live_data") \
+            .delete() \
+            .eq("region", server["name"]) \
+            .lt("synced_at", sync_time) \
+            .execute()
+        print(f"  [{server['name']}] Stale removed")
+    except Exception as e:
+        print(f"  [{server['name']}] Stale cleanup error: {e}")
+
+    return server["name"], vehicles
+
+def sync_all():
+    now_ist = get_ist_now()
+    print(f"\n{'='*50}")
+    print(f"Sync — {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
+    print(f"{'='*50}")
+
+    # Computed once for the whole cycle, not re-evaluated per server — a
+    # full cycle across 8 credentials can take a few minutes, and checking
+    # the clock per-server let the snapshot window get crossed mid-cycle,
+    # splitting/duplicating a day's snapshot across two 5-min syncs.
+    is_snapshot_time = should_take_snapshot()
+
+    refresh_tier_map()
+
+    # Keyed by region name so the 4 Premium Server credentials — each
+    # covering a different fleet, all sharing name="Premium Server" — merge
+    # into one combined list instead of the snapshot only ever reflecting
+    # whichever single credential happened to sync during the window.
+    region_vehicles = {}
+    premium_sync_time = datetime.now(timezone.utc).isoformat()
+    for server in SERVERS:
+        if server["name"] == "Premium Server":
+            region_name, vehicles = sync_server(server, sync_time=premium_sync_time)
+        else:
+            region_name, vehicles = sync_server(server)
+        region_vehicles.setdefault(region_name, []).extend(vehicles)
+
+    if is_snapshot_time:
+        for region_name, vehicles in region_vehicles.items():
+            save_daily_snapshot(region_name, vehicles)   # 1. Save full snapshot
+            save_daily_stats(region_name, vehicles)      # 2. Save aggregated stats
+
+    print(f"\nNext sync in {SYNC_EVERY_MINUTES} minutes\n")
+
+
+print("SmartFleet Sync Started!")
+print(f"Servers: Premium + PRO + Goa + Bangalore + Gujarat")
+print(f"Sync interval: every {SYNC_EVERY_MINUTES} minutes")
+print(f"Snapshot window: 11:45 PM - 11:59 PM IST daily")
+print("Press Ctrl+C to stop\n")
+
+sync_all()
+schedule.every(SYNC_EVERY_MINUTES).minutes.do(sync_all)
+schedule.every().day.at("00:01").do(reset_snapshot_tracker)
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
