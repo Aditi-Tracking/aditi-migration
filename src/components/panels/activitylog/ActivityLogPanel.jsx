@@ -127,7 +127,7 @@ export default function ActivityLogPanel() {
       {!loading && !error && (
         <div className="mt-5">
           {/* Filter bar */}
-          <div className="rounded-xl border border-border bg-surface p-3.5 mb-4 flex flex-wrap gap-3 items-end">
+          <div className="rounded-xl border border-border bg-surface p-3 mb-3.5 flex flex-wrap gap-2.5 items-end">
             <div className="flex flex-col gap-1 min-w-[180px] flex-1">
               <label className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide">👤 Employee</label>
               <select
@@ -200,9 +200,9 @@ export default function ActivityLogPanel() {
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2.5">
             {stats.map((s) => (
-              <div key={s.label} className="rounded-lg border border-border bg-surface p-3.5">
+              <div key={s.label} className="rounded-lg border border-border bg-surface pt-3 px-3 pb-2">
                 <div className="text-[18px] mb-1">{s.icon}</div>
                 <div className="text-[18px] font-bold text-primary">{s.value}</div>
                 <div className="text-[10.5px] text-text-muted mt-0.5">{s.label}</div>
@@ -236,7 +236,7 @@ export default function ActivityLogPanel() {
                     <thead>
                       <tr className="bg-surface-2 border-b border-border">
                         {['Time', 'Employee', 'Event', 'Page', 'Card / Detail', 'Duration', 'Video', 'Device'].map((h) => (
-                          <th key={h} className="text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide px-3.5 py-2.5 whitespace-nowrap">
+                          <th key={h} className="text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide px-3.5 py-2 whitespace-nowrap">
                             {h}
                           </th>
                         ))}
@@ -269,16 +269,16 @@ function ActLogRow({ row, names }) {
 
   return (
     <tr className="border-b border-border last:border-b-0">
-      <td className="px-3.5 py-2.5 whitespace-nowrap text-text-muted">
+      <td className="px-3.5 py-1.5 whitespace-nowrap text-text-muted">
         {dateStr}
         <br />
         <span className="text-[10.5px]">{timeStr}</span>
       </td>
-      <td className="px-3.5 py-2.5">
+      <td className="px-3.5 py-1.5">
         <div className="font-semibold text-text">{empName}</div>
         <div className="text-[10.5px] text-text-muted">{emp !== '—' ? emp : ''}</div>
       </td>
-      <td className="px-3.5 py-2.5">
+      <td className="px-3.5 py-1.5">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-tint text-primary border border-primary/20 px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
           {eventIcon(row.event_type)} {(row.event_type || '').replace(/_/g, ' ')}
         </span>
@@ -286,12 +286,12 @@ function ActLogRow({ row, names }) {
           <div className="text-[10.5px] text-text-muted mt-1">Session: {formatDuration(row.session_duration_seconds)}</div>
         )}
       </td>
-      <td className="px-3.5 py-2.5 text-text-muted whitespace-nowrap">{row.page_name || '—'}</td>
-      <td className="px-3.5 py-2.5 text-text-muted max-w-[180px] truncate" title={cardDetail}>
+      <td className="px-3.5 py-1.5 text-text-muted whitespace-nowrap">{row.page_name || '—'}</td>
+      <td className="px-3.5 py-1.5 text-text-muted max-w-[180px] truncate" title={cardDetail}>
         {cardDetail}
       </td>
-      <td className={`px-3.5 py-2.5 whitespace-nowrap ${dur !== '—' ? 'text-primary font-semibold' : 'text-text-muted'}`}>{dur}</td>
-      <td className="px-3.5 py-2.5 min-w-[140px] max-w-[220px]">
+      <td className={`px-3.5 py-1.5 whitespace-nowrap ${dur !== '—' ? 'text-primary font-semibold' : 'text-text-muted'}`}>{dur}</td>
+      <td className="px-3.5 py-1.5 min-w-[140px] max-w-[220px]">
         {row.video_title ? (
           <>
             <div className="truncate" title={row.video_title}>
@@ -305,7 +305,7 @@ function ActLogRow({ row, names }) {
           '—'
         )}
       </td>
-      <td className="px-3.5 py-2.5 text-center" title={row.device || ''}>
+      <td className="px-3.5 py-1.5 text-center" title={row.device || ''}>
         {row.device === 'mobile' ? '📱' : '💻'}
       </td>
     </tr>
