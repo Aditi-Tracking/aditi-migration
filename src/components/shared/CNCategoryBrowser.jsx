@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CN } from '../../lib/contentNodes'
 import { useFileViewer } from '../../context/FileViewerContext'
 import { deleteContentNodeCard, deleteContentNodeFile, invalidateContentNodes } from '../../lib/cnUploadDelete'
+import { PDF_ICON, VIDEO_ICON } from './docIcons'
 
 // Ported from old-portal/js/shared.js's _cnRenderOverlayContent — generic
 // sub-category/file drill-down browser reused by every content-nodes-backed
@@ -16,7 +17,10 @@ function fileCardMeta(url) {
   const isVid = ['mp4', 'webm', 'mov'].includes(ext)
   const isPdf = ext === 'pdf'
   const label = isYt ? '▶ YouTube' : isVid ? '🎬 Video' : isPdf ? '📄 PDF' : '📁 Open'
-  return { isYt, ytId: ytMatch?.[1] || null, isVid, isPdf, label }
+  // Scoped icon-color exception (PDF/video only) — see docIcons.jsx's PDF_ICON/VIDEO_ICON comment.
+  const bg = isPdf ? '#f87171' : isVid ? '#a78bfa' : null
+  const icon = isPdf ? PDF_ICON : isVid ? VIDEO_ICON : null
+  return { isYt, ytId: ytMatch?.[1] || null, isVid, isPdf, label, bg, icon }
 }
 
 export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = false, onContentChanged }) {
@@ -185,6 +189,10 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
                   alt=""
                   className="w-full aspect-video object-cover rounded-md"
                 />
+              ) : meta.icon ? (
+                <div className="w-9 h-9 rounded-md flex items-center justify-center text-white" style={{ background: meta.bg }}>
+                  {meta.icon}
+                </div>
               ) : (
                 <div className="w-9 h-9 rounded-md bg-primary-tint border border-primary/20 flex items-center justify-center text-primary">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

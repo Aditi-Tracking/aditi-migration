@@ -9,3 +9,20 @@ export const DOC_ICON = (
     <line x1="16" y1="17" x2="8" y2="17" />
   </svg>
 )
+
+// Scoped exception to the app-wide unified-blue file icon — PDF/video files in CNCategoryBrowser's
+// file rows only (see that file's fileCardMeta). Every other file type keeps DOC_ICON above,
+// unchanged. Filled (not stroke) glyphs, since these render white-on-color, matching the reference
+// look: page-with-folded-corner for PDF, a plain play-triangle for video.
+export const PDF_ICON = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7z" />
+    <path d="M13 2v5h5" fillOpacity="0.55" />
+  </svg>
+)
+
+export const VIDEO_ICON = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+)
