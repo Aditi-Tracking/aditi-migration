@@ -33,7 +33,7 @@ export default function EnterpriseSolutionsKpiGrid({ tab, data, mtd, crossFilter
         value: (d.totalSchoolBuses || 0).toLocaleString('en-IN'),
         sub: (
           <>
-            <span style={{ color: '#00d4aa', fontWeight: 700, fontSize: '1.3em' }}>+{mtd.bus.added}</span> added this month
+            <span style={{ color: '#00d4aa', fontWeight: 700 }}>+{mtd.bus.added}</span> added this month
           </>
         ),
         accent: '#f97316',
@@ -54,7 +54,7 @@ export default function EnterpriseSolutionsKpiGrid({ tab, data, mtd, crossFilter
   const gridColsClass = tab === 'clicktask' ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
 
   return (
-    <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridColsClass} gap-3 mb-4`}>
+    <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridColsClass} gap-3 mb-2.5`}>
       {tiles.map((t, i) => {
         const active = t.act.type === 'filter' ? crossFilter[t.act.key] === t.act.val : t.act.type === 'sort' ? sortKey === t.act.key : false
         return (
@@ -62,15 +62,15 @@ export default function EnterpriseSolutionsKpiGrid({ tab, data, mtd, crossFilter
             key={i}
             type="button"
             onClick={() => handleClick(t.act)}
-            className="text-left rounded-2xl border bg-white p-3.5"
+            className="text-left rounded-2xl border bg-white px-2.5 py-1.5"
             style={{ borderColor: active ? t.accent : '#e9ecf5', boxShadow: active ? `0 0 0 2px ${t.accent} inset` : '0 1px 2px rgba(15,23,42,0.04)' }}
           >
-            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-[15px] mb-2" style={{ background: t.accent + '1f', color: t.accent }}>
+            <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] mb-1" style={{ background: t.accent + '1f', color: t.accent }}>
               {t.icon}
             </span>
             <div className="text-[10.5px] font-bold text-[#8891a5]">{t.label}</div>
-            <div className="text-[19px] font-extrabold text-[#111827] mt-0.5">{t.value}</div>
-            <div className="text-[11px] text-[#94a0b8] mt-0.5">{t.sub}</div>
+            <div className="text-[17px] font-extrabold text-[#111827]">{t.value}</div>
+            <div className="text-[10px] text-[#94a0b8]">{t.sub}</div>
           </button>
         )
       })}

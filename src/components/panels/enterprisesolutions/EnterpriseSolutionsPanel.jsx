@@ -171,7 +171,7 @@ export default function EnterpriseSolutionsPanel() {
           <div className="mt-5">
             <EnterpriseSolutionsSwitcher tab={tab} onTabChange={handleTabChange} clicktaskSub={clicktaskSub} coolbusSub={coolbusSub} />
 
-            <div className="text-[13px] font-bold text-[#475569] mb-2.5">Key Performance Indicators</div>
+            <div className="text-[13px] font-bold text-[#475569] mb-2">Key Performance Indicators</div>
             <EnterpriseSolutionsKpiGrid
               tab={tab}
               data={data}
@@ -192,7 +192,7 @@ export default function EnterpriseSolutionsPanel() {
               </div>
             )}
 
-            <div className="text-[13px] font-bold text-[#475569] mb-2.5">{activityMetric === 'license' || tab === 'clicktask' ? 'License' : 'Bus'} Activity</div>
+            <div className="text-[13px] font-bold text-[#475569] mb-2">{activityMetric === 'license' || tab === 'clicktask' ? 'License' : 'Bus'} Activity</div>
             <EnterpriseSolutionsActivity
               tab={tab}
               transactions={data[tab].transactions}
@@ -204,7 +204,7 @@ export default function EnterpriseSolutionsPanel() {
               onToggleDetail={(t) => setActivityDetailType((cur) => (cur === t ? null : t))}
             />
 
-            <div className="text-[13px] font-bold text-[#475569] mb-2.5">{tab === 'clicktask' ? 'ClickTask Analytics' : 'CoolBus Analytics'}</div>
+            <div className="text-[13px] font-bold text-[#475569] mb-2">{tab === 'clicktask' ? 'ClickTask Analytics' : 'CoolBus Analytics'}</div>
             <EnterpriseSolutionsCharts tab={tab} data={data} crossFilter={crossFilter} onChartFilterToggle={handleChartFilterToggle} />
 
             <div className="text-[13px] font-bold text-[#475569] mb-2.5">Deployment Explorer</div>

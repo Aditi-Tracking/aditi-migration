@@ -6,7 +6,7 @@ export default function EnterpriseSolutionsSwitcher({ tab, onTabChange, clicktas
     { key: 'coolbus', title: 'CoolBus', sub: coolbusSub, accent: '#4e9af1', icon: '🚌' },
   ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
       {items.map((it) => {
         const active = tab === it.key
         return (
@@ -14,10 +14,10 @@ export default function EnterpriseSolutionsSwitcher({ tab, onTabChange, clicktas
             key={it.key}
             type="button"
             onClick={() => onTabChange(it.key)}
-            className="flex items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left"
+            className="flex items-center gap-3 rounded-2xl border bg-white px-4 py-2.5 text-left"
             style={{ borderColor: active ? it.accent : '#e9ecf5', boxShadow: active ? `0 0 0 1.5px ${it.accent} inset` : '0 1px 2px rgba(15,23,42,0.04)' }}
           >
-            <span className="w-11 h-11 rounded-xl flex items-center justify-center text-[20px] shrink-0" style={{ background: it.accent + '29', color: it.accent }}>
+            <span className="w-9 h-9 rounded-xl flex items-center justify-center text-[17px] shrink-0" style={{ background: it.accent + '29', color: it.accent }}>
               {it.icon}
             </span>
             <span className="flex-1 min-w-0">
