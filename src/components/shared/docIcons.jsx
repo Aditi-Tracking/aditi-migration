@@ -15,14 +15,14 @@ export const DOC_ICON = (
 // unchanged. Filled (not stroke) glyphs, since these render white-on-color, matching the reference
 // look: page-with-folded-corner for PDF, a plain play-triangle for video.
 export const PDF_ICON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
     <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7z" />
     <path d="M13 2v5h5" fillOpacity="0.55" />
   </svg>
 )
 
 export const VIDEO_ICON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
     <path d="M8 5v14l11-7z" />
   </svg>
 )

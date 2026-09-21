@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CN } from '../../lib/contentNodes'
 import { useFileViewer } from '../../context/FileViewerContext'
 import { deleteContentNodeCard, deleteContentNodeFile, invalidateContentNodes } from '../../lib/cnUploadDelete'
-import { PDF_ICON, VIDEO_ICON } from './docIcons'
+import { DOC_ICON, PDF_ICON, VIDEO_ICON } from './docIcons'
 
 // Ported from old-portal/js/shared.js's _cnRenderOverlayContent — generic
 // sub-category/file drill-down browser reused by every content-nodes-backed
@@ -21,6 +21,58 @@ function fileCardMeta(url) {
   const bg = isPdf ? '#f87171' : isVid ? '#a78bfa' : null
   const icon = isPdf ? PDF_ICON : isVid ? VIDEO_ICON : null
   return { isYt, ytId: ytMatch?.[1] || null, isVid, isPdf, label, bg, icon }
+}
+
+const FOLDER_ICON = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+)
+
+// Shared card for both sub-folder and leaf file/video items — same icon size/shape regardless of
+// depth, so drilling into a folder never feels different from the level above it (matches
+// DocCard's proportions: p-4, rounded-xl, 48px icon). `thumbnail` (YouTube only) replaces the
+// icon square entirely; `iconStyle` carries the scoped PDF/video color exception from
+// fileCardMeta above — everything else (folders, generic files) stays the default blue.
+function CNItemCard({ icon, iconClassName, iconStyle, name, badge, onClick, onDelete, deleting, thumbnail }) {
+  return (
+    <div className="relative">
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          disabled={deleting}
+          title="Delete"
+          className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-danger-tint border border-danger/30 text-danger flex items-center justify-center hover:bg-danger/20 disabled:opacity-60"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+          </svg>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-full flex flex-col items-start gap-3 rounded-xl border border-border bg-surface-2 p-4 text-left hover:border-primary/40 hover:shadow-sm transition-all"
+      >
+        {thumbnail || (
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${iconClassName || ''}`} style={iconStyle}>
+            {icon}
+          </div>
+        )}
+        <div className="text-[13px] font-medium text-text leading-snug line-clamp-2">{name}</div>
+        <span className="mt-auto text-[10.5px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1">
+          {badge}
+        </span>
+      </button>
+    </div>
+  )
 }
 
 export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = false, onContentChanged }) {
@@ -107,45 +159,16 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
         const name = sc.name || sc.Name || 'Sub-card'
         const count = CN.totalFiles(sc.id)
         return (
-          <div key={sc.id} className="relative col-span-full sm:col-span-1">
-            {canDelete && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDeleteSubCard(sc)
-                }}
-                disabled={deletingId === sc.id}
-                title={`Delete ${name}`}
-                className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-danger-tint border border-danger/30 text-danger flex items-center justify-center hover:bg-danger/20 disabled:opacity-60"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                  <path d="M10 11v6M14 11v6" />
-                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                </svg>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => drillDown(sc)}
-              className="w-full flex items-center gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:border-primary/40 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-md bg-primary-tint border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] font-medium text-text truncate">{name}</div>
-                <div className="text-[11px] text-text-muted mt-0.5">
-                  {count} file{count === 1 ? '' : 's'}
-                </div>
-              </div>
-              <span className="text-primary text-[13px] shrink-0">→</span>
-            </button>
-          </div>
+          <CNItemCard
+            key={sc.id}
+            icon={FOLDER_ICON}
+            iconClassName="bg-primary-tint border border-primary/20 text-primary"
+            name={name}
+            badge={`${count} file${count === 1 ? '' : 's'}`}
+            onClick={() => drillDown(sc)}
+            onDelete={canDelete ? () => handleDeleteSubCard(sc) : undefined}
+            deleting={deletingId === sc.id}
+          />
         )
       })}
 
@@ -157,56 +180,26 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
       {files.map((f) => {
         const meta = fileCardMeta(f.url)
         return (
-          <div key={f.id} className="relative">
-            {canDelete && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  e.preventDefault()
-                  handleDeleteFile(f)
-                }}
-                disabled={deletingId === f.id}
-                title="Delete file"
-                className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-danger-tint border border-danger/30 text-danger flex items-center justify-center hover:bg-danger/20 disabled:opacity-60"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                  <path d="M10 11v6M14 11v6" />
-                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                </svg>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => openFileViewer(f.url, f.name)}
-              className="w-full h-full flex flex-col items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-3 text-left hover:border-primary/40 transition-colors"
-            >
-              {meta.isYt && meta.ytId ? (
+          <CNItemCard
+            key={f.id}
+            icon={meta.icon || DOC_ICON}
+            iconClassName={meta.icon ? 'text-white' : 'bg-primary-tint border border-primary/20 text-primary'}
+            iconStyle={meta.bg ? { background: meta.bg } : undefined}
+            name={f.name}
+            badge={meta.label}
+            onClick={() => openFileViewer(f.url, f.name)}
+            onDelete={canDelete ? () => handleDeleteFile(f) : undefined}
+            deleting={deletingId === f.id}
+            thumbnail={
+              meta.isYt && meta.ytId ? (
                 <img
                   src={`https://img.youtube.com/vi/${meta.ytId}/hqdefault.jpg`}
                   alt=""
                   className="w-full aspect-video object-cover rounded-md"
                 />
-              ) : meta.icon ? (
-                <div className="w-9 h-9 rounded-md flex items-center justify-center text-white" style={{ background: meta.bg }}>
-                  {meta.icon}
-                </div>
-              ) : (
-                <div className="w-9 h-9 rounded-md bg-primary-tint border border-primary/20 flex items-center justify-center text-primary">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
-                </div>
-              )}
-              <div className="text-[12.5px] font-medium text-text leading-snug line-clamp-2">{f.name}</div>
-              <span className="mt-auto text-[10px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2 py-0.5">
-                {meta.label}
-              </span>
-            </button>
-          </div>
+              ) : null
+            }
+          />
         )
       })}
     </div>
