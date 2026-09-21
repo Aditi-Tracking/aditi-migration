@@ -41,7 +41,7 @@ export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, on
   if (!open) return null
 
   return (
-    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-3xl" height="h-[520px]">
+    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-5xl" height="h-[640px]">
       <div className="flex items-center gap-3 mb-5 pr-8">
         <div className="w-10 h-10 rounded-lg bg-primary-tint border border-primary/20 flex items-center justify-center text-primary shrink-0">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

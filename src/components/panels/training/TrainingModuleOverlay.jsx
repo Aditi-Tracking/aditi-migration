@@ -10,7 +10,7 @@ export default function TrainingModuleOverlay({ open, node, canDelete, onContent
   if (!open || !node) return null
 
   return (
-    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-3xl" height="h-[520px]">
+    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-5xl" height="h-[640px]">
       <div className="text-[15px] font-semibold text-text mb-3 pr-8">{node.name}</div>
       <CNCategoryBrowser rootNodeId={node.id} rootName={node.name} canDelete={canDelete} onContentChanged={onContentChanged} />
     </OverlayShell>

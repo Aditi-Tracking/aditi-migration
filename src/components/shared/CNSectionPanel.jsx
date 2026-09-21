@@ -129,8 +129,8 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
           if (trackCardClose) clearCardName()
           setOpenModule(null)
         }}
-        maxWidth="max-w-3xl"
-        height="h-[520px]"
+        maxWidth="max-w-5xl"
+        height="h-[640px]"
       >
         {openModule && (
           <>

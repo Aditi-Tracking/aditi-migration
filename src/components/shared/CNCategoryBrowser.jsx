@@ -3,6 +3,7 @@ import { CN } from '../../lib/contentNodes'
 import { useFileViewer } from '../../context/FileViewerContext'
 import { deleteContentNodeCard, deleteContentNodeFile, invalidateContentNodes } from '../../lib/cnUploadDelete'
 import { DOC_ICON, PDF_ICON, VIDEO_ICON } from './docIcons'
+import folderIconSrc from '../../assets/folder-icon.png'
 
 // Ported from old-portal/js/shared.js's _cnRenderOverlayContent — generic
 // sub-category/file drill-down browser reused by every content-nodes-backed
@@ -23,43 +24,64 @@ function fileCardMeta(url) {
   return { isYt, ytId: ytMatch?.[1] || null, isVid, isPdf, label, bg, icon }
 }
 
-const FOLDER_ICON = (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-  </svg>
-)
+function ItemDeleteButton({ onDelete, deleting, title }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onDelete()
+      }}
+      disabled={deleting}
+      title={title}
+      className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-danger-tint border border-danger/30 text-danger flex items-center justify-center hover:bg-danger/20 disabled:opacity-60"
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+        <path d="M10 11v6M14 11v6" />
+        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+      </svg>
+    </button>
+  )
+}
 
-// Shared card for both sub-folder and leaf file/video items — same icon size/shape regardless of
-// depth, so drilling into a folder never feels different from the level above it (matches
-// DocCard's proportions: p-4, rounded-xl, 48px icon). `thumbnail` (YouTube only) replaces the
-// icon square entirely; `iconStyle` carries the scoped PDF/video color exception from
-// fileCardMeta above — everything else (folders, generic files) stays the default blue.
-function CNItemCard({ icon, iconClassName, iconStyle, name, badge, onClick, onDelete, deleting, thumbnail }) {
+// Folders render as a compact full-width list row at every depth — back to CNCategoryBrowser's
+// very first sub-card treatment, just with the 3D folder illustration instead of the old outline
+// SVG. Deliberately its own component, not CNItemCard: folders and files are two distinct visual
+// languages now (list vs grid), not one component pretending to be both.
+function FolderListRow({ name, badge, onClick, onDelete, deleting }) {
   return (
     <div className="relative">
-      {onDelete && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          disabled={deleting}
-          title="Delete"
-          className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-danger-tint border border-danger/30 text-danger flex items-center justify-center hover:bg-danger/20 disabled:opacity-60"
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-            <path d="M10 11v6M14 11v6" />
-            <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-          </svg>
-        </button>
-      )}
+      {onDelete && <ItemDeleteButton onDelete={onDelete} deleting={deleting} title={`Delete ${name}`} />}
       <button
         type="button"
         onClick={onClick}
-        className="w-full h-full flex flex-col items-start gap-3 rounded-xl border border-border bg-surface-2 p-4 text-left hover:border-primary/40 hover:shadow-sm transition-all"
+        className="w-full flex items-center gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:border-primary/40 transition-colors"
+      >
+        <img src={folderIconSrc} alt="" className="w-8 h-8 object-contain shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-[12.5px] font-medium text-text truncate">{name}</div>
+          <div className="text-[11px] text-text-muted mt-0.5">{badge}</div>
+        </div>
+        <span className="text-primary text-[13px] shrink-0">→</span>
+      </button>
+    </div>
+  )
+}
+
+// File/video grid card — reverted to its size from right after the CNItemCard unification: p-4,
+// 48px icon, icons at their natural (docIcons.jsx) size, no scaling. `thumbnail` (YouTube only)
+// replaces the icon square entirely; `iconStyle` carries the scoped PDF/video color exception
+// from fileCardMeta above — everything else (generic files) stays the default blue.
+function CNItemCard({ icon, iconClassName, iconStyle, name, badge, onClick, onDelete, deleting, thumbnail }) {
+  return (
+    <div className="relative">
+      {onDelete && <ItemDeleteButton onDelete={onDelete} deleting={deleting} title="Delete file" />}
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-full flex flex-col items-start gap-3 rounded-xl border border-border bg-surface-2 p-3 text-left hover:border-primary/40 hover:shadow-sm transition-all"
       >
         {thumbnail || (
           <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${iconClassName || ''}`} style={iconStyle}>
@@ -143,65 +165,69 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div>
       {parent && (
-        <div className="col-span-full">
+        <div className="mb-4">
           <BackButton parent={parent} onClick={goBack} />
         </div>
       )}
 
       {subCards.length > 0 && (
-        <div className="col-span-full text-[10.5px] font-semibold text-text-muted uppercase tracking-wide">
-          Sub-Cards
-        </div>
-      )}
-      {subCards.map((sc) => {
-        const name = sc.name || sc.Name || 'Sub-card'
-        const count = CN.totalFiles(sc.id)
-        return (
-          <CNItemCard
-            key={sc.id}
-            icon={FOLDER_ICON}
-            iconClassName="bg-primary-tint border border-primary/20 text-primary"
-            name={name}
-            badge={`${count} file${count === 1 ? '' : 's'}`}
-            onClick={() => drillDown(sc)}
-            onDelete={canDelete ? () => handleDeleteSubCard(sc) : undefined}
-            deleting={deletingId === sc.id}
-          />
-        )
-      })}
-
-      {subCards.length > 0 && files.length > 0 && (
-        <div className="col-span-full text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mt-1">
-          Files
-        </div>
-      )}
-      {files.map((f) => {
-        const meta = fileCardMeta(f.url)
-        return (
-          <CNItemCard
-            key={f.id}
-            icon={meta.icon || DOC_ICON}
-            iconClassName={meta.icon ? 'text-white' : 'bg-primary-tint border border-primary/20 text-primary'}
-            iconStyle={meta.bg ? { background: meta.bg } : undefined}
-            name={f.name}
-            badge={meta.label}
-            onClick={() => openFileViewer(f.url, f.name)}
-            onDelete={canDelete ? () => handleDeleteFile(f) : undefined}
-            deleting={deletingId === f.id}
-            thumbnail={
-              meta.isYt && meta.ytId ? (
-                <img
-                  src={`https://img.youtube.com/vi/${meta.ytId}/hqdefault.jpg`}
-                  alt=""
-                  className="w-full aspect-video object-cover rounded-md"
+        <div className="mb-4">
+          <div className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-2">Sub-Cards</div>
+          <div className="flex flex-col gap-2">
+            {subCards.map((sc) => {
+              const name = sc.name || sc.Name || 'Sub-card'
+              const count = CN.totalFiles(sc.id)
+              return (
+                <FolderListRow
+                  key={sc.id}
+                  name={name}
+                  badge={`${count} file${count === 1 ? '' : 's'}`}
+                  onClick={() => drillDown(sc)}
+                  onDelete={canDelete ? () => handleDeleteSubCard(sc) : undefined}
+                  deleting={deletingId === sc.id}
                 />
-              ) : null
-            }
-          />
-        )
-      })}
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {files.length > 0 && (
+        <div>
+          {subCards.length > 0 && (
+            <div className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-2">Files</div>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {files.map((f) => {
+              const meta = fileCardMeta(f.url)
+              return (
+                <CNItemCard
+                  key={f.id}
+                  icon={meta.icon || DOC_ICON}
+                  iconClassName={meta.icon ? 'text-white' : 'bg-primary-tint border border-primary/20 text-primary'}
+                  iconStyle={meta.bg ? { background: meta.bg } : undefined}
+                  name={f.name}
+                  badge={meta.label}
+                  onClick={() => openFileViewer(f.url, f.name)}
+                  onDelete={canDelete ? () => handleDeleteFile(f) : undefined}
+                  deleting={deletingId === f.id}
+                  thumbnail={
+                    meta.isYt && meta.ytId ? (
+                      <img
+                        src={`https://img.youtube.com/vi/${meta.ytId}/hqdefault.jpg`}
+                        alt=""
+                        className="w-full aspect-video object-cover rounded-md"
+                      />
+                    ) : null
+                  }
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
