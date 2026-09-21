@@ -103,21 +103,32 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
   const [current, setCurrent] = useState({ id: rootNodeId, name: rootName })
   const [, setRefreshTick] = useState(0) // bumped after a delete so CN's fresh nodes/files re-render
   const [deletingId, setDeletingId] = useState(null)
+  const [search, setSearch] = useState('')
 
   const subCards = CN.getCategories(current.id)
   const files = CN.getFiles(current.id)
   const parent = stack.length ? stack[stack.length - 1] : null
   const totalItems = subCards.length + files.length
 
+  // Search is depth-local (never searches into nested sub-folders) and resets on navigation —
+  // it filters what's currently visible, not the whole tree, so carrying a query across a
+  // drillDown/goBack would silently hide unrelated content in the new folder.
+  const q = search.trim().toLowerCase()
+  const filteredSubCards = q ? subCards.filter((sc) => (sc.name || sc.Name || '').toLowerCase().includes(q)) : subCards
+  const filteredFiles = q ? files.filter((f) => (f.name || '').toLowerCase().includes(q)) : files
+  const hasResults = filteredSubCards.length > 0 || filteredFiles.length > 0
+
   function drillDown(sc) {
     setStack((s) => [...s, current])
     setCurrent({ id: sc.id, name: sc.name || sc.Name || 'Sub-card' })
+    setSearch('')
   }
 
   function goBack() {
     if (!parent) return
     setCurrent(parent)
     setStack((s) => s.slice(0, -1))
+    setSearch('')
   }
 
   // Ported from confirmDeleteCard — a real recursive cascade (every nested sub-card + all their
@@ -172,61 +183,75 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
         </div>
       )}
 
-      {subCards.length > 0 && (
-        <div className="mb-4">
-          <div className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-2">Sub-Cards</div>
-          <div className="flex flex-col gap-2">
-            {subCards.map((sc) => {
-              const name = sc.name || sc.Name || 'Sub-card'
-              const count = CN.totalFiles(sc.id)
-              return (
-                <FolderListRow
-                  key={sc.id}
-                  name={name}
-                  badge={`${count} file${count === 1 ? '' : 's'}`}
-                  onClick={() => drillDown(sc)}
-                  onDelete={canDelete ? () => handleDeleteSubCard(sc) : undefined}
-                  deleting={deletingId === sc.id}
-                />
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search files and folders..."
+        className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[12.5px] text-text outline-none mb-4"
+      />
 
-      {files.length > 0 && (
-        <div>
-          {subCards.length > 0 && (
-            <div className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-2">Files</div>
+      {!hasResults ? (
+        <div className="text-center py-10 text-text-muted text-[12.5px]">No results for "{search.trim()}"</div>
+      ) : (
+        <>
+          {filteredSubCards.length > 0 && (
+            <div className="mb-4">
+              <div className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-2">Sub-Cards</div>
+              <div className="flex flex-col gap-2">
+                {filteredSubCards.map((sc) => {
+                  const name = sc.name || sc.Name || 'Sub-card'
+                  const count = CN.totalFiles(sc.id)
+                  return (
+                    <FolderListRow
+                      key={sc.id}
+                      name={name}
+                      badge={`${count} file${count === 1 ? '' : 's'}`}
+                      onClick={() => drillDown(sc)}
+                      onDelete={canDelete ? () => handleDeleteSubCard(sc) : undefined}
+                      deleting={deletingId === sc.id}
+                    />
+                  )
+                })}
+              </div>
+            </div>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {files.map((f) => {
-              const meta = fileCardMeta(f.url)
-              return (
-                <CNItemCard
-                  key={f.id}
-                  icon={meta.icon || DOC_ICON}
-                  iconClassName={meta.icon ? 'text-white' : 'bg-primary-tint border border-primary/20 text-primary'}
-                  iconStyle={meta.bg ? { background: meta.bg } : undefined}
-                  name={f.name}
-                  badge={meta.label}
-                  onClick={() => openFileViewer(f.url, f.name)}
-                  onDelete={canDelete ? () => handleDeleteFile(f) : undefined}
-                  deleting={deletingId === f.id}
-                  thumbnail={
-                    meta.isYt && meta.ytId ? (
-                      <img
-                        src={`https://img.youtube.com/vi/${meta.ytId}/hqdefault.jpg`}
-                        alt=""
-                        className="w-full aspect-video object-cover rounded-md"
-                      />
-                    ) : null
-                  }
-                />
-              )
-            })}
-          </div>
-        </div>
+
+          {filteredFiles.length > 0 && (
+            <div>
+              {filteredSubCards.length > 0 && (
+                <div className="text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-2">Files</div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {filteredFiles.map((f) => {
+                  const meta = fileCardMeta(f.url)
+                  return (
+                    <CNItemCard
+                      key={f.id}
+                      icon={meta.icon || DOC_ICON}
+                      iconClassName={meta.icon ? 'text-white' : 'bg-primary-tint border border-primary/20 text-primary'}
+                      iconStyle={meta.bg ? { background: meta.bg } : undefined}
+                      name={f.name}
+                      badge={meta.label}
+                      onClick={() => openFileViewer(f.url, f.name)}
+                      onDelete={canDelete ? () => handleDeleteFile(f) : undefined}
+                      deleting={deletingId === f.id}
+                      thumbnail={
+                        meta.isYt && meta.ytId ? (
+                          <img
+                            src={`https://img.youtube.com/vi/${meta.ytId}/hqdefault.jpg`}
+                            alt=""
+                            className="w-full aspect-video object-cover rounded-md"
+                          />
+                        ) : null
+                      }
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
