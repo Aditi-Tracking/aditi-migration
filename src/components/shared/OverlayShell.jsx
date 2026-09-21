@@ -12,7 +12,13 @@
 // Confirmed no consumer (45 across the app) has JS logic tied to the old
 // backdrop-scrolls behavior (no scrollIntoView/scrollTop/scroll listeners
 // anywhere touching this) before making this the default for all of them.
-export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', children }) {
+//
+// `height`, when passed, replaces max-h-[90vh]'s content-driven sizing with a genuine fixed
+// height (still scrolling internally via the same overflow-y-auto) — opt-in only, so every
+// consumer that omits it keeps today's exact content-driven behavior. Introduced for the 3 CN
+// folder-browser overlays (CNSectionPanel/HRDocsOverlay/TrainingModuleOverlay), so a folder's
+// modal size no longer swings with its file count.
+export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', height, children }) {
   if (!open) return null
   return (
     <div
@@ -21,7 +27,7 @@ export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', ch
       }}
       className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4"
     >
-      <div className={`relative w-full ${maxWidth} max-h-[90vh] overflow-y-auto bg-surface border border-border rounded-2xl shadow-2xl p-6`}>
+      <div className={`relative w-full ${maxWidth} ${height || 'max-h-[90vh]'} overflow-y-auto bg-surface border border-border rounded-2xl shadow-2xl p-6`}>
         <button
           type="button"
           onClick={onClose}

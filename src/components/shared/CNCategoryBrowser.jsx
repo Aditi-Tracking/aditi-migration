@@ -181,7 +181,7 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
             <button
               type="button"
               onClick={() => openFileViewer(f.url, f.name)}
-              className="w-full flex flex-col items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-3 text-left hover:border-primary/40 transition-colors"
+              className="w-full h-full flex flex-col items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-3 text-left hover:border-primary/40 transition-colors"
             >
               {meta.isYt && meta.ytId ? (
                 <img
@@ -201,8 +201,8 @@ export default function CNCategoryBrowser({ rootNodeId, rootName, canDelete = fa
                   </svg>
                 </div>
               )}
-              <div className="text-[12.5px] font-medium text-text leading-snug">{f.name}</div>
-              <span className="text-[10px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2 py-0.5">
+              <div className="text-[12.5px] font-medium text-text leading-snug line-clamp-2">{f.name}</div>
+              <span className="mt-auto text-[10px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2 py-0.5">
                 {meta.label}
               </span>
             </button>

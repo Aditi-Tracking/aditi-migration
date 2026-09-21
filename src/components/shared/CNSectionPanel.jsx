@@ -130,6 +130,7 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
           setOpenModule(null)
         }}
         maxWidth="max-w-3xl"
+        height="h-[520px]"
       >
         {openModule && (
           <>
