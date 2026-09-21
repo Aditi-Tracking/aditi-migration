@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-BuqwL3YU.js";import{t}from"./CNSectionPanel-BhrUpewt.js";var n=e();function r(){return(0,n.jsx)(t,{sectionName:`Marketing`,title:`Marketing`,breadcrumb:`Home › Marketing`})}export{r as default};
