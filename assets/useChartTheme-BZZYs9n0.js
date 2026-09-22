@@ -1,0 +1,1 @@
+import{di as e}from"./index-CKRszl8b.js";function t(){let{theme:t}=e(),n=t===`dark`;return{tickColor:n?`#94A3B8`:`#64748B`,gridColor:n?`rgba(255,255,255,0.08)`:`rgba(0,0,0,0.08)`,dimColor:n?`rgba(255,255,255,0.08)`:`rgba(0,0,0,0.08)`}}export{t};

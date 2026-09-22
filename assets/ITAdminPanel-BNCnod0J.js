@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-BuqwL3YU.js";import{t}from"./CNSectionPanel-C7FC-yWB.js";var n=e();function r(){return(0,n.jsx)(t,{sectionName:`IT Admin`,title:`IT & Admin`,breadcrumb:`Home › IT & Admin`})}export{r as default};
