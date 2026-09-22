@@ -133,14 +133,14 @@ function SectionBox({ section, items, canManage, empDirectory, myEmail, onChange
     <div className="rounded-2xl border border-border bg-surface p-5 relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: hex }} />
       <div className="flex items-center gap-2 mb-3.5">
-        <span className="text-[18px]">{icon}</span>
+        <span className="text-[20px]">{icon}</span>
         {renaming ? (
           <>
             <input
               autoFocus
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
-              className="text-[13.5px] font-semibold text-text bg-surface-2 border border-border rounded px-2 py-1"
+              className="text-[15.5px] font-bold text-text bg-surface-2 border border-border rounded px-2 py-1"
             />
             <button type="button" onClick={saveRename} className="text-text-muted">
               ✓
@@ -158,7 +158,7 @@ function SectionBox({ section, items, canManage, empDirectory, myEmail, onChange
           </>
         ) : (
           <>
-            <span className="text-[13.5px] font-semibold text-text">{section.title}</span>
+            <span className="text-[15.5px] font-bold text-text">{section.title}</span>
             {canManage && (
               <button type="button" onClick={() => setRenaming(true)} title="Rename section" className="text-text-muted">
                 ✏️
@@ -168,7 +168,7 @@ function SectionBox({ section, items, canManage, empDirectory, myEmail, onChange
         )}
         {canManage &&
           (confirmingDeactivate ? (
-            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-text-muted whitespace-nowrap">
+            <span className="ml-auto flex items-center gap-1.5 text-[13px] text-text-muted whitespace-nowrap">
               Deactivate section?
               <button type="button" onClick={confirmDeactivate} className="rounded border border-border px-2 py-0.5 text-danger">
                 Yes
@@ -190,7 +190,7 @@ function SectionBox({ section, items, canManage, empDirectory, myEmail, onChange
       </div>
 
       <div className="flex flex-wrap gap-3.5 justify-center">
-        {items.length === 0 && !canManage && <div className="text-text-muted text-[12px] py-2.5">No entries yet.</div>}
+        {items.length === 0 && !canManage && <div className="text-text-muted text-[14px] py-2.5">No entries yet.</div>}
         {items.map((item) => (
           <ItemCard
             key={item.id}
@@ -231,12 +231,12 @@ function ItemCard({ item, hex, canManage, pendingRemove, onStartRemove, onCancel
       {canManage &&
         (pendingRemove ? (
           <div className="absolute inset-0 bg-surface flex flex-col items-center justify-center gap-2 p-2.5 z-10">
-            <div className="text-[11px] text-text-muted text-center">Remove this card?</div>
+            <div className="text-[13px] text-text-muted text-center">Remove this card?</div>
             <div className="flex gap-2">
-              <button type="button" onClick={onConfirmRemove} className="rounded border border-border px-2.5 py-1 text-[11px] text-danger">
+              <button type="button" onClick={onConfirmRemove} className="rounded border border-border px-2.5 py-1 text-[13px] text-danger">
                 Yes
               </button>
-              <button type="button" onClick={onCancelRemove} className="rounded border border-border px-2.5 py-1 text-[11px]">
+              <button type="button" onClick={onCancelRemove} className="rounded border border-border px-2.5 py-1 text-[13px]">
                 No
               </button>
             </div>
@@ -246,7 +246,7 @@ function ItemCard({ item, hex, canManage, pendingRemove, onStartRemove, onCancel
             type="button"
             onClick={onStartRemove}
             title="Remove card"
-            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/35 text-white text-[10px] z-10"
+            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/35 text-white text-[12px] z-10"
           >
             ✕
           </button>
@@ -260,23 +260,23 @@ function ItemCard({ item, hex, canManage, pendingRemove, onStartRemove, onCancel
             onError={() => setPhotoError(true)}
           />
         ) : (
-          <div className="w-14 h-14 rounded-full bg-primary-tint text-primary flex items-center justify-center text-[18px] font-semibold mb-2">
+          <div className="w-14 h-14 rounded-full bg-primary-tint text-primary flex items-center justify-center text-[20px] font-bold mb-2">
             {initial}
           </div>
         )}
-        <div className="text-[12.5px] font-medium text-text">{item.employee_name}</div>
+        <div className="text-[14.5px] font-semibold text-text">{item.employee_name}</div>
         {item.subtitle && (
           <div
-            className="text-[10.5px] font-medium rounded-full px-2 py-0.5 mt-1.5"
+            className="text-[12.5px] font-semibold rounded-full px-2 py-0.5 mt-1.5"
             style={{ background: hex + '1f', color: hex, border: `1px solid ${hex}4d` }}
           >
             🏢 {item.subtitle}
           </div>
         )}
-        {item.location && <div className="text-[10.5px] text-text-muted mt-1">📍 {item.location}</div>}
+        {item.location && <div className="text-[12.5px] text-text-muted mt-1">📍 {item.location}</div>}
         {item.extra_label && (
           <div
-            className="text-[10px] font-semibold rounded-full px-2 py-0.5 mt-1.5"
+            className="text-[12px] font-bold rounded-full px-2 py-0.5 mt-1.5"
             style={{ color: hex, background: hex + '1a', border: `1px solid ${hex}40` }}
           >
             {item.extra_label}

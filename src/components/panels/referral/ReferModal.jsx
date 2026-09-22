@@ -5,7 +5,7 @@ import OverlayShell from '../../shared/OverlayShell'
 import FormField from './FormField'
 
 const inputClass =
-  'w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text outline-none focus:border-primary'
+  'w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text outline-none focus:border-primary'
 
 // Ported from old-portal/js/referral.js's openReferModal/submitReferralForm
 // exactly — same validation order, same resume-upload-then-insert flow, same
@@ -149,9 +149,9 @@ export default function ReferModal({ opening, onClose, onSubmitted }) {
   return (
     <OverlayShell open={!!opening} onClose={onClose} maxWidth="max-w-md">
       <div className="mb-4 pr-8">
-        <div className="text-[15px] font-semibold text-text">🤝 Refer a Friend</div>
-        <div className="text-[12px] text-text-muted mt-0.5">
-          for <span className="text-primary font-medium">{opening.title}</span>
+        <div className="text-[17px] font-bold text-text">🤝 Refer a Friend</div>
+        <div className="text-[14px] text-text-muted mt-0.5">
+          for <span className="text-primary font-semibold">{opening.title}</span>
         </div>
       </div>
 
@@ -188,20 +188,20 @@ export default function ReferModal({ opening, onClose, onSubmitted }) {
               type="file"
               accept=".pdf,.doc,.docx"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="flex-1 text-[12px] text-text-muted"
+              className="flex-1 text-[14px] text-text-muted"
             />
           </div>
-          <div className="text-[10.5px] text-text-muted mt-1">PDF or Word document</div>
+          <div className="text-[12.5px] text-text-muted mt-1">PDF or Word document</div>
         </FormField>
 
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-primary text-white text-[13px] font-medium py-2.5 disabled:opacity-60"
+          className="rounded-md bg-primary text-white text-[15px] font-semibold py-2.5 disabled:opacity-60"
         >
           Submit Referral
         </button>
-        {status && <div className={`rounded-md px-3 py-2 text-[12px] font-medium text-center ${statusClass}`}>{status.text}</div>}
+        {status && <div className={`rounded-md px-3 py-2 text-[14px] font-semibold text-center ${statusClass}`}>{status.text}</div>}
       </form>
     </OverlayShell>
   )

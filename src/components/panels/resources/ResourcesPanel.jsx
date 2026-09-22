@@ -101,8 +101,8 @@ function PanelHeader({ breadcrumb, extra }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-1">
       <div>
-        <div className="text-[16px] font-semibold text-text">Documents</div>
-        <div className="text-[11.5px] text-text-muted mt-0.5">{breadcrumb}</div>
+        <div className="text-[18px] font-bold text-text">Documents</div>
+        <div className="text-[13.5px] text-text-muted mt-0.5">{breadcrumb}</div>
       </div>
       {extra}
     </div>
@@ -134,7 +134,7 @@ export default function ResourcesPanel() {
             <button
               type="button"
               onClick={() => setView('main')}
-              className="rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[12px] font-medium text-text"
+              className="rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[14px] font-semibold text-text"
             >
               ← Back
             </button>

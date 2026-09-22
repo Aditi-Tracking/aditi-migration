@@ -56,8 +56,8 @@ export default function DirectoryOverlay({ open, hrSectionId, onClose }) {
 
   return (
     <OverlayShell open={open} onClose={onClose} maxWidth="max-w-lg">
-      <div className="text-[15px] font-semibold text-text mb-1 pr-8">👥 Directory</div>
-      <div className="text-[12px] text-text-muted mb-5">Employee, Support & Vendor contacts</div>
+      <div className="text-[17px] font-bold text-text mb-1 pr-8">👥 Directory</div>
+      <div className="text-[14px] text-text-muted mb-5">Employee, Support & Vendor contacts</div>
 
       <div className="flex flex-col gap-2.5">
         {DIRECTORY_ROWS.map((row) => (
@@ -76,10 +76,10 @@ export default function DirectoryOverlay({ open, hrSectionId, onClose }) {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-medium text-text">{row.label}</div>
-              <div className="text-[11px] text-text-muted mt-0.5">{row.desc}</div>
+              <div className="text-[14.5px] font-semibold text-text">{row.label}</div>
+              <div className="text-[13px] text-text-muted mt-0.5">{row.desc}</div>
             </div>
-            <span className="text-primary text-[13px] shrink-0">→</span>
+            <span className="text-primary text-[15px] shrink-0">→</span>
           </button>
         ))}
       </div>

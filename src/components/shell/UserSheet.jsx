@@ -19,7 +19,7 @@ export default function UserSheet({ open, onClose, onOpenProfile }) {
         <div className="w-10 h-1 bg-border rounded-full mx-auto mt-3" />
 
         <div className="flex items-center gap-3 px-5 pt-4 pb-3.5 border-b border-border">
-          <div className="w-11 h-11 rounded-full bg-primary-tint border-2 border-primary/30 flex items-center justify-center text-[15px] font-semibold text-primary shrink-0 overflow-hidden">
+          <div className="w-11 h-11 rounded-full bg-primary-tint border-2 border-primary/30 flex items-center justify-center text-[17px] font-bold text-primary shrink-0 overflow-hidden">
             {currentUser?.avatar_url ? (
               <img src={currentUser.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -27,10 +27,10 @@ export default function UserSheet({ open, onClose, onOpenProfile }) {
             )}
           </div>
           <div>
-            <div className="text-[14px] font-semibold text-text">
+            <div className="text-[16px] font-bold text-text">
               {currentUser?.name || currentUser?.email?.split('@')[0]}
             </div>
-            <div className="text-[11.5px] text-text-muted mt-0.5">
+            <div className="text-[13.5px] text-text-muted mt-0.5">
               {currentUser?.rawRole
                 ? currentUser.rawRole.charAt(0).toUpperCase() + currentUser.rawRole.slice(1)
                 : 'Employee'}
@@ -47,10 +47,10 @@ export default function UserSheet({ open, onClose, onOpenProfile }) {
             }}
             className="flex items-center gap-3 w-full rounded-lg border border-primary/25 bg-primary-tint px-4 py-3 text-left text-primary"
           >
-            <span className="text-[18px]">👤</span>
+            <span className="text-[20px]">👤</span>
             <div>
-              <div className="text-[13px] font-medium">My Profile</div>
-              <div className="text-[11px] text-text-muted">See your details</div>
+              <div className="text-[15px] font-semibold">My Profile</div>
+              <div className="text-[13px] text-text-muted">See your details</div>
             </div>
           </button>
 
@@ -59,8 +59,8 @@ export default function UserSheet({ open, onClose, onOpenProfile }) {
             onClick={logout}
             className="flex items-center gap-3 w-full rounded-lg border border-danger/25 bg-danger-tint px-4 py-3 text-left text-danger"
           >
-            <span className="text-[18px]">🚪</span>
-            <div className="text-[13px] font-medium">Logout</div>
+            <span className="text-[20px]">🚪</span>
+            <div className="text-[15px] font-semibold">Logout</div>
           </button>
         </div>
       </div>

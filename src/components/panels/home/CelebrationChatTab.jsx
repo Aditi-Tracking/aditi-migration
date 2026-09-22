@@ -85,18 +85,18 @@ export default function CelebrationChatTab() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div ref={feedRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2.5">
-        {loading && <div className="text-center py-10 text-text-muted text-[12.5px]">⏳ Loading…</div>}
+        {loading && <div className="text-center py-10 text-text-muted text-[14.5px]">⏳ Loading…</div>}
 
         {!loading && !!celebs.length && (
           <div className="rounded-xl border border-primary/25 bg-surface-2 p-3.5 mb-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[18px]">{birthdays.length && anniversaries.length ? '🎉' : birthdays.length ? '🎂' : '🥳'}</span>
-              <span className="text-[10.5px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded-full px-2 py-0.5">
+              <span className="text-[20px]">{birthdays.length && anniversaries.length ? '🎉' : birthdays.length ? '🎂' : '🥳'}</span>
+              <span className="text-[12.5px] font-bold text-primary bg-primary-tint border border-primary/20 rounded-full px-2 py-0.5">
                 Celebrations
               </span>
-              <span className="text-[10.5px] font-semibold text-danger ml-auto">🔴 Today</span>
+              <span className="text-[12.5px] font-bold text-danger ml-auto">🔴 Today</span>
             </div>
-            <div className="text-[13px] font-semibold text-text mb-2.5">
+            <div className="text-[15px] font-bold text-text mb-2.5">
               {birthdays.length && anniversaries.length
                 ? 'Birthdays & Anniversaries Today!'
                 : birthdays.length === 1
@@ -116,28 +116,28 @@ export default function CelebrationChatTab() {
                   {p.avatar ? (
                     <img src={p.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
                   ) : (
-                    <span className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold">
+                    <span className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[12px] font-extrabold">
                       {(p.name || '?')[0].toUpperCase()}
                     </span>
                   )}
                   <div>
-                    <div className="text-[11.5px] font-semibold text-text">
+                    <div className="text-[13.5px] font-bold text-text">
                       {p.celebType === 'birthday' ? '🎂' : '🥳'} {p.name.split(' ')[0]}
                     </div>
-                    <div className="text-[10px] text-text-muted">
+                    <div className="text-[12px] text-text-muted">
                       {p.celebType === 'birthday' ? 'Birthday' : `${p.years ? ordinal(p.years) + ' ' : ''}Anniversary`}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="text-[11.5px] text-text-muted">Spread some love and wish your teammates on their special day! 💛</div>
+            <div className="text-[13.5px] text-text-muted">Spread some love and wish your teammates on their special day! 💛</div>
           </div>
         )}
 
         {!loading && (
           <div className="text-center mb-1">
-            <span className="text-[10px] font-semibold text-text-muted bg-primary-tint border border-primary/20 rounded-full px-3 py-1 tracking-wide inline-flex items-center gap-1.5">
+            <span className="text-[12px] font-bold text-text-muted bg-primary-tint border border-primary/20 rounded-full px-3 py-1 tracking-wide inline-flex items-center gap-1.5">
               ✨ GROUP WISHES ✨ <span className="w-1.5 h-1.5 rounded-full bg-primary" title="Live" />
             </span>
           </div>
@@ -145,9 +145,9 @@ export default function CelebrationChatTab() {
 
         {!loading && !wishes.length && (
           <div className="text-center py-8">
-            <div className="text-[40px] mb-2">🎊</div>
-            <div className="text-[13px] font-semibold text-text mb-1">No messages yet!</div>
-            <div className="text-[12px] text-text-muted">Be the first to spread some joy 🌟</div>
+            <div className="text-[42px] mb-2">🎊</div>
+            <div className="text-[15px] font-bold text-text mb-1">No messages yet!</div>
+            <div className="text-[14px] text-text-muted">Be the first to spread some joy 🌟</div>
           </div>
         )}
 
@@ -169,24 +169,24 @@ export default function CelebrationChatTab() {
                   (avatar ? (
                     <img src={avatar} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary-tint border border-primary/25 text-primary flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-primary-tint border border-primary/25 text-primary flex items-center justify-center text-[13px] font-extrabold shrink-0 mt-0.5">
                       {(sender[0] || '?').toUpperCase()}
                     </div>
                   ))}
                 <div className="max-w-[80%]">
-                  {!isMe && <div className="text-[10.5px] font-semibold text-primary mb-1">{sender}</div>}
+                  {!isMe && <div className="text-[12.5px] font-bold text-primary mb-1">{sender}</div>}
                   <div
                     className={`rounded-2xl px-3.5 py-2.5 ${
                       isMe ? 'bg-primary text-white rounded-tr-sm' : 'bg-surface-2 border border-border rounded-tl-sm'
                     }`}
                   >
                     {toName && (
-                      <div className={`text-[10.5px] font-semibold mb-1 ${isMe ? 'text-white/85' : 'text-primary'}`}>
+                      <div className={`text-[12.5px] font-bold mb-1 ${isMe ? 'text-white/85' : 'text-primary'}`}>
                         {typeEmoji} To {toName}
                       </div>
                     )}
-                    <div className={`text-[13px] leading-relaxed ${isMe ? 'text-white' : 'text-text'}`}>{w.wish_text}</div>
-                    <div className={`text-[10px] mt-1 ${isMe ? 'text-white/70 text-right' : 'text-text-muted'}`}>
+                    <div className={`text-[15px] leading-relaxed ${isMe ? 'text-white' : 'text-text'}`}>{w.wish_text}</div>
+                    <div className={`text-[12px] mt-1 ${isMe ? 'text-white/70 text-right' : 'text-text-muted'}`}>
                       {timeStr}
                       {isMe ? ' ✓✓' : ''}
                     </div>

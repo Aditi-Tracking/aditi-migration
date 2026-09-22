@@ -33,23 +33,23 @@ export default function TaskAlertBanner({ onNavigate }) {
     return (
       <div className="rounded-2xl border border-primary/25 bg-surface p-4 mb-5">
         <div className="flex items-start gap-3.5 flex-wrap">
-          <div className="text-[28px] leading-none shrink-0">🏆</div>
+          <div className="text-[30px] leading-none shrink-0">🏆</div>
           <div className="flex-1 min-w-[200px]">
-            <div className="text-[14.5px] font-semibold text-text">
+            <div className="text-[16.5px] font-bold text-text">
               Outstanding work, {userName}! All tasks completed.
             </div>
-            <div className="text-[12px] text-text-muted mt-1">
+            <div className="text-[14px] text-text-muted mt-1">
               You've finished all <strong>{total} task{total > 1 ? 's' : ''}</strong> for today. Your score is
               looking great — keep this consistency going every day!
             </div>
-            <div className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 mt-2.5">
+            <div className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 mt-2.5">
               ✅ {done} / {total} Done Today
             </div>
           </div>
           <button
             type="button"
             onClick={() => onNavigate?.('tasks')}
-            className="shrink-0 text-[12.5px] font-semibold text-white bg-primary rounded-lg px-3.5 py-2"
+            className="shrink-0 text-[14.5px] font-bold text-white bg-primary rounded-lg px-3.5 py-2"
           >
             View Tasks
           </button>
@@ -64,13 +64,13 @@ export default function TaskAlertBanner({ onNavigate }) {
   return (
     <div className="rounded-2xl border border-primary/25 bg-surface p-4 mb-5">
       <div className="flex items-start gap-3.5 flex-wrap">
-        <div className="text-[28px] leading-none shrink-0">{isUrgent ? '⚠️' : '📋'}</div>
+        <div className="text-[30px] leading-none shrink-0">{isUrgent ? '⚠️' : '📋'}</div>
         <div className="flex-1 min-w-[200px]">
-          <div className="text-[14.5px] font-semibold text-text">
+          <div className="text-[16.5px] font-bold text-text">
             {greet}, {userName}! You have <span className="text-primary">{pending}</span> pending task
             {pending > 1 ? 's' : ''} today.
           </div>
-          <div className="text-[12px] text-text-muted mt-1">
+          <div className="text-[14px] text-text-muted mt-1">
             <strong>
               {done} of {total}
             </strong>{' '}
@@ -78,7 +78,7 @@ export default function TaskAlertBanner({ onNavigate }) {
             {!isUrgent && 'Head to your Task Checklist and mark them done to boost your score.'}
           </div>
           {isUrgent && (
-            <div className="text-[11.5px] font-medium text-danger mt-2">
+            <div className="text-[13.5px] font-semibold text-danger mt-2">
               ⚠️ Day is ending — please complete your tasks before close of business!
             </div>
           )}
@@ -86,7 +86,7 @@ export default function TaskAlertBanner({ onNavigate }) {
         <button
           type="button"
           onClick={() => onNavigate?.('tasks')}
-          className="shrink-0 text-[12.5px] font-semibold text-white bg-primary rounded-lg px-3.5 py-2"
+          className="shrink-0 text-[14.5px] font-bold text-white bg-primary rounded-lg px-3.5 py-2"
         >
           Go to Tasks →
         </button>

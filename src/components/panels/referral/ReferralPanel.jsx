@@ -93,16 +93,16 @@ export default function ReferralPanel() {
   return (
     <div className="px-4 sm:px-6 py-5">
       <div className="mb-1">
-        <div className="text-[16px] font-semibold text-text">Referral</div>
-        <div className="text-[11.5px] text-text-muted mt-0.5">Home › Referral</div>
+        <div className="text-[18px] font-bold text-text">Referral</div>
+        <div className="text-[13.5px] text-text-muted mt-0.5">Home › Referral</div>
       </div>
 
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-primary-tint px-5 py-4 mt-4 mb-5">
         <div>
-          <div className="text-[24px] font-bold text-primary leading-none">₹2,000</div>
-          <div className="text-[11px] text-text-muted mt-1">per successful referral</div>
+          <div className="text-[26px] font-extrabold text-primary leading-none">₹2,000</div>
+          <div className="text-[13px] text-text-muted mt-1">per successful referral</div>
         </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1.5 ml-auto text-[11.5px] text-text-muted">
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 ml-auto text-[13.5px] text-text-muted">
           <div>✅ Friends only — not family</div>
           <div>
             ⏱️ Paid after the referred friend completes <strong className="text-text">90 days</strong>
@@ -117,7 +117,7 @@ export default function ReferralPanel() {
             key={t.id}
             type="button"
             onClick={() => setActiveTab(t.id)}
-            className={`rounded-lg px-3.5 py-2 text-[12.5px] font-medium border transition-colors ${
+            className={`rounded-lg px-3.5 py-2 text-[14.5px] font-semibold border transition-colors ${
               activeTab === t.id
                 ? 'bg-primary-tint text-primary border-primary/30'
                 : 'bg-surface-2 text-text-muted border-border hover:text-text'

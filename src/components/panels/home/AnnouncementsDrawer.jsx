@@ -53,7 +53,7 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
         }`}
       >
         <div className="flex items-center justify-between px-5 h-14 border-b border-border shrink-0">
-          <span className="text-[14px] font-semibold text-text">📢 Announcements</span>
+          <span className="text-[16px] font-bold text-text">📢 Announcements</span>
           <button
             type="button"
             onClick={onClose}
@@ -67,7 +67,7 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
           <button
             type="button"
             onClick={() => setActiveTab('update')}
-            className={`px-3.5 py-2 text-[12.5px] font-semibold border-b-2 -mb-px ${
+            className={`px-3.5 py-2 text-[14.5px] font-bold border-b-2 -mb-px ${
               activeTab === 'update' ? 'border-primary text-primary' : 'border-transparent text-text-muted'
             }`}
           >
@@ -76,7 +76,7 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
           <button
             type="button"
             onClick={() => setActiveTab('celeb')}
-            className={`px-3.5 py-2 text-[12.5px] font-semibold border-b-2 -mb-px ${
+            className={`px-3.5 py-2 text-[14.5px] font-bold border-b-2 -mb-px ${
               activeTab === 'celeb' ? 'border-primary text-primary' : 'border-transparent text-text-muted'
             }`}
           >
@@ -88,12 +88,12 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
 
         {activeTab === 'update' && (
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            {loading && <div className="text-center py-16 text-text-muted text-[12.5px]">⏳ Loading...</div>}
-            {!loading && error && <div className="text-center py-16 text-danger text-[12.5px]">⚠️ {error}</div>}
+            {loading && <div className="text-center py-16 text-text-muted text-[14.5px]">⏳ Loading...</div>}
+            {!loading && error && <div className="text-center py-16 text-danger text-[14.5px]">⚠️ {error}</div>}
             {!loading && !error && !updates.length && (
               <div className="text-center py-16 text-text-muted">
-                <div className="text-[13px] font-medium text-text mb-1">No portal updates yet.</div>
-                <div className="text-[12px]">MIS Team will post updates here soon.</div>
+                <div className="text-[15px] font-semibold text-text mb-1">No portal updates yet.</div>
+                <div className="text-[14px]">MIS Team will post updates here soon.</div>
               </div>
             )}
             {!loading && !error && (
@@ -101,10 +101,10 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
                 {updates.map((u) => (
                   <div key={u.id} className="rounded-xl border border-border border-l-[3px] border-l-primary bg-surface-2 p-3.5">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-primary-tint text-primary border border-primary/20">
+                      <span className="text-[12.5px] font-bold px-2 py-0.5 rounded-full bg-primary-tint text-primary border border-primary/20">
                         Portal Update
                       </span>
-                      <span className="text-[10.5px] text-text-muted ml-auto">{formatTimeLabel(u.created_at)}</span>
+                      <span className="text-[12.5px] text-text-muted ml-auto">{formatTimeLabel(u.created_at)}</span>
                       {canPost && (
                         <button
                           type="button"
@@ -112,7 +112,7 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
                             setEditingUpdate(u)
                             setPostModalOpen(true)
                           }}
-                          className="text-[10.5px] font-medium text-primary bg-primary-tint border border-primary/20 rounded px-2 py-0.5"
+                          className="text-[12.5px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded px-2 py-0.5"
                         >
                           ✏️ Edit
                         </button>
@@ -121,20 +121,20 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
                         <button
                           type="button"
                           onClick={() => handleDelete(u.id)}
-                          className="text-[10.5px] font-medium text-danger bg-danger-tint border border-danger/20 rounded px-2 py-0.5"
+                          className="text-[12.5px] font-semibold text-danger bg-danger-tint border border-danger/20 rounded px-2 py-0.5"
                         >
                           🗑 Delete
                         </button>
                       )}
                     </div>
-                    <div className="text-[13.5px] font-semibold text-text mb-1.5">{u.title}</div>
+                    <div className="text-[15.5px] font-bold text-text mb-1.5">{u.title}</div>
                     <div
-                      className="text-[12.5px] text-text-muted leading-relaxed"
+                      className="text-[14.5px] text-text-muted leading-relaxed"
                       dangerouslySetInnerHTML={{ __html: safeBody(u.body) }}
                     />
                     {u.posted_by && (
-                      <div className="mt-2.5 pt-2.5 border-t border-border text-[11px] text-text-muted flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded bg-primary-tint text-primary flex items-center justify-center text-[10px] font-bold">
+                      <div className="mt-2.5 pt-2.5 border-t border-border text-[13px] text-text-muted flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded bg-primary-tint text-primary flex items-center justify-center text-[12px] font-extrabold">
                           {(u.posted_by || 'M')[0].toUpperCase()}
                         </span>
                         Posted by <strong className="text-text-muted">{u.posted_by}</strong>
@@ -155,7 +155,7 @@ export default function AnnouncementsDrawer({ open, updates, loading, error, onC
                 setEditingUpdate(null)
                 setPostModalOpen(true)
               }}
-              className="w-full rounded-md bg-primary text-white text-[12.5px] font-medium py-2.5"
+              className="w-full rounded-md bg-primary text-white text-[14.5px] font-semibold py-2.5"
             >
               ✨ Post Update
             </button>

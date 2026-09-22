@@ -84,8 +84,8 @@ export default function OrgChartOverlay({ open, hrSectionId, onClose }) {
     <OverlayShell open={open} onClose={onClose} maxWidth="max-w-lg">
       {screen === 'picker' ? (
         <>
-          <div className="text-[15px] font-semibold text-text mb-1 pr-8">🏢 Organization Chart</div>
-          <div className="text-[12px] text-text-muted mb-5">Select office to view the org chart</div>
+          <div className="text-[17px] font-bold text-text mb-1 pr-8">🏢 Organization Chart</div>
+          <div className="text-[14px] text-text-muted mb-5">Select office to view the org chart</div>
           <div className="grid grid-cols-2 gap-3">
             {OFFICES.map((o) => (
               <button
@@ -104,9 +104,9 @@ export default function OrgChartOverlay({ open, hrSectionId, onClose }) {
                     <line x1="12" y1="10" x2="12" y2="12" />
                   </svg>
                 </div>
-                <div className="text-[13px] font-semibold text-text">{o.title}</div>
-                <div className="text-[11px] text-text-muted mt-1">{o.desc}</div>
-                <div className="text-[11px] font-medium text-primary mt-2.5">View Charts →</div>
+                <div className="text-[15px] font-bold text-text">{o.title}</div>
+                <div className="text-[13px] text-text-muted mt-1">{o.desc}</div>
+                <div className="text-[13px] font-semibold text-primary mt-2.5">View Charts →</div>
               </button>
             ))}
           </div>
@@ -114,23 +114,23 @@ export default function OrgChartOverlay({ open, hrSectionId, onClose }) {
       ) : (
         <>
           <div className="flex items-center gap-2.5 mb-5 pr-8">
-            <button type="button" onClick={() => setScreen('picker')} className="text-text-muted text-[16px] leading-none">
+            <button type="button" onClick={() => setScreen('picker')} className="text-text-muted text-[18px] leading-none">
               ←
             </button>
             <div>
-              <div className="text-[14px] font-semibold text-text">
+              <div className="text-[16px] font-bold text-text">
                 {isHead ? '🏢 Head Office — Org Charts' : '🏬 Branch Offices — Org Charts'}
               </div>
-              <div className="text-[11.5px] text-text-muted mt-0.5">
+              <div className="text-[13.5px] text-text-muted mt-0.5">
                 {isHead ? 'Mumbai Head Office organizational structure.' : 'Goa, Bengaluru, Ahmedabad and other branch office org charts.'}
               </div>
             </div>
           </div>
 
-          {loading && <div className="text-center py-10 text-text-muted text-[12.5px]">Loading…</div>}
-          {!loading && error && <div className="text-center py-10 text-danger text-[12.5px]">{error}</div>}
+          {loading && <div className="text-center py-10 text-text-muted text-[14.5px]">Loading…</div>}
+          {!loading && error && <div className="text-center py-10 text-danger text-[14.5px]">{error}</div>}
           {!loading && !error && !docs.length && (
-            <div className="text-center py-10 text-text-muted text-[12.5px]">No documents found.</div>
+            <div className="text-center py-10 text-text-muted text-[14.5px]">No documents found.</div>
           )}
           {!loading && !error && docs.length > 0 && (
             <div className="flex flex-col gap-2.5">
@@ -151,10 +151,10 @@ export default function OrgChartOverlay({ open, hrSectionId, onClose }) {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[12.5px] font-medium text-text truncate">{doc.name}</div>
-                    <div className="text-[11px] text-primary mt-0.5">🔗 Open Document</div>
+                    <div className="text-[14.5px] font-semibold text-text truncate">{doc.name}</div>
+                    <div className="text-[13px] text-primary mt-0.5">🔗 Open Document</div>
                   </div>
-                  <span className="text-primary text-[13px] shrink-0">→</span>
+                  <span className="text-primary text-[15px] shrink-0">→</span>
                 </button>
               ))}
             </div>

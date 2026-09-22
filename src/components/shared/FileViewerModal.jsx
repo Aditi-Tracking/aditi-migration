@@ -32,7 +32,7 @@ export default function FileViewerModal() {
     >
       <div className="w-full max-w-4xl h-[85vh] bg-surface rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
-          <span className="text-[13px] font-medium text-text truncate pr-3">{title}</span>
+          <span className="text-[15px] font-semibold text-text truncate pr-3">{title}</span>
           <button
             type="button"
             onClick={closeFileViewer}

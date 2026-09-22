@@ -37,10 +37,10 @@ export default function DocCard({ icon, name, desc, meta, onClick, onDelete }) {
           {icon}
         </div>
         <div>
-          <div className="text-[13.5px] font-semibold text-text">{name}</div>
-          <div className="text-[12px] text-text-muted mt-1 leading-relaxed line-clamp-2">{desc}</div>
+          <div className="text-[15.5px] font-bold text-text">{name}</div>
+          <div className="text-[14px] text-text-muted mt-1 leading-relaxed line-clamp-2">{desc}</div>
         </div>
-        <div className="mt-auto text-[11px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 w-fit">
+        <div className="mt-auto text-[13px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 w-fit">
           {meta}
         </div>
       </button>

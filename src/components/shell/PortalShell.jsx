@@ -188,7 +188,7 @@ export default function PortalShell() {
                     <button
                       type="button"
                       onClick={navigateBack}
-                      className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-text-muted hover:text-text transition-colors"
+                      className="inline-flex items-center gap-1.5 text-[14.5px] font-semibold text-text-muted hover:text-text transition-colors"
                     >
                       ← Back to {PANEL_LABELS[backTarget] || backTarget}
                     </button>
@@ -196,7 +196,7 @@ export default function PortalShell() {
                 )}
                 {ActivePanelComponent ? (
                   <ErrorBoundary key={activePanel}>
-                    <Suspense fallback={<div className="text-center py-16 text-text-muted text-[13px]">⏳ Loading…</div>}>
+                    <Suspense fallback={<div className="text-center py-16 text-text-muted text-[15px]">⏳ Loading…</div>}>
                       <ActivePanelComponent onNavigate={navigate} />
                     </Suspense>
                   </ErrorBoundary>

@@ -47,7 +47,7 @@ export default function CelebrationChatFooter({ currentUser, onSend, sending }) 
                 key={e}
                 type="button"
                 onClick={() => insertEmoji(e)}
-                className="text-[20px] p-1 rounded hover:bg-surface-2"
+                className="text-[22px] p-1 rounded hover:bg-surface-2"
               >
                 {e}
               </button>
@@ -56,13 +56,13 @@ export default function CelebrationChatFooter({ currentUser, onSend, sending }) 
         </div>
       )}
 
-      {error && <div className="px-4 pt-2 text-[11px] text-danger">{error}</div>}
+      {error && <div className="px-4 pt-2 text-[13px] text-danger">{error}</div>}
 
       <div className="flex items-center gap-2 px-3 py-2.5">
         {currentUser?.avatar_url ? (
           <img src={currentUser.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[12px] font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[14px] font-extrabold shrink-0">
             {initial}
           </div>
         )}
@@ -70,7 +70,7 @@ export default function CelebrationChatFooter({ currentUser, onSend, sending }) 
           type="button"
           onClick={() => setPickerOpen((o) => !o)}
           title="Emojis"
-          className="w-8 h-8 rounded-full border border-primary/30 bg-primary-tint flex items-center justify-center text-[15px] shrink-0"
+          className="w-8 h-8 rounded-full border border-primary/30 bg-primary-tint flex items-center justify-center text-[17px] shrink-0"
         >
           😊
         </button>
@@ -88,7 +88,7 @@ export default function CelebrationChatFooter({ currentUser, onSend, sending }) 
             }}
             placeholder="Send a wish… 🎉"
             maxLength={300}
-            className="flex-1 bg-transparent outline-none text-[13px] text-text"
+            className="flex-1 bg-transparent outline-none text-[15px] text-text"
           />
         </div>
         <button

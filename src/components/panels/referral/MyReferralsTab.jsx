@@ -18,13 +18,13 @@ function fmtDate(d) {
 }
 
 export default function MyReferralsTab({ referrals, loading, error }) {
-  if (loading) return <div className="text-center py-16 text-text-muted text-[13px]">Loading your referrals…</div>
-  if (error) return <div className="text-center py-16 text-danger text-[13px]">⚠️ {error}</div>
+  if (loading) return <div className="text-center py-16 text-text-muted text-[15px]">Loading your referrals…</div>
+  if (error) return <div className="text-center py-16 text-danger text-[15px]">⚠️ {error}</div>
   if (!referrals.length) {
     return (
       <div className="text-center py-12 text-text-muted">
-        <div className="text-[13px] font-semibold text-text mb-1">You Haven't Referred Anyone Yet</div>
-        <div className="text-[12px]">
+        <div className="text-[15px] font-bold text-text mb-1">You Haven't Referred Anyone Yet</div>
+        <div className="text-[14px]">
           Go to <strong className="text-text">Open Roles</strong> and refer a friend to earn ₹2,000.
         </div>
       </div>
@@ -37,25 +37,25 @@ export default function MyReferralsTab({ referrals, loading, error }) {
         const isClosed = r.status === 'Closed-Not Eligible'
         let extra = null
         if (r.status === 'Joined' && r.ninety_day_date) {
-          extra = <div className="text-[11px] text-text-muted mt-1">Eligible on {fmtDate(r.ninety_day_date)}</div>
+          extra = <div className="text-[13px] text-text-muted mt-1">Eligible on {fmtDate(r.ninety_day_date)}</div>
         } else if (r.status === 'Incentive Paid' && r.paid_date) {
           extra = (
-            <div className="text-[11px] text-primary mt-1">
+            <div className="text-[13px] text-primary mt-1">
               Paid on {fmtDate(r.paid_date)} · ₹{r.paid_amount || 2000}
             </div>
           )
         } else if (STAGE_DESC[r.status]) {
-          extra = <div className="text-[11px] text-text-muted mt-1">{STAGE_DESC[r.status]}</div>
+          extra = <div className="text-[13px] text-text-muted mt-1">{STAGE_DESC[r.status]}</div>
         }
         return (
           <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
             <div className="flex-1 min-w-[180px]">
-              <div className="text-[13px] font-semibold text-text">{r.candidate_name}</div>
-              <div className="text-[11.5px] text-text-muted mt-0.5">for {r.opening_title || '—'}</div>
+              <div className="text-[15px] font-bold text-text">{r.candidate_name}</div>
+              <div className="text-[13.5px] text-text-muted mt-0.5">for {r.opening_title || '—'}</div>
               {extra}
             </div>
             <span
-              className={`text-[10.5px] font-medium rounded-full px-2.5 py-1 border ${
+              className={`text-[12.5px] font-semibold rounded-full px-2.5 py-1 border ${
                 isClosed ? 'bg-surface-2 text-text-muted border-border' : 'bg-primary-tint text-primary border-primary/20'
               }`}
             >

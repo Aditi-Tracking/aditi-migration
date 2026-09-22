@@ -26,7 +26,7 @@ export default function OpenRolesTab({ openings, loading, error, onRefer }) {
         <select
           value={locFilter}
           onChange={(e) => setLocFilter(e.target.value)}
-          className="rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text"
+          className="rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text"
         >
           <option value="">All Locations</option>
           {locations.map((l) => (
@@ -38,7 +38,7 @@ export default function OpenRolesTab({ openings, loading, error, onRefer }) {
         <select
           value={deptFilter}
           onChange={(e) => setDeptFilter(e.target.value)}
-          className="rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text"
+          className="rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text"
         >
           <option value="">All Departments</option>
           {departments.map((d) => (
@@ -49,12 +49,12 @@ export default function OpenRolesTab({ openings, loading, error, onRefer }) {
         </select>
       </div>
 
-      {loading && <div className="text-center py-16 text-text-muted text-[13px]">Loading open roles…</div>}
-      {!loading && error && <div className="text-center py-16 text-danger text-[13px]">⚠️ {error}</div>}
+      {loading && <div className="text-center py-16 text-text-muted text-[15px]">Loading open roles…</div>}
+      {!loading && error && <div className="text-center py-16 text-danger text-[15px]">⚠️ {error}</div>}
       {!loading && !error && !rows.length && (
         <div className="text-center py-12 text-text-muted">
-          <div className="text-[13px] font-semibold text-text mb-1">No Open Roles Right Now</div>
-          <div className="text-[12px]">
+          <div className="text-[15px] font-bold text-text mb-1">No Open Roles Right Now</div>
+          <div className="text-[14px]">
             Check back soon, or browse every live role on the{' '}
             <a
               href="https://erp.adititracking.com/jobs"
@@ -80,21 +80,21 @@ export default function OpenRolesTab({ openings, loading, error, onRefer }) {
                   <path d="M16 3.13a4 4 0 010 7.75" />
                 </svg>
               </div>
-              <div className="text-[13.5px] font-semibold text-text">{o.role_title || 'Role'}</div>
+              <div className="text-[15.5px] font-bold text-text">{o.role_title || 'Role'}</div>
               <div className="flex gap-1.5 flex-wrap">
-                <span className="text-[10.5px] rounded border border-border bg-surface-2 px-1.5 py-0.5 text-text-muted">
+                <span className="text-[12.5px] rounded border border-border bg-surface-2 px-1.5 py-0.5 text-text-muted">
                   📍 {o.location || '—'}
                 </span>
                 {o.department && (
-                  <span className="text-[10.5px] rounded border border-border bg-surface-2 px-1.5 py-0.5 text-text-muted">
+                  <span className="text-[12.5px] rounded border border-border bg-surface-2 px-1.5 py-0.5 text-text-muted">
                     {o.department}
                   </span>
                 )}
-                <span className="text-[10.5px] rounded border border-border bg-surface-2 px-1.5 py-0.5 text-text-muted">
+                <span className="text-[12.5px] rounded border border-border bg-surface-2 px-1.5 py-0.5 text-text-muted">
                   {o.openings_count || 1} opening{(o.openings_count || 1) === 1 ? '' : 's'}
                 </span>
               </div>
-              <div className="text-[12px] text-text-muted leading-relaxed min-h-[40px]">
+              <div className="text-[14px] text-text-muted leading-relaxed min-h-[40px]">
                 {(o.jd_text || 'See the full JD for details.').slice(0, 140)}
                 {(o.jd_text || '').length > 140 ? '…' : ''}
               </div>
@@ -102,7 +102,7 @@ export default function OpenRolesTab({ openings, loading, error, onRefer }) {
                 <button
                   type="button"
                   onClick={() => onRefer(o.id, o.role_title || 'Role')}
-                  className="flex-1 rounded-md bg-primary text-white text-[12px] font-medium py-2"
+                  className="flex-1 rounded-md bg-primary text-white text-[14px] font-semibold py-2"
                 >
                   🤝 Refer a Friend
                 </button>
@@ -111,7 +111,7 @@ export default function OpenRolesTab({ openings, loading, error, onRefer }) {
                     href={o.jd_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 text-center rounded-md border border-border text-text-muted text-[12px] font-medium py-2"
+                    className="flex-1 text-center rounded-md border border-border text-text-muted text-[14px] font-semibold py-2"
                   >
                     Full JD
                   </a>

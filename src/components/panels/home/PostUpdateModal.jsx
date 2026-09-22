@@ -60,36 +60,36 @@ export default function PostUpdateModal({ open, editingUpdate, onClose, onSaved 
 
   return (
     <OverlayShell open={open} onClose={onClose} maxWidth="max-w-md">
-      <div className="text-[15px] font-semibold text-text mb-4 pr-8">
+      <div className="text-[17px] font-bold text-text mb-4 pr-8">
         {editingUpdate ? '✏️ Edit Update' : '✨ Post Update'}
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
         <div>
-          <label className="block text-[11.5px] font-medium text-text-muted mb-1.5">Title</label>
+          <label className="block text-[13.5px] font-semibold text-text-muted mb-1.5">Title</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text outline-none focus:border-primary"
+            className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text outline-none focus:border-primary"
           />
         </div>
         <div>
-          <label className="block text-[11.5px] font-medium text-text-muted mb-1.5">Message</label>
+          <label className="block text-[13.5px] font-semibold text-text-muted mb-1.5">Message</label>
           <textarea
             rows={5}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text outline-none focus:border-primary"
+            className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text outline-none focus:border-primary"
           />
         </div>
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-primary text-white text-[13px] font-medium py-2.5 disabled:opacity-60"
+          className="rounded-md bg-primary text-white text-[15px] font-semibold py-2.5 disabled:opacity-60"
         >
           {editingUpdate ? '💾 Save Changes' : '🚀 Publish Update'}
         </button>
-        {error && <div className="rounded-md bg-danger-tint text-danger px-3 py-2 text-[12px] font-medium text-center">{error}</div>}
+        {error && <div className="rounded-md bg-danger-tint text-danger px-3 py-2 text-[14px] font-semibold text-center">{error}</div>}
       </form>
     </OverlayShell>
   )

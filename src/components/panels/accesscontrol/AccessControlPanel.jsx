@@ -68,7 +68,7 @@ export default function AccessControlPanel() {
   if (!isMis) {
     return (
       <div className="px-4 sm:px-6 py-16 text-center">
-        <div className="text-[13px] text-text-muted">⛔ Access denied. This section is restricted to MIS.</div>
+        <div className="text-[15px] text-text-muted">⛔ Access denied. This section is restricted to MIS.</div>
       </div>
     )
   }
@@ -76,12 +76,12 @@ export default function AccessControlPanel() {
   return (
     <div className="px-4 sm:px-6 py-5">
       <div className="mb-1">
-        <div className="text-[16px] font-semibold text-text">🔐 Access Control</div>
-        <div className="text-[11.5px] text-text-muted mt-0.5">Manage what each person can see and do</div>
+        <div className="text-[18px] font-bold text-text">🔐 Access Control</div>
+        <div className="text-[13.5px] text-text-muted mt-0.5">Manage what each person can see and do</div>
       </div>
 
-      {loading && <div className="text-center py-16 text-text-muted text-[13px]">⏳ Loading employees…</div>}
-      {!loading && error && <div className="text-center py-16 text-danger text-[13px]">❌ {error}</div>}
+      {loading && <div className="text-center py-16 text-text-muted text-[15px]">⏳ Loading employees…</div>}
+      {!loading && error && <div className="text-center py-16 text-danger text-[15px]">❌ {error}</div>}
 
       {!loading && !error && (
         <div className="mt-5">
@@ -90,11 +90,11 @@ export default function AccessControlPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="🔍 Search by name or email…"
-            className="w-full rounded-md border border-border bg-surface-2 px-3.5 py-2.5 text-[13px] text-text outline-none mb-4"
+            className="w-full rounded-md border border-border bg-surface-2 px-3.5 py-2.5 text-[15px] text-text outline-none mb-4"
           />
 
           {!filteredUsers.length && (
-            <div className="text-center py-10 text-text-muted text-[12.5px]">No employees found</div>
+            <div className="text-center py-10 text-text-muted text-[14.5px]">No employees found</div>
           )}
 
           <div className="flex flex-col gap-3">
@@ -122,14 +122,14 @@ function UserPermCard({ user, allKeys, savingKey, savedKey, onSave }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center gap-3 mb-3.5">
-        <div className="w-9 h-9 rounded-full bg-primary-tint border border-primary/20 text-primary flex items-center justify-center text-[14px] font-bold shrink-0">
+        <div className="w-9 h-9 rounded-full bg-primary-tint border border-primary/20 text-primary flex items-center justify-center text-[16px] font-extrabold shrink-0">
           {(user.name || '?')[0].toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-semibold text-text truncate">{user.name}</div>
-          <div className="text-[11px] text-text-muted truncate">{user.email}</div>
+          <div className="text-[15px] font-bold text-text truncate">{user.name}</div>
+          <div className="text-[13px] text-text-muted truncate">{user.email}</div>
         </div>
-        <span className="text-[10.5px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 shrink-0">
+        <span className="text-[12.5px] font-bold text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1 shrink-0">
           {roleLabel}
         </span>
       </div>
@@ -144,15 +144,15 @@ function UserPermCard({ user, allKeys, savingKey, savedKey, onSave }) {
 
           return (
             <div key={key} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-b-0">
-              <span className="text-[12px] text-text-muted">{label}</span>
+              <span className="text-[14px] text-text-muted">{label}</span>
               <div className="flex items-center gap-2 shrink-0">
-                {isSaving && <span className="text-[10px] text-text-muted">Saving…</span>}
-                {!isSaving && justSaved && <span className="text-[10px] text-primary">✓ Saved</span>}
+                {isSaving && <span className="text-[12px] text-text-muted">Saving…</span>}
+                {!isSaving && justSaved && <span className="text-[12px] text-primary">✓ Saved</span>}
                 {key === 'checklist_scope' ? (
                   <select
                     value={val === 'all' ? 'all' : 'own'}
                     onChange={(e) => onSave(user.email, key, e.target.value)}
-                    className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[11.5px] text-text outline-none"
+                    className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[13.5px] text-text outline-none"
                   >
                     <option value="own">Own data only</option>
                     <option value="all">All employees</option>

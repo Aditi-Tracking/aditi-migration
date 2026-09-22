@@ -12,12 +12,12 @@ export default function AnnouncementBellButton({ unreadCount, onClick }) {
           <path d="M13.73 21a2 2 0 01-3.46 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[9.5px] font-bold flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[11.5px] font-extrabold flex items-center justify-center">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </span>
-      <span className="text-[12.5px] font-semibold">Announcements</span>
+      <span className="text-[14.5px] font-bold">Announcements</span>
     </button>
   )
 }

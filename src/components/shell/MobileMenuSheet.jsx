@@ -26,7 +26,7 @@ export default function MobileMenuSheet({ open, activePanel, onNavigate, onClose
         }`}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-3 sticky top-0 bg-surface">
-          <span className="text-[13px] font-semibold text-text">Navigation</span>
+          <span className="text-[15px] font-bold text-text">Navigation</span>
           <button
             type="button"
             onClick={onClose}
@@ -47,14 +47,14 @@ export default function MobileMenuSheet({ open, activePanel, onNavigate, onClose
                     onNavigate(item.id)
                     onClose()
                   }}
-                  className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-[13px] ${
-                    activePanel === item.id ? 'bg-primary-tint text-primary font-medium' : 'text-text'
+                  className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-[15px] ${
+                    activePanel === item.id ? 'bg-primary-tint text-primary font-semibold' : 'text-text'
                   }`}
                 >
                   <NavIcon id={item.id} className="w-[18px] h-[18px] shrink-0" />
                   <span className="flex-1 truncate">{item.label}</span>
                   {item.badge && (
-                    <span className="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                    <span className="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[12px] font-semibold text-text-muted">
                       {item.badge}
                     </span>
                   )}
@@ -73,14 +73,14 @@ export default function MobileMenuSheet({ open, activePanel, onNavigate, onClose
                             onNavigate(child.id)
                             onClose()
                           }}
-                          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[12.5px] ${
-                            activePanel === child.id ? 'bg-primary-tint text-primary font-medium' : 'text-text-muted'
+                          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[14.5px] ${
+                            activePanel === child.id ? 'bg-primary-tint text-primary font-semibold' : 'text-text-muted'
                           }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
                           <span className="flex-1 truncate">{child.label}</span>
                           {child.badge && (
-                            <span className="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                            <span className="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[12px] font-semibold text-text-muted">
                               {child.badge}
                             </span>
                           )}

@@ -66,18 +66,18 @@ function PipelineRow({ row }) {
     <div className="rounded-xl border border-border bg-surface p-4 mb-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-[13.5px] font-semibold text-text">{row.candidate_name}</div>
-          <div className="text-[11.5px] text-primary font-medium mt-0.5">for {row.opening_title || '—'}</div>
+          <div className="text-[15.5px] font-bold text-text">{row.candidate_name}</div>
+          <div className="text-[13.5px] text-primary font-semibold mt-0.5">for {row.opening_title || '—'}</div>
         </div>
-        <span className="text-[10.5px] font-medium rounded-full px-2.5 py-1 border bg-primary-tint text-primary border-primary/20">
+        <span className="text-[12.5px] font-semibold rounded-full px-2.5 py-1 border bg-primary-tint text-primary border-primary/20">
           {row.status}
         </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5">
         <div className="rounded-lg bg-surface-2 px-3.5 py-3">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-text-muted mb-2">Candidate</div>
-          <div className="text-[12.5px] text-text space-y-1">
+          <div className="text-[12px] font-extrabold uppercase tracking-wide text-text-muted mb-2">Candidate</div>
+          <div className="text-[14.5px] text-text space-y-1">
             <div>🙋 {row.candidate_name}</div>
             <div>📱 {row.candidate_mobile}</div>
             {row.candidate_email && (
@@ -99,8 +99,8 @@ function PipelineRow({ row }) {
           </div>
         </div>
         <div className="rounded-lg bg-surface-2 px-3.5 py-3">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-text-muted mb-2">Referred By</div>
-          <div className="text-[12.5px] text-text space-y-1">
+          <div className="text-[12px] font-extrabold uppercase tracking-wide text-text-muted mb-2">Referred By</div>
+          <div className="text-[14.5px] text-text space-y-1">
             <div>👤 {row.referrer_name}</div>
             <div>📍 {row.referrer_branch || row.referrer_dept || '—'}</div>
             <div>🗓️ Submitted {fmtDate(row.submitted_at)}</div>
@@ -108,14 +108,14 @@ function PipelineRow({ row }) {
         </div>
       </div>
 
-      {row.note && <div className="text-[12px] text-text mt-3 bg-surface-2 rounded-md px-2.5 py-2">📝 {row.note}</div>}
+      {row.note && <div className="text-[14px] text-text mt-3 bg-surface-2 rounded-md px-2.5 py-2">📝 {row.note}</div>}
 
       <div className="flex flex-wrap items-center gap-2.5 mt-3.5 pt-3.5 border-t border-border">
-        <label className="text-[11px] font-medium text-text-muted">Status</label>
+        <label className="text-[13px] font-semibold text-text-muted">Status</label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[12px] text-text"
+          className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[14px] text-text"
         >
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
@@ -125,30 +125,30 @@ function PipelineRow({ row }) {
         </select>
         {showJoining && (
           <span className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-text-muted">Joining Date</label>
+            <label className="text-[13px] font-semibold text-text-muted">Joining Date</label>
             <input
               type="date"
               value={joiningDate}
               onChange={(e) => setJoiningDate(e.target.value)}
-              className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[12px] text-text"
+              className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[14px] text-text"
             />
           </span>
         )}
         {showPayout && (
           <span className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-text-muted">Paid ₹</label>
+            <label className="text-[13px] font-semibold text-text-muted">Paid ₹</label>
             <input
               type="number"
               value={paidAmount}
               onChange={(e) => setPaidAmount(e.target.value)}
-              className="w-20 rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[12px] text-text"
+              className="w-20 rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[14px] text-text"
             />
-            <label className="text-[11px] font-medium text-text-muted">Paid Date</label>
+            <label className="text-[13px] font-semibold text-text-muted">Paid Date</label>
             <input
               type="date"
               value={paidDate}
               onChange={(e) => setPaidDate(e.target.value)}
-              className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[12px] text-text"
+              className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[14px] text-text"
             />
           </span>
         )}
@@ -156,11 +156,11 @@ function PipelineRow({ row }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-md bg-primary text-white text-[11.5px] font-medium px-3 py-1.5 disabled:opacity-60"
+          className="rounded-md bg-primary text-white text-[13.5px] font-semibold px-3 py-1.5 disabled:opacity-60"
         >
           Save
         </button>
-        {saveMsg && <span className="text-[11px] font-medium text-text-muted">{saveMsg}</span>}
+        {saveMsg && <span className="text-[13px] font-semibold text-text-muted">{saveMsg}</span>}
       </div>
     </div>
   )
@@ -197,13 +197,13 @@ export default function PipelineTab() {
 
   return (
     <div>
-      <div className="text-[13px] font-semibold text-text mb-4">All Referrals — Pipeline View</div>
-      {loading && <div className="text-center py-16 text-text-muted text-[13px]">Loading all referrals…</div>}
-      {!loading && error && <div className="text-center py-16 text-danger text-[13px]">⚠️ {error}</div>}
+      <div className="text-[15px] font-bold text-text mb-4">All Referrals — Pipeline View</div>
+      {loading && <div className="text-center py-16 text-text-muted text-[15px]">Loading all referrals…</div>}
+      {!loading && error && <div className="text-center py-16 text-danger text-[15px]">⚠️ {error}</div>}
       {!loading && !error && !rows.length && (
         <div className="text-center py-12 text-text-muted">
-          <div className="text-[13px] font-semibold text-text mb-1">No Referrals Yet</div>
-          <div className="text-[12px]">Once employees start referring friends, they'll show up here.</div>
+          <div className="text-[15px] font-bold text-text mb-1">No Referrals Yet</div>
+          <div className="text-[14px]">Once employees start referring friends, they'll show up here.</div>
         </div>
       )}
       {!loading && !error && rows.map((r) => <PipelineRow key={r.id} row={r} />)}

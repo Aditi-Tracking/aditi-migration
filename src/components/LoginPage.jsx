@@ -106,18 +106,18 @@ export default function LoginPage() {
           />
         </div>
 
-        <h1 className="font-serif font-bold text-[24px] text-text text-center">Welcome</h1>
-        <p className="text-[12.5px] text-text-muted text-center mt-1 mb-6">Sign in to access your dashboard</p>
+        <h1 className="font-serif font-extrabold text-[26px] text-text text-center">Welcome</h1>
+        <p className="text-[14.5px] text-text-muted text-center mt-1 mb-6">Sign in to access your dashboard</p>
 
         {error && (
-          <div className="mb-4 rounded-md border border-danger/25 bg-danger-tint px-3 py-2 text-[12.5px] text-danger">
+          <div className="mb-4 rounded-md border border-danger/25 bg-danger-tint px-3 py-2 text-[14.5px] text-danger">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-1.5">Email Address</label>
+            <label className="block text-[12.5px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Email Address</label>
             <div className="relative">
               <MailIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
@@ -128,13 +128,13 @@ export default function LoginPage() {
                   if (e.key === 'Enter') document.getElementById('loginPassInput')?.focus()
                 }}
                 placeholder="your@email.com"
-                className="w-full rounded-lg border border-border bg-surface pl-9 pr-3 py-2 text-[13px] text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                className="w-full rounded-lg border border-border bg-surface pl-9 pr-3 py-2 text-[15px] text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10.5px] font-semibold text-text-muted uppercase tracking-wide mb-1.5">Password</label>
+            <label className="block text-[12.5px] font-bold text-text-muted uppercase tracking-wide mb-1.5">Password</label>
             <div className="relative">
               <LockIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
@@ -146,7 +146,7 @@ export default function LoginPage() {
                   if (e.key === 'Enter') handleSubmit(e)
                 }}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-border bg-surface pl-9 pr-10 py-2 text-[13px] text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                className="w-full rounded-lg border border-border bg-surface pl-9 pr-10 py-2 text-[15px] text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
               />
               <button
                 type="button"
@@ -162,7 +162,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-md bg-primary text-white text-[13.5px] font-medium py-2.5 mt-2 hover:bg-primary/90 disabled:opacity-70 transition-colors flex items-center justify-center gap-2"
+            className="w-full rounded-md bg-primary text-white text-[15.5px] font-semibold py-2.5 mt-2 hover:bg-primary/90 disabled:opacity-70 transition-colors flex items-center justify-center gap-2"
           >
             {buttonLabel}
             {!busy && <ArrowRightIcon className="w-4 h-4" />}

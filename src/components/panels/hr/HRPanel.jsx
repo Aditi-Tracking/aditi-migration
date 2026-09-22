@@ -111,24 +111,24 @@ export default function HRPanel() {
     <div className="px-4 sm:px-6 py-5">
       <div className="flex items-center justify-between gap-3 mb-1">
         <div>
-          <div className="text-[16px] font-semibold text-text">HR</div>
-          <div className="text-[11.5px] text-text-muted mt-0.5">Home › HR</div>
+          <div className="text-[18px] font-bold text-text">HR</div>
+          <div className="text-[13.5px] text-text-muted mt-0.5">Home › HR</div>
         </div>
         {canDelete && (
           <button
             type="button"
             onClick={() => setUploadOpen(true)}
-            className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5 shrink-0"
+            className="text-[14px] font-semibold text-primary border border-primary/30 rounded-md px-3 py-1.5 shrink-0"
           >
             📤 Upload
           </button>
         )}
       </div>
 
-      <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide mt-5 mb-3">HR Documents</div>
+      <div className="text-[14.5px] font-bold text-text-muted uppercase tracking-wide mt-5 mb-3">HR Documents</div>
 
-      {loading && <div className="text-center py-16 text-text-muted text-[13px]">Loading…</div>}
-      {!loading && error && <div className="text-center py-16 text-danger text-[13px]">⚠️ {error}</div>}
+      {loading && <div className="text-center py-16 text-text-muted text-[15px]">Loading…</div>}
+      {!loading && error && <div className="text-center py-16 text-danger text-[15px]">⚠️ {error}</div>}
 
       {!loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -101,13 +101,13 @@ export default function ProfileModal({ open, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3.5 right-3.5 w-7 h-7 rounded-md bg-white/15 border border-white/25 text-white flex items-center justify-center text-[13px]"
+            className="absolute top-3.5 right-3.5 w-7 h-7 rounded-md bg-white/15 border border-white/25 text-white flex items-center justify-center text-[15px]"
           >
             ✕
           </button>
 
           <div className="relative w-20 h-20 mx-auto mb-3">
-            <div className="w-20 h-20 rounded-full border-[3px] border-white/70 overflow-hidden bg-white/10 flex items-center justify-center text-[26px] font-semibold text-white">
+            <div className="w-20 h-20 rounded-full border-[3px] border-white/70 overflow-hidden bg-white/10 flex items-center justify-center text-[28px] font-bold text-white">
               {photoUrl ? (
                 <img src={photoUrl} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -129,49 +129,49 @@ export default function ProfileModal({ open, onClose }) {
           </div>
 
           {uploadStatus.text && (
-            <div className={`text-[11px] -mt-1 mb-1.5 ${uploadStatus.danger ? 'text-red-200' : 'text-white/90'}`}>
+            <div className={`text-[13px] -mt-1 mb-1.5 ${uploadStatus.danger ? 'text-red-200' : 'text-white/90'}`}>
               {uploadStatus.text}
             </div>
           )}
 
-          <div className="text-[16px] font-semibold text-white">{loading ? 'Loading...' : displayName}</div>
-          <div className="text-[11px] text-white/80 mt-1 inline-block bg-white/15 px-3 py-0.5 rounded-full border border-white/25">
+          <div className="text-[18px] font-bold text-white">{loading ? 'Loading...' : displayName}</div>
+          <div className="text-[13px] text-white/80 mt-1 inline-block bg-white/15 px-3 py-0.5 rounded-full border border-white/25">
             {loading ? '—' : displayDept.charAt(0).toUpperCase() + displayDept.slice(1)}
           </div>
         </div>
 
         <div className="px-5 pt-4 pb-6">
           {loading && (
-            <div className="text-center py-4 text-text-muted text-[13px]">⏳ Loading details...</div>
+            <div className="text-center py-4 text-text-muted text-[15px]">⏳ Loading details...</div>
           )}
 
           {!loading && row && (
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 rounded-lg border border-border bg-surface-2 px-3 py-2">
-                <div className="text-[10.5px] font-medium text-text-muted uppercase tracking-wide">📧 Email</div>
-                <div className="text-[13px] text-text mt-0.5">{row['Email_Id'] || row['Email'] || '—'}</div>
+                <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide">📧 Email</div>
+                <div className="text-[15px] text-text mt-0.5">{row['Email_Id'] || row['Email'] || '—'}</div>
               </div>
               <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
-                <div className="text-[10.5px] font-medium text-text-muted uppercase tracking-wide">📞 Phone</div>
-                <div className="text-[13px] text-text mt-0.5">{row['Phone Number'] || row['Phone_Number'] || '—'}</div>
+                <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide">📞 Phone</div>
+                <div className="text-[15px] text-text mt-0.5">{row['Phone Number'] || row['Phone_Number'] || '—'}</div>
               </div>
               <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
-                <div className="text-[10.5px] font-medium text-text-muted uppercase tracking-wide">📍 Location</div>
-                <div className="text-[13px] text-text mt-0.5">{row['Location'] || row['location'] || '—'}</div>
+                <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide">📍 Location</div>
+                <div className="text-[15px] text-text mt-0.5">{row['Location'] || row['location'] || '—'}</div>
               </div>
               <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
-                <div className="text-[10.5px] font-medium text-text-muted uppercase tracking-wide">📅 Date of Joining</div>
-                <div className="text-[13px] text-text mt-0.5">{fmtDate(row['Date Of Joining'] || row['Date_Of_Joining'])}</div>
+                <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide">📅 Date of Joining</div>
+                <div className="text-[15px] text-text mt-0.5">{fmtDate(row['Date Of Joining'] || row['Date_Of_Joining'])}</div>
               </div>
               <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
-                <div className="text-[10.5px] font-medium text-text-muted uppercase tracking-wide">🎂 Date of Birth</div>
-                <div className="text-[13px] text-text mt-0.5">{fmtDate(row['Date of Birth'] || row['Date_of_Birth'])}</div>
+                <div className="text-[12.5px] font-semibold text-text-muted uppercase tracking-wide">🎂 Date of Birth</div>
+                <div className="text-[15px] text-text mt-0.5">{fmtDate(row['Date of Birth'] || row['Date_of_Birth'])}</div>
               </div>
             </div>
           )}
 
           {!loading && !row && errorMsg && (
-            <div className="text-center py-4 text-danger text-[12.5px]">❌ {errorMsg}</div>
+            <div className="text-center py-4 text-danger text-[14.5px]">❌ {errorMsg}</div>
           )}
         </div>
       </div>

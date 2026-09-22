@@ -52,7 +52,7 @@ export default function TopPagination({ page, pageSize, total, onPageChange, zer
   return (
     <div className="flex items-center gap-2">
       {editing ? (
-        <span className="flex items-center gap-1 text-[11.5px] text-text-muted whitespace-nowrap">
+        <span className="flex items-center gap-1 text-[13.5px] text-text-muted whitespace-nowrap">
           <input
             type="text"
             inputMode="numeric"
@@ -62,7 +62,7 @@ export default function TopPagination({ page, pageSize, total, onPageChange, zer
             onKeyDown={handleKeyDown}
             onBlur={cancelEdit}
             onFocus={(e) => e.target.select()}
-            className="w-10 text-[11.5px] text-text bg-surface border border-primary/40 rounded px-1 py-0.5 text-center outline-none"
+            className="w-10 text-[13.5px] text-text bg-surface border border-primary/40 rounded px-1 py-0.5 text-center outline-none"
           />
           -{end} / {total}
         </span>
@@ -71,7 +71,7 @@ export default function TopPagination({ page, pageSize, total, onPageChange, zer
           type="button"
           onClick={startEdit}
           title="Click to jump to a row"
-          className="text-[11.5px] text-text-muted whitespace-nowrap hover:text-text hover:underline decoration-dotted underline-offset-2"
+          className="text-[13.5px] text-text-muted whitespace-nowrap hover:text-text hover:underline decoration-dotted underline-offset-2"
         >
           {start}-{end} / {total}
         </button>

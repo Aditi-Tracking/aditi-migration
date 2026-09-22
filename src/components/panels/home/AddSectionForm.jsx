@@ -40,7 +40,7 @@ export default function AddSectionForm({ nextOrder, myEmail, onCreated }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-2xl border-[1.5px] border-dashed border-border py-3.5 text-center text-text-muted text-[12.5px]"
+        className="rounded-2xl border-[1.5px] border-dashed border-border py-3.5 text-center text-text-muted text-[14.5px]"
       >
         + Add Section
       </button>
@@ -55,7 +55,7 @@ export default function AddSectionForm({ nextOrder, myEmail, onCreated }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Section title, e.g. Employee of the Quarter"
-        className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text mb-2.5"
+        className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text mb-2.5"
       />
       <div className="flex flex-wrap gap-1.5 mb-2.5">
         {ICON_PRESETS.map((ic) => (
@@ -63,7 +63,7 @@ export default function AddSectionForm({ nextOrder, myEmail, onCreated }) {
             key={ic}
             type="button"
             onClick={() => setIcon(ic)}
-            className={`text-[16px] px-2.5 py-1.5 rounded-md border ${
+            className={`text-[18px] px-2.5 py-1.5 rounded-md border ${
               ic === icon ? 'border-primary bg-primary-tint' : 'border-border bg-surface-2'
             }`}
           >
@@ -88,7 +88,7 @@ export default function AddSectionForm({ nextOrder, myEmail, onCreated }) {
           type="button"
           onClick={handleCreate}
           disabled={saving}
-          className="flex-1 rounded-md bg-primary text-white text-[12.5px] font-semibold py-2 disabled:opacity-60"
+          className="flex-1 rounded-md bg-primary text-white text-[14.5px] font-bold py-2 disabled:opacity-60"
         >
           Create Section
         </button>
@@ -98,7 +98,7 @@ export default function AddSectionForm({ nextOrder, myEmail, onCreated }) {
             setOpen(false)
             reset()
           }}
-          className="rounded-md border border-border px-4 py-2 text-[12.5px] text-text-muted"
+          className="rounded-md border border-border px-4 py-2 text-[14.5px] text-text-muted"
         >
           Cancel
         </button>

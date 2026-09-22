@@ -138,10 +138,10 @@ export default function HomePanel({ onNavigate }) {
 
   return (
     <div className="px-4 sm:px-6 py-5">
-      <div className="text-[19px] font-semibold text-text">
+      <div className="text-[21px] font-bold text-text">
         Welcome, <span className="text-primary">{firstName || 'there'}!</span>
       </div>
-      <div className="text-[12.5px] text-text-muted mt-1 mb-5">
+      <div className="text-[14.5px] text-text-muted mt-1 mb-5">
         to our <strong className="text-text">Aditi Portal</strong> — your unified command centre to track, train and grow.
       </div>
 
@@ -154,16 +154,16 @@ export default function HomePanel({ onNavigate }) {
           {profile.photoUrl ? (
             <img src={profile.photoUrl} alt="" className="w-[72px] h-[72px] rounded-full object-cover shrink-0" />
           ) : (
-            <div className="w-[72px] h-[72px] rounded-full bg-primary-tint border border-primary/20 flex items-center justify-center text-primary text-[26px] font-semibold shrink-0">
+            <div className="w-[72px] h-[72px] rounded-full bg-primary-tint border border-primary/20 flex items-center justify-center text-primary text-[28px] font-bold shrink-0">
               {(profile.name || currentUser?.name || 'U')[0]?.toUpperCase()}
             </div>
           )}
           <div>
-            <div className="text-[14.5px] font-semibold text-text">{profile.name || currentUser?.name}</div>
-            <div className="text-[12px] text-text-muted mt-0.5">🏢 {deptLabel}</div>
-            <div className="text-[11px] text-text-muted mt-0.5">Aditi Tracking Support Pvt. Ltd.</div>
+            <div className="text-[16.5px] font-bold text-text">{profile.name || currentUser?.name}</div>
+            <div className="text-[14px] text-text-muted mt-0.5">🏢 {deptLabel}</div>
+            <div className="text-[13px] text-text-muted mt-0.5">Aditi Tracking Support Pvt. Ltd.</div>
             {!profile.loading && !profile.photoUrl && (
-              <div className="text-[10.5px] text-text-muted mt-1">
+              <div className="text-[12.5px] text-text-muted mt-1">
                 📷 Profile photo not available. Please contact MIS to upload your photo.
               </div>
             )}
@@ -175,10 +175,10 @@ export default function HomePanel({ onNavigate }) {
       {/* Message from the MD — static */}
       <div className="rounded-2xl border border-border bg-surface p-5 mb-5">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[18px]">🎙️</span>
-          <span className="text-[13.5px] font-semibold text-text">Message from the MD</span>
+          <span className="text-[20px]">🎙️</span>
+          <span className="text-[15.5px] font-bold text-text">Message from the MD</span>
         </div>
-        <div className="text-sm text-text-muted leading-relaxed space-y-3">
+        <div className="text-base text-text-muted leading-relaxed space-y-3">
           <p>Welcome to the Aditi Tracking Knowledge Base Portal</p>
           <p>
             Dear Aditi Tracking Team, Think of global brands like McDonald's 🍔 — known for delivering consistent
@@ -204,7 +204,7 @@ export default function HomePanel({ onNavigate }) {
             Aditi Tracking Support Pvt Ltd
           </p>
         </div>
-        <div className="mt-3 pt-3 border-t border-border text-[11px] text-text-muted">
+        <div className="mt-3 pt-3 border-t border-border text-[13px] text-text-muted">
           Founded Aditi Tracking Support Pvt. Ltd. (ATSPL) · 2011 · Mumbai, India
         </div>
       </div>
@@ -215,18 +215,18 @@ export default function HomePanel({ onNavigate }) {
         {/* How to use */}
         <div className="rounded-2xl border border-border bg-surface p-5">
           <div className="flex items-center gap-2 mb-3.5">
-            <span className="text-[18px]">📖</span>
-            <span className="text-[13.5px] font-semibold text-text">How to Use This Portal</span>
+            <span className="text-[20px]">📖</span>
+            <span className="text-[15.5px] font-bold text-text">How to Use This Portal</span>
           </div>
           <div className="flex flex-col gap-3.5">
             {HOW_TO_STEPS.map((s, i) => (
               <div key={s.title} className="flex gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary-tint text-primary border border-primary/20 flex items-center justify-center text-[11px] font-bold shrink-0">
+                <div className="w-6 h-6 rounded-full bg-primary-tint text-primary border border-primary/20 flex items-center justify-center text-[13px] font-extrabold shrink-0">
                   {i + 1}
                 </div>
                 <div>
-                  <div className="text-[12.5px] font-semibold text-text">{s.title}</div>
-                  <div className="text-[11.5px] text-text-muted mt-0.5 leading-relaxed">{s.desc}</div>
+                  <div className="text-[14.5px] font-bold text-text">{s.title}</div>
+                  <div className="text-[13.5px] text-text-muted mt-0.5 leading-relaxed">{s.desc}</div>
                 </div>
               </div>
             ))}
@@ -236,29 +236,29 @@ export default function HomePanel({ onNavigate }) {
         {/* Emergency contacts */}
         <div className="rounded-2xl border border-border bg-surface p-5">
           <div className="flex items-center gap-2 mb-3.5">
-            <span className="text-[18px]">📞</span>
-            <span className="text-[13.5px] font-semibold text-text">Emergency Contacts</span>
+            <span className="text-[20px]">📞</span>
+            <span className="text-[15.5px] font-bold text-text">Emergency Contacts</span>
           </div>
           <div className="flex flex-col gap-3">
             {CONTACT_GROUPS.map((g) => (
               <div key={g.label}>
-                <div className="text-[11px] font-semibold text-text-muted mb-1.5">
+                <div className="text-[13px] font-bold text-text-muted mb-1.5">
                   {g.icon} {g.label}
                 </div>
                 <div className="flex items-center gap-3 rounded-lg bg-surface-2 border border-border px-3 py-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-primary-tint text-primary flex items-center justify-center text-[11px] font-bold shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary-tint text-primary flex items-center justify-center text-[13px] font-extrabold shrink-0">
                     {g.avatar}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-medium text-text">{g.name}</div>
-                    <a href={`tel:${g.phone}`} className="text-[11px] text-primary block">
+                    <div className="text-[14px] font-semibold text-text">{g.name}</div>
+                    <a href={`tel:${g.phone}`} className="text-[13px] text-primary block">
                       {g.phoneDisplay}
                     </a>
-                    <a href={`mailto:${g.email}`} className="text-[11px] text-primary block truncate">
+                    <a href={`mailto:${g.email}`} className="text-[13px] text-primary block truncate">
                       {g.email}
                     </a>
                   </div>
-                  <div className="text-[10.5px] text-text-muted shrink-0 whitespace-nowrap">{g.hours}</div>
+                  <div className="text-[12.5px] text-text-muted shrink-0 whitespace-nowrap">{g.hours}</div>
                 </div>
               </div>
             ))}
@@ -269,25 +269,25 @@ export default function HomePanel({ onNavigate }) {
       {/* FAQs — static */}
       <div className="rounded-2xl border border-border bg-surface p-5">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[18px]">❓</span>
-          <span className="text-[13.5px] font-semibold text-text">FAQs</span>
-          <span className="ml-auto text-[10.5px] font-medium text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1">
+          <span className="text-[20px]">❓</span>
+          <span className="text-[15.5px] font-bold text-text">FAQs</span>
+          <span className="ml-auto text-[12.5px] font-semibold text-primary bg-primary-tint border border-primary/20 rounded-full px-2.5 py-1">
             {FAQ_ITEMS.length} Questions
           </span>
         </div>
-        <div className="text-[11.5px] text-text-muted mb-3">
+        <div className="text-[13.5px] text-text-muted mb-3">
           Frequently asked questions about Aditi Tracking's products, services, and features. Click on any question to
           view the answer.
         </div>
         <div className="flex flex-col gap-2">
           {FAQ_ITEMS.map((f, i) => (
             <details key={f.q} className="rounded-lg border border-border bg-surface-2 px-3.5 py-2.5 group">
-              <summary className="flex items-center gap-2.5 cursor-pointer list-none text-[12.5px] font-medium text-text">
-                <span className="text-[10.5px] text-text-muted w-5 shrink-0">{i + 1}</span>
+              <summary className="flex items-center gap-2.5 cursor-pointer list-none text-[14.5px] font-semibold text-text">
+                <span className="text-[12.5px] text-text-muted w-5 shrink-0">{i + 1}</span>
                 <span className="flex-1">{f.q}</span>
                 <span className="text-text-muted transition-transform group-open:rotate-180">⌄</span>
               </summary>
-              <div className="text-[12px] text-text-muted mt-2 pl-[30px] leading-relaxed">
+              <div className="text-[14px] text-text-muted mt-2 pl-[30px] leading-relaxed">
                 {f.link ? (
                   <>
                     {f.a.replace(f.link.label, '')}
@@ -302,7 +302,7 @@ export default function HomePanel({ onNavigate }) {
             </details>
           ))}
         </div>
-        <div className="mt-3 pt-3 border-t border-border text-[11px] text-text-muted">
+        <div className="mt-3 pt-3 border-t border-border text-[13px] text-text-muted">
           Still have questions? Visit{' '}
           <a href="https://www.adititracking.com/faqs/" target="_blank" rel="noreferrer" className="text-primary underline">
             adititracking.com/faqs

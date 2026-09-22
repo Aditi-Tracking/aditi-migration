@@ -34,8 +34,8 @@ export default function GreetingToast() {
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
       }`}
     >
-      <div className="text-[13px] font-semibold">👋 Hello, {name}!</div>
-      <div className="text-[11px] text-white/80 mt-0.5">Welcome back</div>
+      <div className="text-[15px] font-bold">👋 Hello, {name}!</div>
+      <div className="text-[13px] text-white/80 mt-0.5">Welcome back</div>
     </div>
   )
 }

@@ -55,7 +55,7 @@ export default function AddCardPicker({ open, onOpen, onClose, sectionId, empDir
         type="button"
         onClick={onOpen}
         title="Add a card"
-        className="w-[190px] h-[150px] rounded-xl border-[1.5px] border-dashed border-border flex items-center justify-center text-text-muted text-[26px]"
+        className="w-[190px] h-[150px] rounded-xl border-[1.5px] border-dashed border-border flex items-center justify-center text-text-muted text-[28px]"
       >
         +
       </button>
@@ -75,12 +75,12 @@ export default function AddCardPicker({ open, onOpen, onClose, sectionId, empDir
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="🔍 Search employee name…"
-              className="w-full rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[12px] text-text mb-2"
+              className="w-full rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[14px] text-text mb-2"
             />
             <div className="max-h-[180px] overflow-y-auto flex flex-col gap-0.5">
-              {empDirectory === null && <div className="text-[11.5px] text-text-muted px-1 py-1.5">Loading employees…</div>}
+              {empDirectory === null && <div className="text-[13.5px] text-text-muted px-1 py-1.5">Loading employees…</div>}
               {empDirectory !== null && !results.length && (
-                <div className="text-[11.5px] text-text-muted px-1 py-1.5">No matches.</div>
+                <div className="text-[13.5px] text-text-muted px-1 py-1.5">No matches.</div>
               )}
               {results.map((emp) => (
                 <button
@@ -89,48 +89,48 @@ export default function AddCardPicker({ open, onOpen, onClose, sectionId, empDir
                   onClick={() => setSelected(emp)}
                   className="text-left rounded-md px-2 py-1.5 hover:bg-surface-2"
                 >
-                  <div className="text-[12px] font-medium text-text">{emp.Employee_name}</div>
-                  <div className="text-[10.5px] text-text-muted">{emp.Employee_Dept || '—'}</div>
+                  <div className="text-[14px] font-semibold text-text">{emp.Employee_name}</div>
+                  <div className="text-[12.5px] text-text-muted">{emp.Employee_Dept || '—'}</div>
                 </button>
               ))}
             </div>
-            <button type="button" onClick={handleClose} className="mt-2 w-full rounded-md border border-border py-1 text-[11.5px] text-text-muted">
+            <button type="button" onClick={handleClose} className="mt-2 w-full rounded-md border border-border py-1 text-[13.5px] text-text-muted">
               Cancel
             </button>
           </>
         ) : (
           <>
-            <div className="text-[12.5px] font-semibold text-text mb-1">{selected.Employee_name}</div>
-            <div className="text-[11px] text-text-muted mb-1.5">
+            <div className="text-[14.5px] font-bold text-text mb-1">{selected.Employee_name}</div>
+            <div className="text-[13px] text-text-muted mb-1.5">
               {selected.Employee_Dept || '—'}
               {selected.Location ? ` · ${selected.Location}` : ''}
             </div>
-            <div className="text-[10.5px] text-text-muted mb-2.5">
+            <div className="text-[12.5px] text-text-muted mb-2.5">
               {selected.avatar_url || selected.Link ? '📷 Profile photo will be used' : '⚠️ No profile photo on file'}
             </div>
             {isDuplicate && (
-              <div className="text-[11px] text-primary bg-primary-tint border border-primary/20 rounded-md px-2 py-1.5 mb-2.5">
+              <div className="text-[13px] text-primary bg-primary-tint border border-primary/20 rounded-md px-2 py-1.5 mb-2.5">
                 ⚠️ {selected.Employee_name} already has an active card in this section. Add anyway?
               </div>
             )}
-            <label className="block text-[10.5px] text-text-muted mb-1">Extra label (optional)</label>
+            <label className="block text-[12.5px] text-text-muted mb-1">Extra label (optional)</label>
             <input
               type="text"
               value={extraLabel}
               onChange={(e) => setExtraLabel(e.target.value)}
               placeholder="e.g. June 2026"
-              className="w-full rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[12px] text-text mb-2.5"
+              className="w-full rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[14px] text-text mb-2.5"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={confirmAdd}
                 disabled={saving}
-                className="flex-1 rounded-md py-1.5 text-[12px] font-semibold text-white bg-primary disabled:opacity-60"
+                className="flex-1 rounded-md py-1.5 text-[14px] font-bold text-white bg-primary disabled:opacity-60"
               >
                 {isDuplicate ? 'Add Anyway' : 'Add'}
               </button>
-              <button type="button" onClick={handleClose} className="rounded-md border border-border px-3 py-1.5 text-[12px] text-text-muted">
+              <button type="button" onClick={handleClose} className="rounded-md border border-border px-3 py-1.5 text-[14px] text-text-muted">
                 Cancel
               </button>
             </div>

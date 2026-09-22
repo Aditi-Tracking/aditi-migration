@@ -3,7 +3,7 @@ import { SB_HDRS, SUPABASE_URL } from '../../../lib/supabaseClient'
 import FormField from './FormField'
 
 const inputClass =
-  'w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text outline-none focus:border-primary'
+  'w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[14.5px] text-text outline-none focus:border-primary'
 
 // Ported from old-portal/js/referral.js's submitNewOpening/loadAdminOpeningsList/
 // deleteOpening. Reloads the admin list fresh every time this tab is
@@ -108,7 +108,7 @@ export default function PostRoleTab({ onOpeningsChanged }) {
 
   return (
     <div>
-      <div className="text-[13px] font-semibold text-text mb-4">Post a New Opening</div>
+      <div className="text-[15px] font-bold text-text mb-4">Post a New Opening</div>
       <form onSubmit={submit} className="max-w-xl flex flex-col gap-3.5">
         <div className="flex gap-3">
           <FormField label="Role Title" className="flex-1">
@@ -156,36 +156,36 @@ export default function PostRoleTab({ onOpeningsChanged }) {
             className={inputClass}
           />
         </FormField>
-        <button type="submit" className="rounded-md bg-primary text-white text-[13px] font-medium py-2.5">
+        <button type="submit" className="rounded-md bg-primary text-white text-[15px] font-semibold py-2.5">
           Post Opening
         </button>
-        {status && <div className={`rounded-md px-3 py-2 text-[12px] font-medium text-center ${statusClass}`}>{status.text}</div>}
+        {status && <div className={`rounded-md px-3 py-2 text-[14px] font-semibold text-center ${statusClass}`}>{status.text}</div>}
       </form>
 
-      <div className="text-[13px] font-semibold text-text mt-8 mb-4">Manage Existing Openings</div>
-      {adminLoading && <div className="text-text-muted text-[12.5px]">Loading…</div>}
-      {!adminLoading && adminError && <div className="text-danger text-[12.5px]">⚠️ {adminError}</div>}
+      <div className="text-[15px] font-bold text-text mt-8 mb-4">Manage Existing Openings</div>
+      {adminLoading && <div className="text-text-muted text-[14.5px]">Loading…</div>}
+      {!adminLoading && adminError && <div className="text-danger text-[14.5px]">⚠️ {adminError}</div>}
       {!adminLoading && !adminError && !adminList.length && (
-        <div className="text-text-muted text-[12.5px]">No openings posted yet.</div>
+        <div className="text-text-muted text-[14.5px]">No openings posted yet.</div>
       )}
       {!adminLoading &&
         !adminError &&
         adminList.map((o) => (
           <div key={o.id} className="flex flex-wrap items-center gap-3.5 rounded-xl border border-border bg-surface px-4 py-3 mb-2.5">
             <div className="flex-1 min-w-[180px]">
-              <div className="text-[13px] font-semibold text-text">{o.role_title}</div>
-              <div className="text-[11.5px] text-text-muted mt-0.5">
+              <div className="text-[15px] font-bold text-text">{o.role_title}</div>
+              <div className="text-[13.5px] text-text-muted mt-0.5">
                 {o.location || '—'} · {o.department || '—'} · {o.openings_count || 1} opening
                 {(o.openings_count || 1) === 1 ? '' : 's'}
               </div>
             </div>
-            <span className="text-[10.5px] font-medium rounded-full px-2.5 py-1 border bg-primary-tint text-primary border-primary/20">
+            <span className="text-[12.5px] font-semibold rounded-full px-2.5 py-1 border bg-primary-tint text-primary border-primary/20">
               {o.status}
             </span>
             <button
               type="button"
               onClick={() => handleDelete(o.id, o.role_title)}
-              className="rounded-md border border-danger/25 bg-danger-tint text-danger text-[11.5px] font-medium px-3 py-1.5"
+              className="rounded-md border border-danger/25 bg-danger-tint text-danger text-[13.5px] font-semibold px-3 py-1.5"
             >
               Delete
             </button>

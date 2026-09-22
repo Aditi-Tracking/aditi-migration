@@ -21,12 +21,12 @@ export default class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-center px-4">
-          <div className="text-[14px] font-medium text-text">⚠️ Something went wrong.</div>
-          <div className="text-[12.5px] text-text-muted">Please refresh the page and try again.</div>
+          <div className="text-[16px] font-semibold text-text">⚠️ Something went wrong.</div>
+          <div className="text-[14.5px] text-text-muted">Please refresh the page and try again.</div>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="mt-1 text-[12.5px] font-medium text-primary border border-primary/30 rounded-md px-3.5 py-1.5"
+            className="mt-1 text-[14.5px] font-semibold text-primary border border-primary/30 rounded-md px-3.5 py-1.5"
           >
             Reload
           </button>

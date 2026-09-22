@@ -86,10 +86,10 @@ export default function HolidayOverlay({ open, onClose }) {
           </svg>
         </div>
         <div>
-          <div className="text-[15px] font-semibold text-text">Holiday List</div>
+          <div className="text-[17px] font-bold text-text">Holiday List</div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[11.5px] text-text-muted">Company Holiday Calendar</span>
-            <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-primary-tint text-primary border border-primary/20">
+            <span className="text-[13.5px] text-text-muted">Company Holiday Calendar</span>
+            <span className="text-[12.5px] font-semibold px-2 py-0.5 rounded-full bg-primary-tint text-primary border border-primary/20">
               📍 {isOwnerTier ? branchFilter : empLoc}
             </span>
           </div>
@@ -103,7 +103,7 @@ export default function HolidayOverlay({ open, onClose }) {
               key={b.key}
               type="button"
               onClick={() => setBranchFilter(b.key)}
-              className={`rounded-full px-3 py-1.5 text-[11.5px] font-medium border transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-[13.5px] font-semibold border transition-colors ${
                 branchFilter === b.key
                   ? 'bg-primary text-white border-primary'
                   : 'bg-surface-2 text-text-muted border-border hover:text-text'
@@ -117,54 +117,54 @@ export default function HolidayOverlay({ open, onClose }) {
 
       {nextHol && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary-tint px-4 py-2.5 mb-4">
-          <div className="text-[20px]">🗓️</div>
+          <div className="text-[22px]">🗓️</div>
           <div className="flex-1">
-            <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">Next Holiday</div>
-            <div className="text-[13px] font-semibold text-primary">{nextHol['Holiday']}</div>
-            <div className="text-[11px] text-text-muted">
+            <div className="text-[12px] font-bold text-text-muted uppercase tracking-wide">Next Holiday</div>
+            <div className="text-[15px] font-bold text-primary">{nextHol['Holiday']}</div>
+            <div className="text-[13px] text-text-muted">
               {nextHol['Day']}, {fmtDate(nextHol.hDate)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-[20px] font-bold text-primary leading-none">{nextHol.diff}</div>
-            <div className="text-[9.5px] font-medium text-text-muted mt-1">DAYS LEFT</div>
+            <div className="text-[22px] font-extrabold text-primary leading-none">{nextHol.diff}</div>
+            <div className="text-[11.5px] font-semibold text-text-muted mt-1">DAYS LEFT</div>
           </div>
         </div>
       )}
 
-      {loading && <div className="text-center py-8 text-text-muted text-[12.5px]">Fetching holiday data…</div>}
-      {!loading && error && <div className="text-center py-8 text-danger text-[12.5px]">⚠️ {error}</div>}
+      {loading && <div className="text-center py-8 text-text-muted text-[14.5px]">Fetching holiday data…</div>}
+      {!loading && error && <div className="text-center py-8 text-danger text-[14.5px]">⚠️ {error}</div>}
       {!loading && !error && !rowsWithStatus.length && (
-        <div className="text-center py-8 text-text-muted text-[12.5px]">🏖️ No holiday records found for this branch.</div>
+        <div className="text-center py-8 text-text-muted text-[14.5px]">🏖️ No holiday records found for this branch.</div>
       )}
       {!loading && !error && rowsWithStatus.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-[12px] border-collapse">
+          <table className="w-full text-[14px] border-collapse">
             <thead>
               <tr className="bg-surface-2 border-b border-border">
-                <th className="px-3 py-2 text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide">#</th>
-                <th className="px-3 py-2 text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide">Holiday</th>
-                <th className="px-3 py-2 text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide whitespace-nowrap">Date</th>
-                <th className="px-3 py-2 text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide">Day</th>
-                <th className="px-3 py-2 text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide">Branch</th>
-                <th className="px-3 py-2 text-left font-semibold text-text-muted uppercase text-[10px] tracking-wide">Status</th>
+                <th className="px-3 py-2 text-left font-bold text-text-muted uppercase text-[12px] tracking-wide">#</th>
+                <th className="px-3 py-2 text-left font-bold text-text-muted uppercase text-[12px] tracking-wide">Holiday</th>
+                <th className="px-3 py-2 text-left font-bold text-text-muted uppercase text-[12px] tracking-wide whitespace-nowrap">Date</th>
+                <th className="px-3 py-2 text-left font-bold text-text-muted uppercase text-[12px] tracking-wide">Day</th>
+                <th className="px-3 py-2 text-left font-bold text-text-muted uppercase text-[12px] tracking-wide">Branch</th>
+                <th className="px-3 py-2 text-left font-bold text-text-muted uppercase text-[12px] tracking-wide">Status</th>
               </tr>
             </thead>
             <tbody>
               {rowsWithStatus.map((r, i) => (
                 <tr key={i} className={`border-b border-border last:border-0 ${r.status === '🎉 Today!' ? 'bg-primary-tint' : ''}`}>
                   <td className="px-3 py-2 text-text-muted">{i + 1}</td>
-                  <td className="px-3 py-2 font-medium text-text">{r['Holiday'] || '—'}</td>
+                  <td className="px-3 py-2 font-semibold text-text">{r['Holiday'] || '—'}</td>
                   <td className="px-3 py-2 text-text-muted whitespace-nowrap">{fmtDate(r.hDate)}</td>
                   <td className="px-3 py-2 text-text-muted">{r['Day'] || '—'}</td>
                   <td className="px-3 py-2">
-                    <span className="rounded-full bg-surface-2 border border-border px-2 py-0.5 text-[10.5px] text-text-muted">
+                    <span className="rounded-full bg-surface-2 border border-border px-2 py-0.5 text-[12.5px] text-text-muted">
                       {holNormLoc(r['Location'])}
                     </span>
                   </td>
                   <td className="px-3 py-2">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10.5px] font-medium ${
+                      className={`rounded-full px-2 py-0.5 text-[12.5px] font-semibold ${
                         r.status === 'Past'
                           ? 'bg-surface-2 text-text-muted border border-border'
                           : 'bg-primary-tint text-primary border border-primary/20'

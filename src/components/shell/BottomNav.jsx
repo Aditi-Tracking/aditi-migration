@@ -8,7 +8,7 @@ export default function BottomNav({ activePanel, onNavigate, onToggleMenu, onOpe
       <button
         type="button"
         onClick={() => onNavigate('home')}
-        className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] ${
+        className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[12px] ${
           activePanel === 'home' ? 'text-primary' : 'text-text-muted'
         }`}
       >
@@ -22,7 +22,7 @@ export default function BottomNav({ activePanel, onNavigate, onToggleMenu, onOpe
       <button
         type="button"
         onClick={onToggleMenu}
-        className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] text-text-muted"
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[12px] text-text-muted"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -35,9 +35,9 @@ export default function BottomNav({ activePanel, onNavigate, onToggleMenu, onOpe
       <button
         type="button"
         onClick={onOpenUserSheet}
-        className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] text-text-muted"
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[12px] text-text-muted"
       >
-        <div className="w-5 h-5 rounded-full bg-primary-tint border border-primary/30 flex items-center justify-center text-[9px] font-semibold text-primary overflow-hidden">
+        <div className="w-5 h-5 rounded-full bg-primary-tint border border-primary/30 flex items-center justify-center text-[11px] font-bold text-primary overflow-hidden">
           {currentUser?.avatar_url ? (
             <img src={currentUser.avatar_url} alt="" className="w-full h-full object-cover" />
           ) : (
