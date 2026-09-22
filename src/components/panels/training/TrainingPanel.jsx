@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CN } from '../../../lib/contentNodes'
 import { getCNCardDesc } from '../../../lib/cnCardDescriptions'
 import { useAuth } from '../../../context/AuthContext'
 import { logActivity } from '../../../lib/activityTracking'
-import { canUploadFiles, deleteContentNodeCard, invalidateContentNodes } from '../../../lib/cnUploadDelete'
+import { canUploadFiles } from '../../../lib/cnUploadDelete'
+import { useCNSectionLoader } from '../../../hooks/useCNSectionLoader'
 import DocCard from '../../shared/DocCard'
 import UploadModal from '../../shared/UploadModal'
 import { DOC_ICON } from '../../shared/docIcons'
@@ -17,53 +18,10 @@ export default function TrainingPanel() {
   const { currentUser, permissions } = useAuth()
   const canDelete = canUploadFiles(permissions)
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [cats, setCats] = useState([])
+  const { loading, error, cats, reload, deleteCard } = useCNSectionLoader('Training')
 
   const [moduleNode, setModuleNode] = useState(null) // { id, name } | null
   const [uploadOpen, setUploadOpen] = useState(false)
-
-  function loadCats() {
-    return CN.load().then(() => {
-      const section = CN.getSection('Training')
-      if (!section) {
-        setError('Training section not found in content_nodes')
-        setLoading(false)
-        return
-      }
-      setCats(CN.getCategories(section.id))
-      setLoading(false)
-    })
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    loadCats().catch((e) => {
-      if (cancelled) return
-      setError(e.message)
-      setLoading(false)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Re-fetches Training's Videos-tab cards after an upload/delete anywhere in this panel.
-  function handleContentChanged() {
-    loadCats()
-  }
-
-  async function handleDeleteCard(cat) {
-    if (!confirm(`⚠️ "${cat.name}" and all its files will be permanently deleted.\nAre you sure?`)) return
-    try {
-      await deleteContentNodeCard(cat.id)
-      await invalidateContentNodes()
-      handleContentChanged()
-    } catch (e) {
-      alert('❌ ' + e.message)
-    }
-  }
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -109,7 +67,7 @@ export default function TrainingPanel() {
                   })
                   setModuleNode({ id: cat.id, name: cat.name })
                 }}
-                onDelete={canDelete ? () => handleDeleteCard(cat) : undefined}
+                onDelete={canDelete ? () => deleteCard(cat) : undefined}
               />
             )
           })}
@@ -120,11 +78,11 @@ export default function TrainingPanel() {
         open={!!moduleNode}
         node={moduleNode}
         canDelete={canDelete}
-        onContentChanged={handleContentChanged}
+        onContentChanged={reload}
         onClose={() => setModuleNode(null)}
       />
 
-      <UploadModal open={uploadOpen} sectionName="Training" onClose={() => setUploadOpen(false)} onUploaded={handleContentChanged} />
+      <UploadModal open={uploadOpen} sectionName="Training" onClose={() => setUploadOpen(false)} onUploaded={reload} />
     </div>
   )
 }

@@ -261,8 +261,6 @@ export default function FMSPanel() {
         open={!!timelineOrderId}
         orderId={timelineOrderId}
         order={timelineOrder}
-        currentUser={currentUser}
-        permissions={permissions}
         locations={locations}
         products={products}
         empMap={empMap}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CN } from '../../lib/contentNodes'
 import { getCNCardDesc } from '../../lib/cnCardDescriptions'
 import { clearCardName, setCardName } from '../../lib/activityTracking'
 import { useAuth } from '../../context/AuthContext'
-import { canUploadFiles, deleteContentNodeCard, invalidateContentNodes } from '../../lib/cnUploadDelete'
+import { canUploadFiles } from '../../lib/cnUploadDelete'
+import { useCNSectionLoader } from '../../hooks/useCNSectionLoader'
 import OverlayShell from './OverlayShell'
 import CNCategoryBrowser from './CNCategoryBrowser'
 import DocCard from './DocCard'
@@ -30,54 +31,9 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
   const { permissions } = useAuth()
   const canDelete = canUploadFiles(permissions)
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [cats, setCats] = useState([])
+  const { loading, error, cats, reload, deleteCard } = useCNSectionLoader(sectionName)
   const [openModule, setOpenModule] = useState(null) // { id, name } | null
   const [uploadOpen, setUploadOpen] = useState(false)
-
-  function loadCats() {
-    return CN.load().then(() => {
-      const section = CN.getSection(sectionName)
-      if (!section) {
-        setError(`${sectionName} section not found in content_nodes`)
-        setLoading(false)
-        return
-      }
-      setCats(CN.getCategories(section.id))
-      setLoading(false)
-    })
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    loadCats().catch((e) => {
-      if (cancelled) return
-      setLoading(false)
-      setError(e.message)
-    })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadCats is redefined every render but only sectionName should re-trigger the fetch
-  }, [sectionName])
-
-  // Re-fetches this section's cards after an upload/delete anywhere in this panel (top-level
-  // card delete, or a delete/upload inside the drill-down overlay).
-  function handleContentChanged() {
-    loadCats()
-  }
-
-  async function handleDeleteCard(cat) {
-    if (!confirm(`⚠️ "${cat.name}" and all its files will be permanently deleted.\nAre you sure?`)) return
-    try {
-      await deleteContentNodeCard(cat.id)
-      await invalidateContentNodes()
-      handleContentChanged()
-    } catch (e) {
-      alert('❌ ' + e.message)
-    }
-  }
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -116,7 +72,7 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
                   if (trackCardOpen) setCardName(cat.name)
                   setOpenModule({ id: cat.id, name: cat.name })
                 }}
-                onDelete={canDelete ? () => handleDeleteCard(cat) : undefined}
+                onDelete={canDelete ? () => deleteCard(cat) : undefined}
               />
             )
           })}
@@ -140,12 +96,12 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
               </div>
               <div className="text-[15px] font-semibold text-text">{openModule.name}</div>
             </div>
-            <CNCategoryBrowser rootNodeId={openModule.id} rootName={openModule.name} canDelete={canDelete} onContentChanged={handleContentChanged} />
+            <CNCategoryBrowser rootNodeId={openModule.id} rootName={openModule.name} canDelete={canDelete} onContentChanged={reload} />
           </>
         )}
       </OverlayShell>
 
-      <UploadModal open={uploadOpen} sectionName={sectionName} onClose={() => setUploadOpen(false)} onUploaded={handleContentChanged} />
+      <UploadModal open={uploadOpen} sectionName={sectionName} onClose={() => setUploadOpen(false)} onUploaded={reload} />
     </div>
   )
 }

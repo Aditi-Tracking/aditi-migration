@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../../../context/AuthContext'
 import OverlayShell from '../../shared/OverlayShell'
 import {
   calcPendingAmount,
@@ -30,8 +31,6 @@ export default function TimelineModal({
   open,
   orderId,
   order,
-  currentUser,
-  permissions,
   locations,
   products,
   empMap,
@@ -41,6 +40,7 @@ export default function TimelineModal({
   onOpenPayment,
   onOpenReassign,
 }) {
+  const { currentUser, permissions } = useAuth()
   const [loading, setLoading] = useState(true)
   const [assignments, setAssignments] = useState([])
   const [config, setConfig] = useState(null)

@@ -21,7 +21,7 @@ function fileCardMeta(url) {
   // Scoped icon-color exception (PDF/video only) — see docIcons.jsx's PDF_ICON/VIDEO_ICON comment.
   const bg = isPdf ? '#f87171' : isVid ? '#a78bfa' : null
   const icon = isPdf ? PDF_ICON : isVid ? VIDEO_ICON : null
-  return { isYt, ytId: ytMatch?.[1] || null, isVid, isPdf, label, bg, icon }
+  return { isYt, ytId: ytMatch?.[1] || null, label, bg, icon }
 }
 
 function ItemDeleteButton({ onDelete, deleting, title }) {
