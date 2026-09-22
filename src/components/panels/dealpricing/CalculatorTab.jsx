@@ -19,6 +19,41 @@ function newLine() {
   return { key: lineSeq, product_id: '', qty: 1, floor_price: 0, margin_pct: 0, selling_price: 0 }
 }
 
+function DealPricingInfoBanner() {
+  const [expanded, setExpanded] = useState(true)
+  return (
+    <div className="mb-4 rounded-xl border border-primary/20 bg-primary-tint px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[14px] font-bold text-text">Price Smart. Sell Smarter.</div>
+          <div className="text-[11.5px] text-text-muted mt-0.5">Your deal, your decision.</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="shrink-0 text-[11.5px] font-semibold text-primary border border-primary/30 rounded-md px-2.5 py-1"
+        >
+          {expanded ? '▲ Hide' : '▼ Show'}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-primary/15">
+          <p className="text-[12.5px] text-text leading-relaxed">
+            The calculator gives you complete visibility of the company's cost price — no need to ask anyone.
+            Target a minimum 30% margin to support the company's fixed costs and sustainable growth. Beyond
+            that, your selling skill creates the opportunity: the smarter you sell, the higher the margin you
+            earn for the company.
+          </p>
+          <p className="mt-2.5 text-[12.5px] font-bold text-primary">
+            Know the cost. Protect the margin. Close the deal.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Ported from old-portal/js/dealPricing.js's Calculator tab (dpLoadCatalog/
 // dpRenderLines/dpRenderTotals/dpGenerateQuote and friends).
 export default function CalculatorTab() {
@@ -163,6 +198,8 @@ export default function CalculatorTab() {
 
   return (
     <div>
+      <DealPricingInfoBanner />
+
       <div className="flex flex-wrap items-center gap-2.5 mb-4">
         <select
           value={state}
