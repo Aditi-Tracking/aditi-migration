@@ -248,6 +248,41 @@ def _has_field_service_view_all(caller_email):
     except Exception:
         return False
 
+# ── Helper: does this email have the ORIGINAL field_service_view_all permission
+# specifically (role_defaults/user_permissions), independent of any
+# field_service_branch_access grant? _has_field_service_view_all() above
+# conflates both into one "can reach view-all-shaped UI" boolean — this one is
+# needed wherever the two cases must be told apart (currently just the
+# engineer-names endpoint's branch-narrowing below).
+def _has_full_field_service_view_all(caller_email):
+    if not caller_email or sb is None:
+        return False
+    try:
+        emp_res = sb.table("Employee_details") \
+            .select("Employee_Dept") \
+            .ilike("Email_Id", caller_email) \
+            .limit(1) \
+            .execute()
+        raw_role = str(emp_res.data[0].get("Employee_Dept", "")).strip().lower() if emp_res.data else ""
+        role = ROLE_MAP.get(raw_role, "employee")
+        perms = get_permissions(caller_email, role)
+        return perms.get("field_service_view_all") == "true"
+    except Exception:
+        return False
+
+# ── Helper: distinct branches granted to this email via field_service_branch_access ──
+def _get_field_service_branch_grants(caller_email):
+    if not caller_email or sb is None:
+        return []
+    try:
+        res = sb.table("field_service_branch_access") \
+            .select("branch") \
+            .ilike("email", caller_email) \
+            .execute()
+        return sorted({row["branch"] for row in (res.data or []) if row.get("branch")})
+    except Exception:
+        return []
+
 # ── Helper: check if a caller has Task Scheduler access ─────────
 # Same shape as _has_field_service_view_all above — a manually-granted
 # permission (via the Access Control panel), not tied to role. Lets MIS
@@ -746,6 +781,10 @@ def clear_mapping():
 # users only) to resolve each distinct engineer_id that has actually
 # submitted an entry into a display name. Read-only — no schema/RLS
 # changes; see _list_all_auth_users / _has_field_service_view_all above.
+# A branch-access-only caller (no full field_service_view_all) gets the same
+# shape of response, narrowed to engineers whose entries fall in their
+# granted branch(es) — see _has_full_field_service_view_all /
+# _get_field_service_branch_grants above.
 #
 # Response:
 # { "engineers": [ { "engineer_id": "...", "email": "...", "name": "..." }, ... ] }
@@ -760,6 +799,11 @@ def field_service_engineer_names():
     if not _has_field_service_view_all(caller_email):
         return jsonify({"error": "Forbidden"}), 403
 
+    full_view_all = _has_full_field_service_view_all(caller_email)
+    granted_branches = [] if full_view_all else _get_field_service_branch_grants(caller_email)
+    if not full_view_all and not granted_branches:
+        return jsonify({"engineers": []})
+
     # Distinct engineers who have actually submitted at least one entry.
     # PostgREST caps a single response at this project's "Max Rows" setting
     # (1000) — with 1,293+ rows in field_service_entries, a single
@@ -771,7 +815,10 @@ def field_service_engineer_names():
         all_entry_rows = []
         start = 0
         while True:
-            res = sb.table("field_service_entries").select("engineer_id").range(start, start + page_size - 1).execute()
+            q = sb.table("field_service_entries").select("engineer_id")
+            if not full_view_all:
+                q = q.in_("engineer_branch", granted_branches)
+            res = q.range(start, start + page_size - 1).execute()
             rows = res.data or []
             all_entry_rows.extend(rows)
             if len(rows) < page_size:
