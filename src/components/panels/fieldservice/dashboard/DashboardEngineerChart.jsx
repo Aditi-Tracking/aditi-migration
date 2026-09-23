@@ -11,7 +11,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 // Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderCharts' "By engineer" section —
 // view_all only, same UI decision as canViewAllFieldService() elsewhere. Standard vertical bar,
 // engineer names on x-axis (resolved via Phase 1's cached engineerName()).
-export default function DashboardEngineerChart({ rows, engineerOptions, loading }) {
+export default function DashboardEngineerChart({ rows, engineerOptions, loading, onChange }) {
   const { tickColor } = useChartTheme()
 
   // `engineerOptions` isn't read directly below — engineerName() itself reads the module-level
@@ -20,11 +20,11 @@ export default function DashboardEngineerChart({ rows, engineerOptions, loading 
   // first time the Dashboard tab is opened in a session, before any tab has warmed the cache).
   // Without it, `rows` alone doesn't change when the cache fills in, so labels stay pinned to
   // whatever engineerName() resolved (raw uids) on that first, early computation.
-  const { labels, values, max } = useMemo(() => {
+  const { labels, values, max, ids } = useMemo(() => {
     const byEng = groupSum(rows, 'engineer_id')
     const ids = [...byEng.keys()].sort((a, b) => byEng.get(b) - byEng.get(a))
     const vs = ids.map((id) => byEng.get(id))
-    return { labels: ids.map((id) => engineerName(id)), values: vs, max: Math.max(0, ...vs) }
+    return { labels: ids.map((id) => engineerName(id)), values: vs, max: Math.max(0, ...vs), ids }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- engineerOptions isn't read in the body above (engineerName() reads the module cache directly), it's a deliberate recompute trigger for when fetchEngineerOptions() resolves after the first render
   }, [rows, engineerOptions])
 
@@ -35,6 +35,11 @@ export default function DashboardEngineerChart({ rows, engineerOptions, loading 
     plugins: {
       legend: { display: false },
       datalabels: { align: 'end', anchor: 'end', color: tickColor, font: { family: 'DM Sans', size: 8 }, backgroundColor: null, padding: 2 },
+    },
+    onClick: (evt, elements) => {
+      if (!elements.length) return
+      const id = ids[elements[0].index]
+      if (id) onChange({ engineerId: id })
     },
     scales: {
       x: { ticks: { color: tickColor, font: { family: 'DM Sans', size: 9 }, maxRotation: 45, minRotation: 0, autoSkip: true }, grid: { display: false } },

@@ -2,6 +2,8 @@ import { JOB_TYPE_CONFIG } from '../../../../lib/fieldService'
 
 const PRESETS = [
   ['yesterday', 'Yesterday'],
+  ['today', 'Today'],
+  ['mtd', 'Month to Date'],
   ['7d', 'Last 7 Days'],
   ['30d', 'Last 30 Days'],
   ['3m', 'Last 3 Months'],

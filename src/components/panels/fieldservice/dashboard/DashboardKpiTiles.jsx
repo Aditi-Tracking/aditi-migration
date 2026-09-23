@@ -1,19 +1,16 @@
-import { groupSum, pctChange } from '../../../../lib/fieldServiceDashboard'
+import { useAuth } from '../../../../context/AuthContext'
+import { groupSum } from '../../../../lib/fieldServiceDashboard'
+import { engineerName } from '../../../../lib/fieldService'
 
-// Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderKpis. Two different data
-// sources feed these 4 tiles — NOT a bug, a deliberate split: `kpiComparisons` (Today/This
-// Week/This Month) is fetched independent of the active date-range filter, so those 3 stay fixed
-// to real calendar windows no matter what preset is selected; only "Highest Jobs Done in a Day"
-// reads from `summaryRows`, the one fetch actually scoped by the active range/job-type/engineer
-// filters.
+// Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderKpis, since revised: all 4 tiles
+// now read from `summaryRows`, the same active-filter-scoped dataset the charts use — the earlier
+// split (3 tiles pinned to real calendar windows via a separate fetchKpiComparisonStats() fetch)
+// is gone, along with that fetch and sumWindows()/pctChange()/monthBounds().
 //
-// Accent stripe + uppercase label mirror production's shared .kpi-card CSS (the same one FMS's
-// KPI grid picked up) — confirmed none of these 4 tiles carry a per-tile --card-accent override
-// in production, so a single primary-color stripe matches production's own behavior here, not
-// just our unified-palette convention. Deliberately no hover-lift, unlike FMS's KPI grid: all 4
-// tiles here are purely informational (no onClick, matching production's _fsdRenderKpis, which
-// never attaches one either) — lifting a non-clickable card on hover would imply clickability
-// that isn't there.
+// Click-to-filter is an intentional, agreed design change from this component's earlier "purely
+// informational, no onClick" convention: Total Jobs, Top Engineer, and Highest Jobs Done in a Day
+// are now click-to-filter; Avg Jobs per Engineer stays non-clickable by design — there's no single
+// engineer/date/job-type an average could sensibly filter to.
 //
 // Padding/gap/label size here are tighter than FMS's KPI grid — measured against production's own
 // #fsDashboardTab-scoped CSS overrides (padding:13px 13px 9px, kpi-grid gap:8px;margin-bottom:11px,
@@ -23,8 +20,26 @@ function AccentStripe() {
   return <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl bg-primary" />
 }
 
-export default function DashboardKpiTiles({ summaryRows, kpiComparisons }) {
-  const kc = kpiComparisons || { today: 0, thisWeek: 0, lastWeek: 0, thisMonth: 0, lastMonth: 0 }
+export default function DashboardKpiTiles({ summaryRows, viewAll, onChange, onScrollToEntries }) {
+  const { currentUser } = useAuth()
+
+  const totalJobs = summaryRows.reduce((sum, r) => sum + Number(r.entry_count || 0), 0)
+
+  const byEngineer = groupSum(summaryRows, 'engineer_id')
+  const avgPerEngineer = byEngineer.size ? totalJobs / byEngineer.size : 0
+
+  let topEngineerId = null
+  let topEngineerCount = 0
+  byEngineer.forEach((count, id) => {
+    if (count > topEngineerCount) {
+      topEngineerCount = count
+      topEngineerId = id
+    }
+  })
+  // engineerName()'s cache is only ever populated for viewAll users (see useFieldServiceDashboard's
+  // fetchEngineerOptions gate) — an own-scope viewer's data only ever contains their own uid, so
+  // fall back to their own known name rather than showing a raw uid.
+  const topEngineerName = topEngineerId ? (viewAll ? engineerName(topEngineerId) : currentUser?.name || engineerName(topEngineerId)) : 'No data'
 
   // Highest single-day count within the selected range — daily_stats rows are grouped by
   // (engineer_id, job_type, entry_date), so multiple rows can share a date; group by date first
@@ -49,22 +64,41 @@ export default function DashboardKpiTiles({ summaryRows, kpiComparisons }) {
   })()
 
   const tiles = [
-    { label: 'Jobs Done Today', value: kc.today },
-    { label: 'This Week', value: kc.thisWeek, sub: `vs ${kc.lastWeek} last week (${pctChange(kc.thisWeek, kc.lastWeek)})` },
-    { label: 'This Month', value: kc.thisMonth, sub: `vs ${kc.lastMonth} last month (${pctChange(kc.thisMonth, kc.lastMonth)})` },
-    { label: 'Highest Jobs Done in a Day', value: maxCount, sub: maxDayLabel },
+    { label: 'Total Jobs', value: totalJobs, onClick: onScrollToEntries },
+    { label: 'Avg Jobs per Engineer', value: Math.round(avgPerEngineer * 10) / 10 },
+    {
+      label: 'Top Engineer',
+      value: topEngineerName,
+      sub: topEngineerId ? `${topEngineerCount.toLocaleString()} jobs` : undefined,
+      onClick: topEngineerId ? () => onChange({ engineerId: topEngineerId }) : undefined,
+    },
+    {
+      label: 'Highest Jobs Done in a Day',
+      value: maxCount,
+      sub: maxDayLabel,
+      onClick: maxDay ? () => onChange({ preset: 'custom', customFrom: maxDay, customTo: maxDay }) : undefined,
+    },
   ]
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2.5">
-      {tiles.map((t) => (
-        <div key={t.label} className="relative overflow-hidden rounded-xl border border-border bg-surface pt-3 px-3 pb-2">
-          <AccentStripe />
-          <div className="text-[10px] text-text-muted uppercase tracking-wide">{t.label}</div>
-          <div className="text-[19px] font-bold text-text mt-0.5">{t.value.toLocaleString()}</div>
-          {t.sub && <div className="text-[10.5px] text-text-muted mt-0.5">{t.sub}</div>}
-        </div>
-      ))}
+      {tiles.map((t) => {
+        const Wrapper = t.onClick ? 'button' : 'div'
+        return (
+          <Wrapper
+            key={t.label}
+            {...(t.onClick ? { type: 'button', onClick: t.onClick } : {})}
+            className={`relative overflow-hidden rounded-xl border border-border bg-surface pt-3 px-3 pb-2 text-left ${
+              t.onClick ? 'cursor-pointer hover:border-primary/40 transition-colors' : ''
+            }`}
+          >
+            <AccentStripe />
+            <div className="text-[10px] text-text-muted uppercase tracking-wide">{t.label}</div>
+            <div className="text-[19px] font-bold text-text mt-0.5">{t.value.toLocaleString()}</div>
+            {t.sub && <div className="text-[10.5px] text-text-muted mt-0.5">{t.sub}</div>}
+          </Wrapper>
+        )
+      })}
     </div>
   )
 }

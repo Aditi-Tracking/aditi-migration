@@ -24,16 +24,17 @@ ChartJS.register(ArcElement, Legend, Tooltip)
 // previous density, JOB_TYPE_CONFIG's full 11 job types don't all fit in one legend column within
 // this chart's 198px height, so Chart.js splits the last (smallest) item into its own detached
 // mini-column. This density fits all 11 in one aligned column at the same 198px, no height change.
-export default function DashboardJobTypeChart({ rows }) {
+export default function DashboardJobTypeChart({ rows, onChange }) {
   const { tickColor } = useChartTheme()
 
-  const { labels, values, colors } = useMemo(() => {
+  const { labels, values, colors, keysSorted } = useMemo(() => {
     const byJob = groupSum(rows, 'job_type')
     const keysSorted = [...byJob.keys()].sort((a, b) => byJob.get(b) - byJob.get(a))
     return {
       labels: keysSorted.map((k) => `${(JOB_TYPE_CONFIG[k] && JOB_TYPE_CONFIG[k].label) || k} (${byJob.get(k)})`),
       values: keysSorted.map((k) => byJob.get(k)),
       colors: FSD_CHART_PALETTE.slice(0, keysSorted.length),
+      keysSorted,
     }
   }, [rows])
 
@@ -49,6 +50,11 @@ export default function DashboardJobTypeChart({ rows }) {
         font: { family: 'DM Sans', size: 10, weight: '700' },
         formatter: (value) => `${Math.round((value / total) * 100)}%`,
       },
+    },
+    onClick: (evt, elements) => {
+      if (!elements.length) return
+      const jobType = keysSorted[elements[0].index]
+      if (jobType) onChange({ jobType })
     },
     responsive: true,
     maintainAspectRatio: false,

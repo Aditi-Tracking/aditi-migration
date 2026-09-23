@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../../../context/AuthContext'
 import { canViewAllFieldService, fetchEngineerOptions } from '../../../../lib/fieldService'
-import { fetchDailyStats, fetchDashboardEntries, fetchKpiComparisonStats, resolveActiveFilters, sumWindows } from '../../../../lib/fieldServiceDashboard'
+import { fetchDailyStats, fetchDashboardEntries, resolveActiveFilters } from '../../../../lib/fieldServiceDashboard'
 import DashboardFilterBar from './DashboardFilterBar'
 import DashboardKpiTiles from './DashboardKpiTiles'
 import DashboardTrendChart from './DashboardTrendChart'
@@ -38,7 +38,6 @@ export default function useFieldServiceDashboard({ active }) {
   // the module-level name cache still unresolved.
   const [engineerOptionsLoaded, setEngineerOptionsLoaded] = useState(false)
   const [summaryRows, setSummaryRows] = useState([])
-  const [kpiComparisons, setKpiComparisons] = useState(null)
   const [entriesRows, setEntriesRows] = useState([])
   const [entriesTotal, setEntriesTotal] = useState(0)
   const [page, setPage] = useState(0)
@@ -48,17 +47,18 @@ export default function useFieldServiceDashboard({ active }) {
   // table was left" (production never resets pagination on tab re-activation, only on an actual
   // filter change/Clear) without adding `page` itself as an effect dependency.
   const pageRef = useRef(0)
+  const entriesTableRef = useRef(null)
+
+  function scrollToEntries() {
+    entriesTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const active_ = resolveActiveFilters(filters)
 
   async function loadSummary() {
     try {
-      const [rows, kc] = await Promise.all([
-        fetchDailyStats({ ...active_, viewAll }),
-        fetchKpiComparisonStats({ jobType: active_.jobType, engineer: active_.engineer, viewAll }).then(sumWindows),
-      ])
+      const rows = await fetchDailyStats({ ...active_, viewAll })
       setSummaryRows(rows)
-      setKpiComparisons(kc)
     } catch (e) {
       setError(e.message)
     }
@@ -146,17 +146,19 @@ export default function useFieldServiceDashboard({ active }) {
 
   const body = (
     <div>
-      <DashboardKpiTiles summaryRows={summaryRows} kpiComparisons={kpiComparisons} />
+      <DashboardKpiTiles summaryRows={summaryRows} viewAll={viewAll} onChange={handleFilterChange} onScrollToEntries={scrollToEntries} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 mb-1.5">
-        <DashboardJobTypeChart rows={summaryRows} />
-        {viewAll && <DashboardEngineerChart rows={summaryRows} engineerOptions={engineerOptions} loading={!engineerOptionsLoaded} />}
+        <DashboardJobTypeChart rows={summaryRows} onChange={handleFilterChange} />
+        {viewAll && <DashboardEngineerChart rows={summaryRows} engineerOptions={engineerOptions} loading={!engineerOptionsLoaded} onChange={handleFilterChange} />}
       </div>
       <div className="mb-2.5">
-        <DashboardTrendChart rows={summaryRows} />
+        <DashboardTrendChart rows={summaryRows} onChange={handleFilterChange} />
       </div>
 
-      <DashboardEntriesTable rows={entriesRows} total={entriesTotal} page={page} onPageChange={handlePageChange} viewAll={viewAll} loading={loading} error={error} />
+      <div ref={entriesTableRef}>
+        <DashboardEntriesTable rows={entriesRows} total={entriesTotal} page={page} onPageChange={handlePageChange} viewAll={viewAll} loading={loading} error={error} />
+      </div>
     </div>
   )
 

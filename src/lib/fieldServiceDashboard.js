@@ -29,19 +29,6 @@ export function dateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Calendar-month boundaries (local time) — lastMonthStart..lastMonthEnd is always the FULL
-// previous month regardless of what day of the month today is.
-export function monthBounds() {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = now.getMonth()
-  return {
-    thisMonthStart: new Date(y, m, 1),
-    lastMonthStart: new Date(y, m - 1, 1),
-    lastMonthEnd: new Date(y, m, 0), // day 0 of this month = last day of previous month
-  }
-}
-
 // Preset -> {from, to} as 'YYYY-MM-DD' local-calendar strings. Every rolling preset anchors its
 // end on today and counts back. 'alltime' returns blank from/to so the query-building code's
 // `if (f.from)`/`if (f.to)` checks skip the date filter entirely.
@@ -52,9 +39,14 @@ export function presetRange(preset) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
     return { from: dateStr(d), to: dateStr(d) }
   }
+  if (preset === 'today') {
+    const todayStr = dateStr(now)
+    return { from: todayStr, to: todayStr }
+  }
   const to = dateStr(now)
   let from
-  if (preset === '30d') from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+  if (preset === 'mtd') from = new Date(now.getFullYear(), now.getMonth(), 1)
+  else if (preset === '30d') from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
   else if (preset === '3m') from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
   else if (preset === '6m') from = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
   else from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6) // '7d' + fallback
@@ -72,55 +64,13 @@ export function groupSum(rows, key) {
   return map
 }
 
-// This Week/Month vs Last Week/Month windows are independent of the trend chart's own date-range
-// filter — otherwise narrowing the chart's range would silently change what "this week"/"this
-// month" means. Plain string comparison throughout — entry_date is already 'YYYY-MM-DD', and that
-// format sorts identically to date order, so no Date-object/epoch/timezone conversion is involved.
-export function sumWindows(rows) {
-  const sumBetween = (startStr, endStr) => rows.filter((r) => r.entry_date >= startStr && r.entry_date <= endStr).reduce((sum, r) => sum + Number(r.entry_count || 0), 0)
-
-  const now = new Date()
-  const todayStr = dateStr(now)
-  const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
-  const twoWeeksAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13)
-  const oneWeekAgoEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
-  const { thisMonthStart, lastMonthStart, lastMonthEnd } = monthBounds()
-
-  return {
-    today: sumBetween(todayStr, todayStr),
-    thisWeek: sumBetween(dateStr(weekAgo), todayStr),
-    lastWeek: sumBetween(dateStr(twoWeeksAgo), dateStr(oneWeekAgoEnd)),
-    thisMonth: sumBetween(dateStr(thisMonthStart), todayStr),
-    lastMonth: sumBetween(dateStr(lastMonthStart), dateStr(lastMonthEnd)),
-  }
-}
-
-export function pctChange(cur, prev) {
-  if (prev === 0) return cur > 0 ? '+100%' : '—'
-  return `${cur >= prev ? '+' : ''}${Math.round(((cur - prev) / prev) * 100)}%`
-}
-
 // ── Summary rows — the ONE fetch actually scoped by the active preset/custom range (+ job
-// type/engineer). Powers the Trend chart, Jobs-by-Type chart, Top-Engineers chart, and the
-// "Highest Jobs Done in a Day" KPI tile only — NOT the other 3 KPI tiles (see fetchKpiComparisonStats). ──
+// type/engineer). Powers every chart AND all 4 KPI tiles now — the earlier fetchKpiComparisonStats()
+// split (3 tiles pinned to real calendar windows, independent of this range) is gone. ──
 export async function fetchDailyStats({ from, to, jobType, engineer, viewAll }) {
   let url = `${SUPABASE_URL}/rest/v1/field_service_daily_stats?select=*`
   if (from) url += `&entry_date=gte.${from}`
   if (to) url += `&entry_date=lte.${to}`
-  if (jobType) url += `&job_type=eq.${encodeURIComponent(jobType)}`
-  if (viewAll && engineer) url += `&engineer_id=eq.${encodeURIComponent(engineer)}`
-  const res = await fetch(url, { headers: SB_HDRS() })
-  if (!res.ok) throw new Error('HTTP ' + res.status)
-  return res.json()
-}
-
-// ── KPI comparison rows — deliberately NOT scoped by the active preset's from/to, only by
-// job type/engineer. Powers Today/This-Week-vs-last/This-Month-vs-last — these 3 tiles stay
-// fixed to real calendar windows no matter what date range is selected elsewhere on the tab. ──
-export async function fetchKpiComparisonStats({ jobType, engineer, viewAll }) {
-  const { lastMonthStart } = monthBounds()
-  let url = `${SUPABASE_URL}/rest/v1/field_service_daily_stats?select=entry_date,entry_count`
-  url += `&entry_date=gte.${dateStr(lastMonthStart)}`
   if (jobType) url += `&job_type=eq.${encodeURIComponent(jobType)}`
   if (viewAll && engineer) url += `&engineer_id=eq.${encodeURIComponent(engineer)}`
   const res = await fetch(url, { headers: SB_HDRS() })
