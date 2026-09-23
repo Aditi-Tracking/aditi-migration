@@ -53,15 +53,64 @@ export function presetRange(preset) {
   return { from: dateStr(from), to }
 }
 
+// Every preset's display label, in one place — DashboardFilterBar's dropdown and
+// describeActiveFilters() below both read from this, so they can never drift apart. 'today'
+// stays here even though it's excluded from the dropdown's own visible options — it's still a
+// real presetRange() value, reachable via the Dashboard's "Today's Jobs" KPI tile.
+export const PRESET_LABELS = {
+  yesterday: 'Yesterday',
+  today: 'Today',
+  mtd: 'Month to Date',
+  '7d': 'Last 7 Days',
+  '30d': 'Last 30 Days',
+  '3m': 'Last 3 Months',
+  '6m': 'Last 6 Months',
+  alltime: 'All Time',
+  custom: 'Custom',
+}
+
 export function resolveActiveFilters({ preset, customFrom, customTo, jobType, engineerId }) {
   const range = preset === 'custom' ? { from: customFrom, to: customTo } : presetRange(preset || '30d')
   return { from: range.from, to: range.to, jobType: jobType || '', engineer: engineerId || '' }
+}
+
+// One-line human description of the active filter combination, for the Total Jobs tile's
+// subtitle. Takes jobTypeLabel/engineerNameLabel as callbacks rather than importing
+// JOB_TYPE_CONFIG/engineerName directly, so this dashboard-data module doesn't need to depend on
+// lib/fieldService.js — the caller (DashboardKpiTiles, which already imports both) supplies them.
+export function describeActiveFilters(filters, jobTypeLabel, engineerNameLabel) {
+  const { preset, customFrom, customTo, jobType, engineerId } = filters
+  let dateLabel
+  if (preset === 'custom') {
+    if (customFrom && customTo) dateLabel = customFrom === customTo ? customFrom : `${customFrom} to ${customTo}`
+    else dateLabel = PRESET_LABELS.custom
+  } else {
+    dateLabel = PRESET_LABELS[preset] || PRESET_LABELS['30d']
+  }
+  const parts = [dateLabel]
+  if (jobType) parts.push(jobTypeLabel(jobType))
+  if (engineerId) parts.push(engineerNameLabel(engineerId))
+  return parts.join(' · ')
 }
 
 export function groupSum(rows, key) {
   const map = new Map()
   rows.forEach((r) => map.set(r[key], (map.get(r[key]) || 0) + Number(r.entry_count || 0)))
   return map
+}
+
+// ── Today's real count — independent of the active date-range preset (same idea as the removed
+// fetchKpiComparisonStats, just for today only, not a whole calendar-window comparison). Still
+// scoped by the active job type/engineer filters, matching every other fetch here. ──
+export async function fetchTodayCount({ jobType, engineer, viewAll }) {
+  const todayStr = dateStr(new Date())
+  let url = `${SUPABASE_URL}/rest/v1/field_service_daily_stats?select=entry_count&entry_date=eq.${todayStr}`
+  if (jobType) url += `&job_type=eq.${encodeURIComponent(jobType)}`
+  if (viewAll && engineer) url += `&engineer_id=eq.${encodeURIComponent(engineer)}`
+  const res = await fetch(url, { headers: SB_HDRS() })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const rows = await res.json()
+  return rows.reduce((sum, r) => sum + Number(r.entry_count || 0), 0)
 }
 
 // ── Summary rows — the ONE fetch actually scoped by the active preset/custom range (+ job

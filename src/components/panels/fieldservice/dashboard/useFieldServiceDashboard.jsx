@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../../../context/AuthContext'
 import { canViewAllFieldService, fetchEngineerOptions } from '../../../../lib/fieldService'
-import { fetchDailyStats, fetchDashboardEntries, resolveActiveFilters } from '../../../../lib/fieldServiceDashboard'
+import { fetchDailyStats, fetchDashboardEntries, fetchTodayCount, resolveActiveFilters } from '../../../../lib/fieldServiceDashboard'
 import DashboardFilterBar from './DashboardFilterBar'
 import DashboardKpiTiles from './DashboardKpiTiles'
 import DashboardTrendChart from './DashboardTrendChart'
@@ -38,6 +38,7 @@ export default function useFieldServiceDashboard({ active }) {
   // the module-level name cache still unresolved.
   const [engineerOptionsLoaded, setEngineerOptionsLoaded] = useState(false)
   const [summaryRows, setSummaryRows] = useState([])
+  const [todayCount, setTodayCount] = useState(0)
   const [entriesRows, setEntriesRows] = useState([])
   const [entriesTotal, setEntriesTotal] = useState(0)
   const [page, setPage] = useState(0)
@@ -57,8 +58,12 @@ export default function useFieldServiceDashboard({ active }) {
 
   async function loadSummary() {
     try {
-      const rows = await fetchDailyStats({ ...active_, viewAll })
+      const [rows, today] = await Promise.all([
+        fetchDailyStats({ ...active_, viewAll }),
+        fetchTodayCount({ jobType: active_.jobType, engineer: active_.engineer, viewAll }),
+      ])
       setSummaryRows(rows)
+      setTodayCount(today)
     } catch (e) {
       setError(e.message)
     }
@@ -146,14 +151,14 @@ export default function useFieldServiceDashboard({ active }) {
 
   const body = (
     <div>
-      <DashboardKpiTiles summaryRows={summaryRows} viewAll={viewAll} onChange={handleFilterChange} onScrollToEntries={scrollToEntries} />
+      <DashboardKpiTiles summaryRows={summaryRows} viewAll={viewAll} filters={filters} todayCount={todayCount} onChange={handleFilterChange} onScrollToEntries={scrollToEntries} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 mb-1.5">
-        <DashboardJobTypeChart rows={summaryRows} onChange={handleFilterChange} />
-        {viewAll && <DashboardEngineerChart rows={summaryRows} engineerOptions={engineerOptions} loading={!engineerOptionsLoaded} onChange={handleFilterChange} />}
+        <DashboardJobTypeChart rows={summaryRows} filters={filters} onChange={handleFilterChange} />
+        {viewAll && <DashboardEngineerChart rows={summaryRows} engineerOptions={engineerOptions} loading={!engineerOptionsLoaded} filters={filters} onChange={handleFilterChange} />}
       </div>
       <div className="mb-2.5">
-        <DashboardTrendChart rows={summaryRows} onChange={handleFilterChange} />
+        <DashboardTrendChart rows={summaryRows} filters={filters} onChange={handleFilterChange} />
       </div>
 
       <div ref={entriesTableRef}>

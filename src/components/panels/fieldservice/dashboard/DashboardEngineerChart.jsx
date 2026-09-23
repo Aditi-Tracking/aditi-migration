@@ -11,7 +11,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 // Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderCharts' "By engineer" section —
 // view_all only, same UI decision as canViewAllFieldService() elsewhere. Standard vertical bar,
 // engineer names on x-axis (resolved via Phase 1's cached engineerName()).
-export default function DashboardEngineerChart({ rows, engineerOptions, loading, onChange }) {
+export default function DashboardEngineerChart({ rows, engineerOptions, loading, filters, onChange }) {
   const { tickColor } = useChartTheme()
 
   // `engineerOptions` isn't read directly below — engineerName() itself reads the module-level
@@ -39,7 +39,7 @@ export default function DashboardEngineerChart({ rows, engineerOptions, loading,
     onClick: (evt, elements) => {
       if (!elements.length) return
       const id = ids[elements[0].index]
-      if (id) onChange({ engineerId: id })
+      if (id) onChange({ engineerId: filters.engineerId === id ? '' : id })
     },
     scales: {
       x: { ticks: { color: tickColor, font: { family: 'DM Sans', size: 9 }, maxRotation: 45, minRotation: 0, autoSkip: true }, grid: { display: false } },

@@ -12,7 +12,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, 
 // attached to just this chart instance (`plugins` prop), never globally registered via
 // ChartJS.register — production's own comment explains why: doing so would silently turn on
 // default labels for every OTHER chart in the app that never guards against it.
-export default function DashboardTrendChart({ rows, onChange }) {
+export default function DashboardTrendChart({ rows, filters, onChange }) {
   const { tickColor } = useChartTheme()
 
   const { dates, values, max } = useMemo(() => {
@@ -44,7 +44,9 @@ export default function DashboardTrendChart({ rows, onChange }) {
     onClick: (evt, elements) => {
       if (!elements.length) return
       const date = dates[elements[0].index]
-      if (date) onChange({ preset: 'custom', customFrom: date, customTo: date })
+      if (!date) return
+      const isActive = filters.preset === 'custom' && filters.customFrom === date && filters.customTo === date
+      onChange(isActive ? { preset: '30d', customFrom: '', customTo: '' } : { preset: 'custom', customFrom: date, customTo: date })
     },
     scales: {
       x: { ticks: { color: tickColor, font: { family: 'DM Sans', size: 10 }, autoSkip: true, maxRotation: 45 }, grid: { display: false } },

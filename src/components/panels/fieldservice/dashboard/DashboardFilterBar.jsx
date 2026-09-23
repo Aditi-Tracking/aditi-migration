@@ -1,16 +1,9 @@
 import { JOB_TYPE_CONFIG } from '../../../../lib/fieldService'
+import { PRESET_LABELS } from '../../../../lib/fieldServiceDashboard'
 
-const PRESETS = [
-  ['yesterday', 'Yesterday'],
-  ['today', 'Today'],
-  ['mtd', 'Month to Date'],
-  ['7d', 'Last 7 Days'],
-  ['30d', 'Last 30 Days'],
-  ['3m', 'Last 3 Months'],
-  ['6m', 'Last 6 Months'],
-  ['alltime', 'All Time'],
-  ['custom', 'Custom'],
-]
+// 'today' is deliberately excluded — still a valid preset value (see PRESET_LABELS/presetRange),
+// only reachable now via the Dashboard's "Today's Jobs" KPI tile, not directly selectable here.
+const VISIBLE_PRESETS = ['yesterday', 'mtd', '7d', '30d', '3m', '6m', 'alltime', 'custom']
 
 // Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderFilters/_fsdOnPresetChange. Now
 // rendered inline on the tab-selector row (matching production's #fsdInlineFilters placement) —
@@ -25,9 +18,9 @@ export default function DashboardFilterBar({ preset, customFrom, customTo, jobTy
         onChange={(e) => onChange({ preset: e.target.value })}
         className="px-2.5 py-1.5 rounded-lg border border-border bg-surface-2 text-text text-[12px]"
       >
-        {PRESETS.map(([k, label]) => (
+        {VISIBLE_PRESETS.map((k) => (
           <option key={k} value={k}>
-            {label}
+            {PRESET_LABELS[k]}
           </option>
         ))}
       </select>
