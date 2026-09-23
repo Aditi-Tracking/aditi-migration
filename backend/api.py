@@ -206,10 +206,30 @@ def get_permissions(email, role):
 
     return permissions
 
+# ── Helper: does this email have any field_service_branch_access grant? ──
+# "Any row at all" check, regardless of which branch(es) — shared by
+# _has_field_service_view_all() below and the /api/permissions response
+# (field_service_has_branch_access), so both stay in sync automatically.
+def _has_field_service_branch_access(caller_email):
+    if not caller_email or sb is None:
+        return False
+    try:
+        res = sb.table("field_service_branch_access") \
+            .select("email") \
+            .ilike("email", caller_email) \
+            .limit(1) \
+            .execute()
+        return bool(res.data)
+    except Exception:
+        return False
+
 # ── Helper: check if a caller has Field Service "view all" access ──
 # Unlike is_admin() (role-based), this is a manually-granted permission —
 # no role_defaults row implies it, so it's only ever true via a
-# user_permissions override (see get_permissions above).
+# user_permissions override (see get_permissions above), OR a
+# field_service_branch_access grant for any branch — the underlying rows
+# are already correctly restricted by RLS either way, so this only
+# decides whether the engineer-names/chart/filter UI shows at all.
 def _has_field_service_view_all(caller_email):
     if not caller_email or sb is None:
         return False
@@ -222,7 +242,9 @@ def _has_field_service_view_all(caller_email):
         raw_role = str(emp_res.data[0].get("Employee_Dept", "")).strip().lower() if emp_res.data else ""
         role = ROLE_MAP.get(raw_role, "employee")
         perms = get_permissions(caller_email, role)
-        return perms.get("field_service_view_all") == "true"
+        if perms.get("field_service_view_all") == "true":
+            return True
+        return _has_field_service_branch_access(caller_email)
     except Exception:
         return False
 
@@ -292,6 +314,7 @@ def _list_all_auth_users():
 #     "can_view_ims": "true",
 #     "can_upload_files": "true",
 #     "checklist_scope": "all",
+#     "field_service_has_branch_access": false,
 #     ...
 #   }
 # }
@@ -329,6 +352,10 @@ def fetch_user_permissions():
 
     # Build merged permissions (role defaults + user overrides)
     permissions = get_permissions(email, role)
+    # Not a role_defaults/user_permissions value like everything else in this dict — a real
+    # boolean, computed fresh each call from field_service_branch_access (see
+    # _has_field_service_branch_access above), not a stored "true"/"false" string.
+    permissions["field_service_has_branch_access"] = _has_field_service_branch_access(email)
 
     return jsonify({
         "role":        role,

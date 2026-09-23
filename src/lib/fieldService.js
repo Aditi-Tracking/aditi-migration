@@ -102,7 +102,7 @@ export function canCreateFieldService(currentUser) {
   return !!currentUser // no longer permission-gated — every logged-in user can submit
 }
 export function canViewAllFieldService(currentUser, permissions) {
-  return !!currentUser && permissions?.field_service_view_all === 'true'
+  return !!currentUser && (permissions?.field_service_view_all === 'true' || permissions?.field_service_has_branch_access === true)
 }
 export function hasFieldServiceAccess(currentUser, permissions) {
   return canCreateFieldService(currentUser) || canViewAllFieldService(currentUser, permissions)
