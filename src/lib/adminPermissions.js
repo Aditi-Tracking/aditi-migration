@@ -8,6 +8,7 @@ export const PERM_LABELS = {
   can_view_leads: '📊 SmartFleet Dashboard',
   can_view_enterprise: '🏢 Enterprise Lead Dashboard',
   can_view_entsol: '🏢 Enterprise Solutions Dashboard',
+  can_view_collections: '🔁 Collections & Repeat Orders Dashboard',
   can_view_fms: '🔧 FMS Installation Tracker',
   fms_create: '📋 FMS Create Order',
   fms_support: '👷 FMS Support Actions',

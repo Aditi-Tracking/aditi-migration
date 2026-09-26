@@ -62,6 +62,7 @@ const MappingPanel = lazy(() => import('../panels/mapping/MappingPanel'))
 const EnterpriseLeadPanel = lazy(() => import('../panels/enterprise/EnterpriseLeadPanel'))
 const IMSPanel = lazy(() => import('../panels/ims/IMSPanel'))
 const EnterpriseSolutionsPanel = lazy(() => import('../panels/enterprisesolutions/EnterpriseSolutionsPanel'))
+const CollectionsDashboardPanel = lazy(() => import('../panels/collections/CollectionsDashboardPanel'))
 
 const PANEL_COMPONENTS = {
   home: HomePanel,
@@ -85,6 +86,7 @@ const PANEL_COMPONENTS = {
   enterprise: EnterpriseLeadPanel,
   ims: IMSPanel,
   entsol: EnterpriseSolutionsPanel,
+  collections: CollectionsDashboardPanel,
   hr: HRPanel,
   sales: SalesPanel,
   aftersales: AfterSalesPanel,

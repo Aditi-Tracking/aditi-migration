@@ -19,6 +19,7 @@ import { canAccessMapping } from '../../lib/customerMapping'
 import { canAccessEnterprise } from '../../lib/enterpriseLead'
 import { canAccessIMS } from '../../lib/ims'
 import { canAccessEnterpriseSolutions } from '../../lib/enterpriseSolutions'
+import { canAccessCollections } from '../../lib/collectionsDashboard'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -30,6 +31,7 @@ export const NAV_ITEMS = [
       { id: 'entsol', label: 'Enterprise Solutions', badge: 'Live', visibility: 'entsolPerm' },
       { id: 'enterprise', label: 'Enterprise Lead', badge: 'Live', visibility: 'enterprisePerm' },
       { id: 'renewals', label: 'Renewals & Collections', visibility: 'renewalsAsync' },
+      { id: 'collections', label: 'Collections & Repeat Orders', visibility: 'collectionsPerm' },
       { id: 'fms', label: 'FMS O2D', badge: 'Live', visibility: 'fmsPerm' },
       { id: 'tasks', label: 'Task Checklist', badge: 'Live', visibility: 'taskChecklistAsync' },
       { id: 'ims', label: 'IMS', badge: 'Live', visibility: 'imsPerm' },
@@ -120,6 +122,11 @@ export const NAV_ITEMS = [
 //   (can_view_entsol is also currently always undefined from the real
 //   backend, falling through to the same owner/mis/pc/executive-assistant/
 //   ea role check) — also a plain synchronous check, no NavContext needed.
+// - Collections & Repeat Orders uses the same not-yet-backed shape as
+//   Enterprise Lead/Enterprise Solutions (canAccessCollections in
+//   lib/collectionsDashboard.js): can_view_collections is undefined until the
+//   backend adds that column, falling through to the same owner/mis/pc/
+//   executive-assistant/ea role check — also a plain synchronous check.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -168,6 +175,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return canAccessIMS(permissions)
     case 'entsolPerm':
       return canAccessEnterpriseSolutions(currentUser, permissions)
+    case 'collectionsPerm':
+      return canAccessCollections(currentUser, permissions)
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:
