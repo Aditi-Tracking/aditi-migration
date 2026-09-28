@@ -26,3 +26,12 @@ export const VIDEO_ICON = (
     <path d="M8 5v14l11-7z" />
   </svg>
 )
+
+// Ported verbatim from ResourcesPanel.jsx's local FOLDER_ICON — shared here so any other
+// hardcoded "card opens an external Drive folder" list (e.g. CNSectionPanel's `linkFolders`) can
+// reuse the exact same glyph instead of redefining it per panel.
+export const FOLDER_ICON = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+  </svg>
+)

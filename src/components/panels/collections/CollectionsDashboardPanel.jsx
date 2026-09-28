@@ -17,9 +17,13 @@ import CollectionsEmployeeChart from './CollectionsEmployeeChart'
 import CollectionsEntriesTable from './CollectionsEntriesTable'
 
 // Collections & Repeat Orders Dashboard — a single Google Apps Script endpoint
-// (lib/collectionsDashboard.js's COLLECTIONS_URL), fetched once on mount and filtered entirely
-// client-side (the whole dataset is a few hundred KB of JSON, same scale as Enterprise
-// Solutions' single-fetch pattern — no server-side pagination/query needed). 100% read-only.
+// (lib/collectionsDashboard.js's COLLECTIONS_URL), fetched on mount, then re-polled on an
+// interval so a new row added on the sheet side shows up here without the user needing to hit
+// Refresh — filtered entirely client-side (the whole dataset is a few hundred KB of JSON, same
+// scale as Enterprise Solutions' single-fetch pattern — no server-side pagination/query needed).
+// 100% read-only.
+const REFRESH_MS = 60 * 1000
+
 export default function CollectionsDashboardPanel() {
   const [daily, setDaily] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,8 +34,10 @@ export default function CollectionsDashboardPanel() {
   const [filters, setFilters] = useState(EMPTY_COLLECTIONS_FILTERS)
   const [page, setPage] = useState(0)
 
-  async function load() {
-    setLoading(true)
+  // `silent` skips the full-page loading state so the periodic poll (and the manual Refresh
+  // button) update the numbers in place instead of blanking the whole dashboard every minute.
+  async function load({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     setError('')
     try {
       const raw = await fetchCollectionsRaw()
@@ -40,7 +46,7 @@ export default function CollectionsDashboardPanel() {
     } catch (e) {
       setError(e.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -49,9 +55,15 @@ export default function CollectionsDashboardPanel() {
     load()
   }, [])
 
+  // Cleared on unmount so navigating away from the panel doesn't leak the interval.
+  useEffect(() => {
+    const id = setInterval(() => load({ silent: true }), REFRESH_MS)
+    return () => clearInterval(id)
+  }, [])
+
   async function handleRefresh() {
     setRefreshing(true)
-    await load()
+    await load({ silent: true })
     setRefreshing(false)
   }
 

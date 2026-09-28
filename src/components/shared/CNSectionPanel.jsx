@@ -9,7 +9,11 @@ import OverlayShell from './OverlayShell'
 import CNCategoryBrowser from './CNCategoryBrowser'
 import DocCard from './DocCard'
 import UploadModal from './UploadModal'
-import { DOC_ICON } from './docIcons'
+import { DOC_ICON, FOLDER_ICON } from './docIcons'
+
+function openExternal(url) {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
 
 // Generic content-nodes section panel — ports old-portal/js/shared.js's
 // cnRenderCatGrid + cnOpenOverlay (the fully generic pair Sales calls
@@ -27,7 +31,13 @@ import { DOC_ICON } from './docIcons'
 // module-specific tool card injected onto an otherwise-generic CN grid (Finance's "Purchase
 // Request" card is the first real consumer of this; Sales' still-deferred "Deal Calculator" card
 // is the same shape, for whenever that's built).
-export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCardOpen = false, trackCardClose = false, extraCard = null }) {
+// `linkFolders`, when passed, is a { [categoryNameLowercased]: [{ name, url }] } map — a card
+// whose name matches a key opens a flat list of plain external Google Drive links instead of the
+// normal CNCategoryBrowser drill-down (same "hardcoded external link, no Supabase" shape as
+// ResourcesPanel's owner-tier cards, just reachable from inside a generic CN grid instead of a
+// dedicated panel). A link with no `url` yet (still pending from whoever owns that folder) shows
+// as disabled rather than opening nothing silently.
+export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCardOpen = false, trackCardClose = false, extraCard = null, linkFolders = null }) {
   const { permissions } = useAuth()
   const canDelete = canUploadFiles(permissions)
 
@@ -60,14 +70,19 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
           {extraCard}
           {cats.map((cat) => {
-            const count = CN.totalFiles(cat.id)
+            // For a linkFolders card, the real content_nodes count is always 0 (its "sub-folders"
+            // are hardcoded external Drive links, not real Supabase rows) — show the link count
+            // instead so the card doesn't read as empty.
+            const links = linkFolders?.[cat.name.trim().toLowerCase()]
+            const count = links ? links.length : CN.totalFiles(cat.id)
+            const unit = links ? 'folder' : 'file'
             return (
               <DocCard
                 key={cat.id}
                 icon={DOC_ICON}
                 name={cat.name}
                 desc={getCNCardDesc(cat.name)}
-                meta={`📂 ${count} file${count === 1 ? '' : 's'}`}
+                meta={`📂 ${count} ${unit}${count === 1 ? '' : 's'}`}
                 onClick={() => {
                   if (trackCardOpen) setCardName(cat.name)
                   setOpenModule({ id: cat.id, name: cat.name })
@@ -96,7 +111,22 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
               </div>
               <div className="text-[15px] font-semibold text-text">{openModule.name}</div>
             </div>
-            <CNCategoryBrowser rootNodeId={openModule.id} rootName={openModule.name} canDelete={canDelete} onContentChanged={reload} />
+            {linkFolders?.[openModule.name.trim().toLowerCase()] ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {linkFolders[openModule.name.trim().toLowerCase()].map((link) => (
+                  <DocCard
+                    key={link.name}
+                    icon={FOLDER_ICON}
+                    name={link.name}
+                    desc={link.url ? 'Opens the Google Drive folder in a new tab.' : 'Link coming soon.'}
+                    meta={link.url ? '📁 Open Drive Folder' : '⏳ Pending'}
+                    onClick={link.url ? () => openExternal(link.url) : undefined}
+                  />
+                ))}
+              </div>
+            ) : (
+              <CNCategoryBrowser rootNodeId={openModule.id} rootName={openModule.name} canDelete={canDelete} onContentChanged={reload} />
+            )}
           </>
         )}
       </OverlayShell>
