@@ -5,6 +5,7 @@ import { clearCardName, setCardName } from '../../../lib/activityTracking'
 import { useAuth } from '../../../context/AuthContext'
 import { canUploadFiles } from '../../../lib/cnUploadDelete'
 import { useCNSectionLoader } from '../../../hooks/useCNSectionLoader'
+import ErrorBoundary from '../../shared/ErrorBoundary'
 import DocCard from '../../shared/DocCard'
 import UploadModal from '../../shared/UploadModal'
 import { DOC_ICON } from '../../shared/docIcons'
@@ -166,7 +167,12 @@ export default function HRPanel() {
         }}
       />
       <UploadModal open={uploadOpen} sectionName="HR" onClose={() => setUploadOpen(false)} onUploaded={reload} />
-      <OrgChartOverlay open={orgChartOpen} hrSectionId={hrSectionId} onClose={() => setOrgChartOpen(false)} />
+      {/* Scoped so a render error in the React Flow tree (still new, still being hardened) shows a
+          recoverable message for just this card instead of taking down the whole HR panel — the
+          same top-level ErrorBoundary PortalShell wraps every panel in was doing that before. */}
+      <ErrorBoundary>
+        <OrgChartOverlay open={orgChartOpen} onClose={() => setOrgChartOpen(false)} />
+      </ErrorBoundary>
       <DirectoryOverlay open={directoryOpen} hrSectionId={hrSectionId} onClose={() => setDirectoryOpen(false)} />
       <HolidayOverlay
         open={holidayOpen}

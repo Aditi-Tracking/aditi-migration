@@ -44,6 +44,7 @@ export const PERM_LABELS = {
   field_service_view_all: '🛠️ Field Service — View All Entries',
   hr_employee_view: '🧑‍💼 HR Employee Master — View',
   hr_employee_edit: '🧑‍💼 HR Employee Master — Edit',
+  hr_org_chart_manage: '🏢 Org Chart — Add/Remove/Reparent',
   home_content_manage: '🏠 Home Content — Manage Sections & Cards',
   can_view_pricing: '💰 Deal Calculator',
   can_access_cost_master: '🔐 Cost Master (Pricing Admin)',

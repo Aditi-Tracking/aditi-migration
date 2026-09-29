@@ -1,166 +1,201 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import OverlayShell from '../../shared/OverlayShell'
-import { CN } from '../../../lib/contentNodes'
-import { useFileViewer } from '../../../context/FileViewerContext'
+import { useAuth } from '../../../context/AuthContext'
+import { BRANCHES, buildTree, canManageOrgChart, fetchOrgChartData, getVisibleRoots, removeOrgChartNode, rowLabel } from '../../../lib/orgChart'
+import OrgChartTree from './OrgChartTree'
+import OrgChartEmployeePicker from './OrgChartEmployeePicker'
+import OrgChartBulkAddModal from './OrgChartBulkAddModal'
 
-// Ported from old-portal/js/products.js's openOrgChartPicker/openOrgChartOverlay/
-// backToOrgChartPicker/closeOrgChartOverlay — functionally an HR/Org-Chart
-// feature, moved to its correct home in this React module (see plan notes).
-const OFFICES = [
-  {
-    type: 'Head Office',
-    color: '#2563EB',
-    title: 'Head Office',
-    desc: 'Mumbai HQ team structure',
-  },
-  {
-    type: 'Branch Office',
-    color: '#2563EB',
-    title: 'Branch Offices',
-    desc: 'Goa, Bengaluru, Ahmedabad & more',
-  },
-]
+// Full replacement of the old static CMS document picker (Head Office / Branch Office buttons
+// opening uploaded PDFs) with a live, database-driven tree — see src/lib/orgChart.js for the
+// schema/data-model notes. hrSectionId is no longer needed (nothing here reads content_nodes).
+export default function OrgChartOverlay({ open, onClose }) {
+  const { currentUser, permissions } = useAuth()
+  const canManage = canManageOrgChart(currentUser, permissions)
 
-export default function OrgChartOverlay({ open, hrSectionId, onClose }) {
-  const { openFileViewer } = useFileViewer()
-  const [screen, setScreen] = useState('picker') // 'picker' | 'docs'
-  const [moduleType, setModuleType] = useState(null)
+  const [branch, setBranch] = useState('Mumbai')
   const [loading, setLoading] = useState(false)
-  const [docs, setDocs] = useState([])
   const [error, setError] = useState('')
+  const [nodes, setNodes] = useState([])
+  const [employeesById, setEmployeesById] = useState({})
+  const [employeesList, setEmployeesList] = useState([])
 
-  useEffect(() => {
-    // Reset to the picker screen each time the overlay opens — it stays
-    // mounted between opens/closes.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (open) setScreen('picker')
-  }, [open])
+  const [selectedNode, setSelectedNode] = useState(null)
+  const [picker, setPicker] = useState(null) // { mode: 'add' | 'reparent', node? }
+  const [bulkAddOpen, setBulkAddOpen] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
-  async function selectOffice(type) {
-    setModuleType(type)
-    setScreen('docs')
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    setDocs([])
-
     try {
-      const isHead = type === 'Head Office'
-      const cats = CN.getCategories(hrSectionId)
-      const orgCat = cats.find(
-        (c) => (c.name || '').toLowerCase().includes('organization') || (c.name || '').toLowerCase().includes('org chart')
-      )
-      let resultDocs = []
-      if (orgCat) {
-        if (isHead) {
-          resultDocs = CN.getFiles(orgCat.id)
-        } else {
-          const subCats = CN.getCategories(orgCat.id)
-          const branchCat = subCats.find((c) => (c.name || '').toLowerCase().includes('branch'))
-          if (branchCat) resultDocs = CN.getFiles(branchCat.id)
-        }
-      }
-
-      setLoading(false)
-
-      // Head Office — if only 1 doc, open directly
-      if (isHead && resultDocs.length === 1) {
-        onClose()
-        openFileViewer(resultDocs[0].url, resultDocs[0].name || 'Org Chart')
-        return
-      }
-
-      setDocs(resultDocs)
+      const data = await fetchOrgChartData()
+      setNodes(data.nodes)
+      setEmployeesById(data.employeesById)
+      setEmployeesList(data.employeesList)
     } catch (e) {
+      setError('Error loading org chart: ' + e.message)
+    } finally {
       setLoading(false)
-      setError('Error loading documents: ' + e.message)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to Head Office each time the overlay opens
+      setBranch('Mumbai')
+      setSelectedNode(null)
+      setPicker(null)
+      setBulkAddOpen(false)
+      load()
+    }
+  }, [open, load])
+
+  const { rows, byId, childrenByManager } = useMemo(() => buildTree(nodes, employeesById), [nodes, employeesById])
+  const roots = useMemo(() => getVisibleRoots(rows, byId, branch), [rows, byId, branch])
+  const existingEmpIds = useMemo(() => new Set(rows.map((r) => r.emp_id)), [rows])
+
+  async function handleRemove(node) {
+    setRemoving(true)
+    try {
+      await removeOrgChartNode(node, rows)
+      setSelectedNode(null)
+      await load()
+    } catch (e) {
+      setError('Error removing employee: ' + e.message)
+    } finally {
+      setRemoving(false)
     }
   }
 
   if (!open) return null
 
-  const isHead = moduleType === 'Head Office'
-
   return (
-    <OverlayShell open={open} onClose={onClose} maxWidth="max-w-lg">
-      {screen === 'picker' ? (
-        <>
-          <div className="text-[17px] font-bold text-text mb-1 pr-8">🏢 Organization Chart</div>
-          <div className="text-[14px] text-text-muted mb-5">Select office to view the org chart</div>
-          <div className="grid grid-cols-2 gap-3">
-            {OFFICES.map((o) => (
+    <>
+      <OverlayShell open={open} onClose={onClose} maxWidth="max-w-[96vw]" height="h-[92vh]">
+        <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between gap-3 mb-1 pr-8">
+          <div>
+            <div className="text-[17px] font-bold text-text">🏢 Organization Chart</div>
+            <div className="text-[13.5px] text-text-muted mt-0.5">Aditi Tracking — team structure by office</div>
+          </div>
+          {canManage && (
+            <div className="flex gap-2 shrink-0">
               <button
-                key={o.type}
                 type="button"
-                onClick={() => selectOffice(o.type)}
-                className="rounded-xl border border-border bg-surface-2 p-4 text-center hover:border-primary/40 hover:-translate-y-0.5 transition-all"
+                onClick={() => setBulkAddOpen(true)}
+                className="text-[13px] font-semibold text-primary border border-primary/30 rounded-md px-3 py-1.5"
               >
-                <div className="w-11 h-11 mx-auto rounded-lg bg-primary-tint border border-primary/20 flex items-center justify-center text-primary mb-3">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="8" y="2" width="8" height="4" rx="1" />
-                    <rect x="1" y="17" width="6" height="4" rx="1" />
-                    <rect x="9" y="17" width="6" height="4" rx="1" />
-                    <rect x="17" y="17" width="6" height="4" rx="1" />
-                    <path d="M12 6v4M4 17v-3a2 2 0 012-2h12a2 2 0 012 2v3" />
-                    <line x1="12" y1="10" x2="12" y2="12" />
-                  </svg>
-                </div>
-                <div className="text-[15px] font-bold text-text">{o.title}</div>
-                <div className="text-[13px] text-text-muted mt-1">{o.desc}</div>
-                <div className="text-[13px] font-semibold text-primary mt-2.5">View Charts →</div>
+                📋 Bulk Add
               </button>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="flex items-center gap-2.5 mb-5 pr-8">
-            <button type="button" onClick={() => setScreen('picker')} className="text-text-muted text-[18px] leading-none">
-              ←
-            </button>
-            <div>
-              <div className="text-[16px] font-bold text-text">
-                {isHead ? '🏢 Head Office — Org Charts' : '🏬 Branch Offices — Org Charts'}
-              </div>
-              <div className="text-[13.5px] text-text-muted mt-0.5">
-                {isHead ? 'Mumbai Head Office organizational structure.' : 'Goa, Bengaluru, Ahmedabad and other branch office org charts.'}
-              </div>
+              <button
+                type="button"
+                onClick={() => setPicker({ mode: 'add' })}
+                className="text-[13px] font-semibold text-primary border border-primary/30 rounded-md px-3 py-1.5"
+              >
+                + Add Employee
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicker({ mode: 'tba' })}
+                className="text-[13px] font-semibold text-primary border border-primary/30 rounded-md px-3 py-1.5"
+              >
+                + Add TBA Role
+              </button>
             </div>
-          </div>
+          )}
+        </div>
 
-          {loading && <div className="text-center py-10 text-text-muted text-[14.5px]">Loading…</div>}
-          {!loading && error && <div className="text-center py-10 text-danger text-[14.5px]">{error}</div>}
-          {!loading && !error && !docs.length && (
-            <div className="text-center py-10 text-text-muted text-[14.5px]">No documents found.</div>
+        <div className="flex flex-wrap gap-2 mt-4 mb-5">
+          {BRANCHES.map((b) => (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => setBranch(b.key)}
+              className={`text-[13px] font-semibold rounded-md px-3 py-1.5 border transition-colors ${
+                branch === b.key ? 'bg-primary text-white border-primary' : 'border-border text-text-muted hover:border-primary/40'
+              }`}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 min-h-0">
+          {loading && <div className="text-center py-16 text-text-muted text-[14.5px]">Loading…</div>}
+          {!loading && error && <div className="text-center py-16 text-danger text-[14.5px]">⚠️ {error}</div>}
+          {!loading && !error && (
+            <OrgChartTree
+              roots={roots}
+              childrenByManager={childrenByManager}
+              onSelectNode={setSelectedNode}
+              branch={branch}
+              canManage={canManage}
+            />
           )}
-          {!loading && !error && docs.length > 0 && (
-            <div className="flex flex-col gap-2.5">
-              {docs.map((doc) => (
-                <button
-                  key={doc.id}
-                  type="button"
-                  onClick={() => openFileViewer(doc.url, doc.name)}
-                  className="flex items-center gap-3.5 rounded-lg border border-border bg-surface-2 px-4 py-3 text-left hover:border-primary/40 transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-md bg-primary-tint border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="8" y="2" width="8" height="4" rx="1" />
-                      <rect x="1" y="17" width="6" height="4" rx="1" />
-                      <rect x="9" y="17" width="6" height="4" rx="1" />
-                      <rect x="17" y="17" width="6" height="4" rx="1" />
-                      <path d="M12 6v4M4 17v-3a2 2 0 012-2h12a2 2 0 012 2v3" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[14.5px] font-semibold text-text truncate">{doc.name}</div>
-                    <div className="text-[13px] text-primary mt-0.5">🔗 Open Document</div>
-                  </div>
-                  <span className="text-primary text-[15px] shrink-0">→</span>
-                </button>
-              ))}
+        </div>
+        </div>
+      </OverlayShell>
+
+      {selectedNode && (
+        <OverlayShell open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="max-w-sm">
+          <div className="text-[16px] font-bold text-text mb-1 pr-8">{rowLabel(selectedNode)}</div>
+          <div className="text-[13.5px] text-text-muted mb-4">
+            {selectedNode.is_tba ? 'Vacant — no employee assigned' : selectedNode.display_role || 'No role set'}
+          </div>
+          <div className="text-[12.5px] text-text-muted mb-5">
+            {!selectedNode.is_tba && selectedNode.department ? `${selectedNode.department} · ` : ''}
+            {BRANCHES.find((b) => b.key === selectedNode.location)?.label || selectedNode.location}
+          </div>
+          {canManage && (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPicker({ mode: 'reparent', node: selectedNode })}
+                className="rounded-lg px-4 py-2 font-semibold text-primary border border-primary/30"
+              >
+                {selectedNode.is_tba ? 'Edit / Fill Role' : 'Edit Manager / Role'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemove(selectedNode)}
+                disabled={removing}
+                className="rounded-lg px-4 py-2 font-semibold text-danger border border-danger/30 disabled:opacity-50"
+              >
+                {removing ? 'Removing…' : 'Remove'}
+              </button>
             </div>
           )}
-        </>
+        </OverlayShell>
       )}
-    </OverlayShell>
+
+      {picker && (
+        <OrgChartEmployeePicker
+          open={!!picker}
+          mode={picker.mode}
+          branch={branch}
+          rows={rows}
+          childrenByManager={childrenByManager}
+          employeesList={employeesList}
+          existingEmpIds={existingEmpIds}
+          node={picker.node}
+          onClose={() => setPicker(null)}
+          onSaved={async () => {
+            await load()
+            setSelectedNode(null)
+          }}
+        />
+      )}
+
+      <OrgChartBulkAddModal
+        open={bulkAddOpen}
+        branch={branch}
+        rows={rows}
+        employeesList={employeesList}
+        existingEmpIds={existingEmpIds}
+        onClose={() => setBulkAddOpen(false)}
+        onSaved={load}
+      />
+    </>
   )
 }

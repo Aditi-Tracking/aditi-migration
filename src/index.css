@@ -10,6 +10,16 @@
   --color-text-muted: #64748B;
   --color-danger: #DC2626;
   --color-danger-tint: #FEF2F2;
+
+  /* Org Chart per-depth-level color coding only — a deliberate, scoped exception to this
+     project's single-blue-palette convention, requested specifically for hierarchy-level
+     coding (President/VP/Manager-style), not a general multi-color badge system. */
+  --color-depth-violet: #7C3AED;
+  --color-depth-violet-tint: #F5F3FF;
+  --color-depth-teal: #0D9488;
+  --color-depth-teal-tint: #F0FDFA;
+  --color-depth-amber: #D97706;
+  --color-depth-amber-tint: #FFFBEB;
 }
 
 /* Manual dark-mode toggle (old-portal/js/app.js's toggleTheme), not
@@ -24,6 +34,9 @@
   --color-text: #F1F5F9;
   --color-text-muted: #94A3B8;
   --color-danger-tint: rgba(220, 38, 38, 0.18);
+  --color-depth-violet-tint: rgba(124, 58, 237, 0.16);
+  --color-depth-teal-tint: rgba(13, 148, 136, 0.16);
+  --color-depth-amber-tint: rgba(217, 119, 6, 0.16);
 }
 
 /* Reserves the vertical scrollbar's gutter permanently, so a page
