@@ -1,27 +1,34 @@
 import { SB_HDRS, SB_HDRS_JSON, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_URL } from './supabaseClient'
 
-// Ported from old-portal/js/dealPricing.js. Tables: pricing_products,
-// pricing_state_costs, pricing_quotes, pricing_quote_lines,
+// Ported from old-portal/js/dealPricing.js, since redesigned around GST-inclusive
+// prices. Tables: pricing_products, pricing_quotes, pricing_quote_lines,
 // pricing_admin_users, pricing_quote_counters. RPCs: is_pricing_admin(),
 // get_pricing_catalog(state), submit_quote(...).
 //
-// Reps only ever see floor_price via get_pricing_catalog() — cost_price never
-// leaves pricing_products/pricing_state_costs, which RLS locks down to
-// is_pricing_admin() only. No direct writes to pricing_quotes/
-// pricing_quote_lines from here; quotes only ever go through submit_quote()
-// (server re-validates floor + totals, never trusts the client's numbers).
-// No UI anywhere reads pricing_quotes back — the quote "log" is write-only
-// from the frontend's perspective; the downloaded PDF is the only artifact
-// the user keeps.
+// pricing_products rows are either a 'product' (optionally scoped to one
+// state; state = null means universal) or an 'accessory' (always universal).
+// Admins edit price_incl_gst / renewal_price_incl_gst; floor_price /
+// renewal_floor_price are generated columns (ex-GST, price_incl_gst / 1.18)
+// and are never sent in an insert/update payload.
+//
+// Reps only ever see floor prices via get_pricing_catalog() — RLS locks
+// pricing_products down to is_pricing_admin() only. No direct writes to
+// pricing_quotes/pricing_quote_lines from here; quotes only ever go through
+// submit_quote() (server re-validates floor + totals, never trusts the
+// client's numbers). No UI anywhere reads pricing_quotes back — the quote
+// "log" is write-only from the frontend's perspective; the on-screen preview
+// shown after submitting is the only record the user sees.
 
 // Branch states this pricing model currently understands — org branch
 // metadata, not product data, same kind of small hand-maintained list as
 // RU_LOCATIONS in lib/renewals.js.
-export const DP_STATES = ['Maharashtra', 'Gujarat', 'Karnataka', 'Goa']
+export const DP_STATES = ['Maharashtra', 'Gujarat', 'Karnataka', 'Goa', 'Madhya Pradesh', 'Tamil Nadu']
 
 // Defaults the Calculator's state picker to the rep's own branch, reusing
 // the same crm_persons.location codes lib/renewals.js already reads for its
 // own location scoping.
+// TODO: add the crm_persons.location codes for Madhya Pradesh and Tamil Nadu
+// once known — until then reps in those branches default to Maharashtra.
 const DP_LOCATION_TO_STATE = {
   original: 'Maharashtra', // Mumbai HO
   gujarat: 'Gujarat',
@@ -82,9 +89,17 @@ export async function fetchPricingCatalog(state) {
   return res.json()
 }
 
-// Margin % mirrors submit_quote's own definition (margin over floor, not
-// over cost — reps never see cost), so what's previewed client-side always
-// matches what the server stores: (selling/floor - 1) * 100.
+// Which floor applies to a catalog item for a given line type — null when
+// that price hasn't been set yet. Accessories have no renewal, always 'new'.
+export function floorFor(item, lineType) {
+  if (!item) return null
+  const floor = item.product_type !== 'accessory' && lineType === 'renewal' ? item.renewal_floor_price : item.floor_price
+  return floor ?? null
+}
+
+// Margin % mirrors submit_quote's own definition (margin over the applicable
+// floor), so what's previewed client-side always matches what the server
+// stores: (selling/floor - 1) * 100.
 export function priceFromMargin(floorPrice, marginPct) {
   return round2(floorPrice * (1 + marginPct / 100))
 }
@@ -93,8 +108,25 @@ export function marginFromPrice(floorPrice, sellingPrice) {
   return floorPrice > 0 ? round2((sellingPrice / floorPrice - 1) * 100) : 0
 }
 
+// A line's own state, against the currently loaded catalog:
+//   'unavailable' — its product isn't in the catalog (e.g. state-specific
+//                   product after a state change)
+//   'no_price'    — product exists but the applicable floor isn't set yet
+//   'ok'          — priceable
+export function lineStatus(line, catalog) {
+  const item = catalog.find((p) => p.product_id === line.product_id)
+  if (!item) return 'unavailable'
+  return floorFor(item, line.line_type) == null ? 'no_price' : 'ok'
+}
+
+// `floor_price` on a line is already the applicable floor (New or Renewal),
+// or null when the line isn't priceable.
 export function hasBelowFloor(lines) {
-  return lines.some((l) => l.product_id && l.selling_price < l.floor_price)
+  return lines.some((l) => l.product_id && l.floor_price != null && l.selling_price < l.floor_price)
+}
+
+export function hasBlockedLines(lines, catalog) {
+  return lines.some((l) => l.product_id && lineStatus(l, catalog) !== 'ok')
 }
 
 export function computeTotals(lines, catalog) {
@@ -121,7 +153,7 @@ export async function submitQuote({ state, customerName, lines }) {
     body: JSON.stringify({
       p_state: state,
       p_customer_name: customerName,
-      p_lines: lines.map((l) => ({ product_id: l.product_id, qty: l.qty, selling_price: l.selling_price })),
+      p_lines: lines.map((l) => ({ product_id: l.product_id, line_type: l.line_type, qty: l.qty, selling_price: l.selling_price })),
     }),
   })
   if (!res.ok) {
@@ -132,34 +164,14 @@ export async function submitQuote({ state, customerName, lines }) {
 }
 
 // ── Cost Master — MD-office only (is_pricing_admin() RPC, independent of
-// can_view_pricing). Reads/writes pricing_products and pricing_state_costs
-// directly (no RPC) — RLS on both tables already restricts this to
-// is_pricing_admin() users. ───────────────────────────────────────────────
-export const DP_PRODUCT_CATEGORIES = ['Hardware', 'Sensors', 'Subscription', 'Services']
+// can_view_pricing). Reads/writes pricing_products directly (no RPC) — RLS
+// already restricts this to is_pricing_admin() users. ──────────────────────
+export const DP_PRODUCT_TYPES = ['product', 'accessory']
 
-export function productFloor(product) {
-  return round2(product.cost_price * (1 + product.default_margin_pct / 100))
-}
-
-// Uses the PRODUCT's own default margin, not a per-override one — matches
-// production exactly.
-export function overrideFloor(costPrice, product) {
-  return round2(costPrice * (1 + product.default_margin_pct / 100))
-}
-
-export async function fetchCostMasterData() {
-  const [prodRes, overridesRes] = await Promise.all([
-    fetch(`${SUPABASE_URL}/rest/v1/pricing_products?select=*&order=category.asc,name.asc`, { headers: SB_HDRS() }),
-    fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs?select=*`, { headers: SB_HDRS() }),
-  ])
-  if (!prodRes.ok) throw new Error('HTTP ' + prodRes.status)
-  const products = await prodRes.json()
-  const overrides = overridesRes.ok ? await overridesRes.json() : []
-  const overridesByProduct = {}
-  overrides.forEach((o) => {
-    ;(overridesByProduct[o.product_id] = overridesByProduct[o.product_id] || []).push(o)
-  })
-  return { products, overridesByProduct }
+export async function fetchCostMasterProducts() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_products?select=*&order=product_type.asc,name.asc`, { headers: SB_HDRS() })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  return res.json()
 }
 
 // Soft-delete only, never a hard DELETE — old quotes' floor_price snapshots
@@ -173,54 +185,23 @@ export async function toggleProductActive(productId, newActive) {
   if (!res.ok) throw new Error('HTTP ' + res.status)
 }
 
-// Returns the created row on insert (needed to switch the modal into edit
-// mode immediately), nothing meaningful on update.
+// Returns the saved row in both cases — floor_price/renewal_floor_price are
+// generated columns, so the row the server sends back is the only source of
+// their new values. The payload must never include them.
 export async function saveProduct(productId, payload) {
-  if (productId) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_products?id=eq.${productId}`, {
-      method: 'PATCH',
-      headers: SB_HDRS_MIN(),
-      body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() }),
-    })
-    if (!res.ok) throw new Error(await res.text())
-    return null
-  }
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_products`, {
-    method: 'POST',
-    headers: SB_HDRS_REPR(),
-    body: JSON.stringify(payload),
-  })
+  const res = productId
+    ? await fetch(`${SUPABASE_URL}/rest/v1/pricing_products?id=eq.${productId}`, {
+        method: 'PATCH',
+        headers: SB_HDRS_REPR(),
+        body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() }),
+      })
+    : await fetch(`${SUPABASE_URL}/rest/v1/pricing_products`, {
+        method: 'POST',
+        headers: SB_HDRS_REPR(),
+        body: JSON.stringify(payload),
+      })
   if (!res.ok) throw new Error(await res.text())
-  const [created] = await res.json()
-  return created
-}
-
-// ── State overrides — each row commits to pricing_state_costs immediately,
-// independent of the base product's own Save button. ─────────────────────
-export async function addOverride(productId, state, costPrice) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs`, {
-    method: 'POST',
-    headers: SB_HDRS_REPR(),
-    body: JSON.stringify({ product_id: productId, state, cost_price: costPrice }),
-  })
-  if (!res.ok) throw new Error(await res.text())
-  const [created] = await res.json()
-  return created
-}
-
-export async function updateOverride(overrideId, costPrice) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs?id=eq.${overrideId}`, {
-    method: 'PATCH',
-    headers: SB_HDRS_MIN(),
-    body: JSON.stringify({ cost_price: costPrice }),
-  })
-  if (!res.ok) throw new Error('HTTP ' + res.status)
-}
-
-export async function deleteOverride(overrideId) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/pricing_state_costs?id=eq.${overrideId}`, {
-    method: 'DELETE',
-    headers: SB_HDRS(),
-  })
-  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const [saved] = await res.json()
+  if (!saved) throw new Error('Save was not applied (no row returned).')
+  return saved
 }

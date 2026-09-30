@@ -1,26 +1,33 @@
 import { useEffect, useState } from 'react'
-import { fetchCostMasterData, productFloor, toggleProductActive } from '../../../lib/dealPricing'
+import { fetchCostMasterProducts, toggleProductActive } from '../../../lib/dealPricing'
 import ProductModal from './ProductModal'
 
 // Ported from old-portal/js/dealPricing.js's dpLoadCostMaster/
-// dpRenderCostMasterTable/dpToggleProductActive. All mutations patch local
-// state directly (matching production's own _dpCostMasterRows/
-// _dpOverridesByProduct in-memory updates) rather than refetching — this
-// screen's own writes are the only thing that can change it.
+// dpRenderCostMasterTable/dpToggleProductActive, since reworked for
+// GST-inclusive prices. All mutations patch local state directly rather than
+// refetching — this screen's own writes are the only thing that can change it.
+// Floors are generated columns: shown read-only, taken from the row the server
+// last returned.
+function fmtPrice(n) {
+  return n == null ? 'TBA' : `₹${Number(n).toFixed(2)}`
+}
+
+function fmtFloor(n) {
+  return n == null ? '—' : `₹${Number(n).toFixed(2)}`
+}
+
 export default function CostMasterTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [products, setProducts] = useState([])
-  const [overridesByProduct, setOverridesByProduct] = useState({})
   const [modalProductId, setModalProductId] = useState(undefined) // undefined = closed, null = new, id = editing
 
   useEffect(() => {
     let cancelled = false
-    fetchCostMasterData()
-      .then(({ products, overridesByProduct }) => {
+    fetchCostMasterProducts()
+      .then((rows) => {
         if (cancelled) return
-        setProducts(products)
-        setOverridesByProduct(overridesByProduct)
+        setProducts(rows)
       })
       .catch((e) => {
         if (!cancelled) setError(e.message)
@@ -49,7 +56,7 @@ export default function CostMasterTab() {
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-3.5 flex-wrap">
-        <div className="text-[12px] text-text-muted">Product costs, margins &amp; GST — visible to MD office only. Reps never see this screen or the cost price.</div>
+        <div className="text-[12px] text-text-muted">Product &amp; accessory prices (GST-inclusive), renewal prices &amp; GST — visible to MD office only. Floors are computed automatically.</div>
         <button
           type="button"
           onClick={() => setModalProductId(null)}
@@ -72,64 +79,51 @@ export default function CostMasterTab() {
                 <thead>
                   <tr className="text-left text-text-muted text-[11px] uppercase tracking-wide border-b border-border">
                     <th className="px-3 py-2 font-semibold">Name</th>
-                    <th className="px-3 py-2 font-semibold">Category</th>
+                    <th className="px-3 py-2 font-semibold">Type</th>
+                    <th className="px-3 py-2 font-semibold">State</th>
                     <th className="px-3 py-2 font-semibold">Unit</th>
-                    <th className="px-3 py-2 font-semibold">Cost</th>
-                    <th className="px-3 py-2 font-semibold">Margin %</th>
-                    <th className="px-3 py-2 font-semibold">Base Floor</th>
+                    <th className="px-3 py-2 font-semibold">Price incl. GST</th>
+                    <th className="px-3 py-2 font-semibold">Floor</th>
+                    <th className="px-3 py-2 font-semibold">Renewal incl. GST</th>
+                    <th className="px-3 py-2 font-semibold">Renewal Floor</th>
                     <th className="px-3 py-2 font-semibold">GST %</th>
-                    <th className="px-3 py-2 font-semibold">State Overrides</th>
                     <th className="px-3 py-2 font-semibold">Status</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p) => {
-                    const overrides = overridesByProduct[p.id] || []
-                    return (
-                      <tr key={p.id} className={`border-b border-border last:border-0 ${p.is_active ? '' : 'opacity-50'}`}>
-                        <td className="px-3 py-2 text-text">{p.name}</td>
-                        <td className="px-3 py-2 text-text">{p.category}</td>
-                        <td className="px-3 py-2 text-text">{p.unit}</td>
-                        <td className="px-3 py-2 text-text">₹{Number(p.cost_price).toFixed(2)}</td>
-                        <td className="px-3 py-2 text-text">{Number(p.default_margin_pct).toFixed(1)}%</td>
-                        <td className="px-3 py-2 text-text">₹{productFloor(p).toFixed(2)}</td>
-                        <td className="px-3 py-2 text-text">{Number(p.gst_pct).toFixed(1)}%</td>
-                        <td className="px-3 py-2">
-                          {overrides.length ? (
-                            <div className="flex flex-wrap gap-1">
-                              {overrides.map((o) => (
-                                <span key={o.id} className="rounded-full bg-primary-tint border border-primary/20 text-primary text-[10.5px] px-2 py-0.5">
-                                  {o.state}: ₹{Number(o.cost_price).toFixed(2)}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-text-muted text-[11.5px]">Base cost only</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          {p.is_active ? (
-                            <span className="rounded-full bg-primary-tint border border-primary/20 text-primary text-[10.5px] font-medium px-2 py-0.5">Active</span>
-                          ) : (
-                            <span className="rounded-full bg-border/40 border border-border text-text-muted text-[10.5px] font-medium px-2 py-0.5">Inactive</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <button type="button" onClick={() => setModalProductId(p.id)} className="text-primary text-[12px] font-semibold mr-2.5">
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(p)}
-                            className={`text-[12px] font-semibold ${p.is_active ? 'text-danger' : 'text-primary'}`}
-                          >
-                            {p.is_active ? 'Deactivate' : 'Reactivate'}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {products.map((p) => (
+                    <tr key={p.id} className={`border-b border-border last:border-0 ${p.is_active ? '' : 'opacity-50'}`}>
+                      <td className="px-3 py-2 text-text">{p.name}</td>
+                      <td className="px-3 py-2 text-text capitalize">{p.product_type}</td>
+                      <td className="px-3 py-2 text-text">{p.state || 'All states'}</td>
+                      <td className="px-3 py-2 text-text">{p.unit}</td>
+                      <td className="px-3 py-2 text-text">{fmtPrice(p.price_incl_gst)}</td>
+                      <td className="px-3 py-2 text-text">{fmtFloor(p.floor_price)}</td>
+                      <td className="px-3 py-2 text-text">{fmtPrice(p.renewal_price_incl_gst)}</td>
+                      <td className="px-3 py-2 text-text">{fmtFloor(p.renewal_floor_price)}</td>
+                      <td className="px-3 py-2 text-text">{Number(p.gst_pct).toFixed(1)}%</td>
+                      <td className="px-3 py-2">
+                        {p.is_active ? (
+                          <span className="rounded-full bg-primary-tint border border-primary/20 text-primary text-[10.5px] font-medium px-2 py-0.5">Active</span>
+                        ) : (
+                          <span className="rounded-full bg-border/40 border border-border text-text-muted text-[10.5px] font-medium px-2 py-0.5">Inactive</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <button type="button" onClick={() => setModalProductId(p.id)} className="text-primary text-[12px] font-semibold mr-2.5">
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(p)}
+                          className={`text-[12px] font-semibold ${p.is_active ? 'text-danger' : 'text-primary'}`}
+                        >
+                          {p.is_active ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -140,26 +134,9 @@ export default function CostMasterTab() {
       <ProductModal
         open={modalOpen}
         product={editingProduct}
-        overrides={editingProduct ? overridesByProduct[editingProduct.id] || [] : []}
         onClose={() => setModalProductId(undefined)}
-        onProductCreated={(created) => {
-          setProducts((prev) => [...prev, created])
-          setModalProductId(created.id)
-        }}
-        onProductUpdated={(id, payload) => {
-          setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...payload } : p)))
-        }}
-        onOverrideAdded={(productId, created) => {
-          setOverridesByProduct((prev) => ({ ...prev, [productId]: [...(prev[productId] || []), created] }))
-        }}
-        onOverrideUpdated={(productId, overrideId, costPrice) => {
-          setOverridesByProduct((prev) => ({
-            ...prev,
-            [productId]: (prev[productId] || []).map((o) => (o.id === overrideId ? { ...o, cost_price: costPrice } : o)),
-          }))
-        }}
-        onOverrideDeleted={(productId, overrideId) => {
-          setOverridesByProduct((prev) => ({ ...prev, [productId]: (prev[productId] || []).filter((o) => o.id !== overrideId) }))
+        onSaved={(saved) => {
+          setProducts((prev) => (prev.some((p) => p.id === saved.id) ? prev.map((p) => (p.id === saved.id ? saved : p)) : [...prev, saved]))
         }}
       />
     </div>
