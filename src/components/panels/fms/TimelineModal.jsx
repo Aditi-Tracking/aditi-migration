@@ -3,6 +3,7 @@ import { useAuth } from '../../../context/AuthContext'
 import OverlayShell from '../../shared/OverlayShell'
 import {
   calcPendingAmount,
+  canCreateOrder,
   canOverride,
   canReassign,
   certQuantity,
@@ -36,6 +37,7 @@ export default function TimelineModal({
   empMap,
   onClose,
   onEdit,
+  onDuplicate,
   onDelete,
   onOpenPayment,
   onOpenReassign,
@@ -189,6 +191,18 @@ export default function TimelineModal({
           </span>
         </div>
         <div className="flex gap-1.5">
+          {canCreateOrder(currentUser, permissions) && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onDuplicate(order.id)
+              }}
+              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+            >
+              ⧉ Duplicate
+            </button>
+          )}
           {(isOrderCreator || isOverride) && (
             <button
               type="button"

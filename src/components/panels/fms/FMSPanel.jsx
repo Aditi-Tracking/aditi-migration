@@ -55,6 +55,7 @@ export default function FMSPanel() {
 
   const [newOrderOpen, setNewOrderOpen] = useState(false)
   const [editOrder, setEditOrder] = useState(null)
+  const [duplicateOrder, setDuplicateOrder] = useState(null)
   const [paymentOrderId, setPaymentOrderId] = useState(null)
   const [timelineOrderId, setTimelineOrderId] = useState(null)
   // { kind: 'support'|'certify'|'config'|'engineer'|'install'|'reassign', orderId } | null
@@ -180,6 +181,7 @@ export default function FMSPanel() {
               type="button"
               onClick={() => {
                 setEditOrder(null)
+                setDuplicateOrder(null)
                 setNewOrderOpen(true)
               }}
               className="text-[12px] font-semibold text-white bg-primary rounded-md px-3.5 py-1.5"
@@ -241,8 +243,10 @@ export default function FMSPanel() {
         onClose={() => {
           setNewOrderOpen(false)
           setEditOrder(null)
+          setDuplicateOrder(null)
         }}
         editOrder={editOrder}
+        duplicateFrom={duplicateOrder}
         products={products}
         locations={locations}
         supportPersons={supportPersons}
@@ -267,6 +271,11 @@ export default function FMSPanel() {
         onClose={() => setTimelineOrderId(null)}
         onEdit={(orderId) => {
           setEditOrder(orders.find((o) => o.id === orderId) || null)
+          setNewOrderOpen(true)
+        }}
+        onDuplicate={(orderId) => {
+          setEditOrder(null)
+          setDuplicateOrder(orders.find((o) => o.id === orderId) || null)
           setNewOrderOpen(true)
         }}
         onDelete={handleDelete}

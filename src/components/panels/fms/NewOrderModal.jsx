@@ -46,9 +46,11 @@ function blankForm() {
 // field is shown (same shared form) but is functionally inert — production's
 // fmsUpdateOrder() never uploads or persists proof files, only Update
 // Payment does that. Not "fixing" that here.
-export default function NewOrderModal({ open, onClose, editOrder, products, locations, supportPersons, empMap, onSaved }) {
+export default function NewOrderModal({ open, onClose, editOrder, duplicateFrom, products, locations, supportPersons, empMap, onSaved }) {
   const { currentUser } = useAuth()
   const isEdit = !!editOrder
+  // Duplicate = a normal new order (create path) pre-filled from an existing one.
+  const isDuplicate = !!duplicateFrom && !isEdit
 
   const [form, setForm] = useState(blankForm())
   const rowIdSeq = useRef(1)
@@ -85,10 +87,11 @@ export default function NewOrderModal({ open, onClose, editOrder, products, loca
     setFormError('')
     setProofFiles([])
 
-    if (editOrder) {
+    const source = editOrder || duplicateFrom
+    if (source) {
       let items = []
       try {
-        items = JSON.parse(editOrder.product_items || '[]')
+        items = JSON.parse(source.product_items || '[]')
       } catch {
         /* fall back to empty row below */
       }
@@ -99,16 +102,16 @@ export default function NewOrderModal({ open, onClose, editOrder, products, loca
           : [blankRow(1)]
       )
       setForm({
-        clientType: editOrder.client_type || 'existing',
-        clientName: editOrder.client_name || '',
-        soNumber: editOrder.so_number || '',
-        ticketNo: editOrder.ticket_no || '',
-        orderAmount: editOrder.order_amount ?? '',
-        amountReceived: editOrder.amount_received ?? '',
-        tentativeDate: editOrder.tentative_date || '',
-        locationId: editOrder.location_type === 'outside' ? 'other' : editOrder.location_id != null ? String(editOrder.location_id) : '',
-        locationManual: editOrder.location_type === 'outside' ? editOrder.location_manual || '' : '',
-        assignSupport: editOrder.assigned_to_support || '',
+        clientType: source.client_type || 'existing',
+        clientName: source.client_name || '',
+        soNumber: isDuplicate ? '' : source.so_number || '',
+        ticketNo: isDuplicate ? '' : source.ticket_no || '',
+        orderAmount: source.order_amount ?? '',
+        amountReceived: isDuplicate ? '' : source.amount_received ?? '',
+        tentativeDate: isDuplicate ? '' : source.tentative_date || '',
+        locationId: source.location_type === 'outside' ? 'other' : source.location_id != null ? String(source.location_id) : '',
+        locationManual: source.location_type === 'outside' ? source.location_manual || '' : '',
+        assignSupport: isDuplicate ? '' : source.assigned_to_support || '',
       })
     } else {
       rowIdSeq.current = 1
@@ -118,10 +121,10 @@ export default function NewOrderModal({ open, onClose, editOrder, products, loca
       restoreDraftIfAny()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/edit-target change
-  }, [open, editOrder])
+  }, [open, editOrder, duplicateFrom])
 
   function scheduleDraftSave(nextForm, nextRows) {
-    if (isEdit) return
+    if (isEdit || isDuplicate) return
     clearTimeout(draftTimerRef.current)
     draftTimerRef.current = setTimeout(() => {
       try {
@@ -256,7 +259,7 @@ export default function NewOrderModal({ open, onClose, editOrder, products, loca
 
   return (
     <OverlayShell open={open} onClose={onClose} maxWidth="max-w-2xl">
-      <div className="text-[15px] font-semibold text-text mb-4">{isEdit ? `✏️ Edit Order — ${editOrder?.so_number || ''}` : '📋 New Installation Order'}</div>
+      <div className="text-[15px] font-semibold text-text mb-4">{isEdit ? `✏️ Edit Order — ${editOrder?.so_number || ''}` : isDuplicate ? '⧉ Duplicate Order' : '📋 New Installation Order'}</div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div className="sm:col-span-2">
