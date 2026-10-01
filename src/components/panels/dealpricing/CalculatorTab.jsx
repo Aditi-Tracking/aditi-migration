@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import {
   DP_STATES,
+  buildCatalogMap,
   computeTotals,
   fetchPricingCatalog,
   floorFor,
@@ -10,10 +11,10 @@ import {
   lineStatus,
   marginFromPrice,
   priceFromMargin,
-  resolveDefaultState,
   round2,
   submitQuote,
 } from '../../../lib/dealPricing'
+import SearchableSelect from '../../shared/SearchableSelect'
 import QuotePreviewModal from './QuotePreviewModal'
 
 let lineSeq = 0
@@ -40,8 +41,8 @@ function newLine(item) {
 // catalog reloads (state change) or the line's type flips. A product missing
 // from the catalog (state-specific, not offered in this state) keeps its row
 // but loses its floor, so it's flagged rather than silently dropped.
-function repriceLine(line, catalog) {
-  const item = catalog.find((p) => p.product_id === line.product_id)
+function repriceLine(line, catalogMap) {
+  const item = catalogMap.get(line.product_id)
   if (!item) return { ...line, floor_price: null, selling_price: 0 }
   const floor = floorFor(item, line.line_type)
   return { ...line, floor_price: floor, selling_price: floor == null ? 0 : priceFromMargin(floor, line.margin_pct) }
@@ -85,9 +86,17 @@ function DealPricingInfoBanner() {
 // Ported from old-portal/js/dealPricing.js's Calculator tab (dpLoadCatalog/
 // dpRenderLines/dpRenderTotals/dpGenerateQuote and friends), since reworked
 // for Products/Accessories, New/Renewal lines and the on-screen quote preview.
-export default function CalculatorTab() {
+function toOptions(catalog, type) {
+  return catalog
+    .filter((p) => p.product_type === type)
+    .map((p) => ({ value: p.product_id, label: p.name + (p.floor_price == null && p.renewal_floor_price == null ? ' — price TBA' : '') }))
+}
+
+// `initialState` is the rep's default branch, resolved by DealPricingPanel
+// before this mounts (so the first catalog fetch is already the right one).
+export default function CalculatorTab({ initialState }) {
   const { currentUser } = useAuth()
-  const [state, setState] = useState(DP_STATES[0])
+  const [state, setState] = useState(initialState)
   const [catalog, setCatalog] = useState([])
   const [customerName, setCustomerName] = useState('')
   const [lines, setLines] = useState([])
@@ -98,27 +107,15 @@ export default function CalculatorTab() {
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      const defaultState = await resolveDefaultState(currentUser)
-      if (cancelled) return
-      setState(defaultState)
-    })()
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once at mount to resolve the rep's default branch
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
     // eslint-disable-next-line react-hooks/set-state-in-effect -- kicks off the loading state for this state's catalog fetch
     setLoading(true)
     fetchPricingCatalog(state)
       .then((data) => {
         if (cancelled) return
+        const map = buildCatalogMap(data)
         setCatalog(data)
         // Re-price every existing line against the newly selected state's catalog.
-        setLines((prev) => prev.map((line) => repriceLine(line, data)))
+        setLines((prev) => prev.map((line) => repriceLine(line, map)))
       })
       .catch((e) => {
         if (cancelled) return
@@ -133,20 +130,22 @@ export default function CalculatorTab() {
     }
   }, [state])
 
-  const products = catalog.filter((p) => p.product_type === 'product')
-  const accessories = catalog.filter((p) => p.product_type === 'accessory')
-  const totals = computeTotals(lines, catalog)
+  const catalogMap = useMemo(() => buildCatalogMap(catalog), [catalog])
+  const productOptions = useMemo(() => toOptions(catalog, 'product'), [catalog])
+  const accessoryOptions = useMemo(() => toOptions(catalog, 'accessory'), [catalog])
+  const totals = useMemo(() => computeTotals(lines, catalogMap), [lines, catalogMap])
   const belowFloor = hasBelowFloor(lines)
-  const blocked = hasBlockedLines(lines, catalog)
+  const blocked = useMemo(() => hasBlockedLines(lines, catalogMap), [lines, catalogMap])
   const hasValidLine = lines.some((l) => l.product_id)
-  const generateDisabled = belowFloor || blocked || !hasValidLine || generating
+  // loading: the visible prices belong to the previous state until the refetch lands
+  const generateDisabled = belowFloor || blocked || !hasValidLine || generating || loading
 
   function updateLine(key, patch) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
   }
 
   function handleAddItem(productId) {
-    const item = catalog.find((p) => p.product_id === productId)
+    const item = catalogMap.get(productId)
     if (!item) return
     setLines((prev) => [...prev, newLine(item)])
   }
@@ -158,7 +157,7 @@ export default function CalculatorTab() {
   // Flipping New/Renewal switches which floor applies; margin resets to 0%
   // (selling = that floor), same as picking a product used to.
   function handleLineTypeChange(key, lineType) {
-    setLines((prev) => prev.map((l) => (l.key === key ? repriceLine({ ...l, line_type: lineType, margin_pct: 0 }, catalog) : l)))
+    setLines((prev) => prev.map((l) => (l.key === key ? repriceLine({ ...l, line_type: lineType, margin_pct: 0 }, catalogMap) : l)))
   }
 
   function handleQtyChange(key, qty) {
@@ -191,12 +190,12 @@ export default function CalculatorTab() {
       setQuoteMsg({ ok: false, message: '⚠️ Add at least one line.' })
       return
     }
-    if (hasBlockedLines(lines, catalog)) {
-      setQuoteMsg({ ok: false, message: '⚠️ Remove or change the line(s) that are unavailable or have no price yet before generating.' })
+    if (hasBlockedLines(lines, catalogMap)) {
+      setQuoteMsg({ ok: false, message: '⚠️ Remove or change the line(s) that are unavailable or have no price yet before calculating.' })
       return
     }
     if (hasBelowFloor(lines)) {
-      setQuoteMsg({ ok: false, message: '⚠️ Fix the line(s) below floor price before generating.' })
+      setQuoteMsg({ ok: false, message: '⚠️ Fix the line(s) below floor price before calculating.' })
       return
     }
 
@@ -213,7 +212,7 @@ export default function CalculatorTab() {
           line_type: l.line_type,
           qty: l.qty,
           selling_price: l.selling_price,
-          gst_pct: catalog.find((p) => p.product_id === l.product_id)?.gst_pct ?? 0,
+          gst_pct: catalogMap.get(l.product_id)?.gst_pct ?? 0,
         })),
       })
     } catch (e) {
@@ -230,25 +229,6 @@ export default function CalculatorTab() {
     setLines([])
     setCustomerName('')
     setQuoteMsg(null)
-  }
-
-  function renderAddSelect(label, items) {
-    return (
-      <select
-        value=""
-        onChange={(e) => handleAddItem(e.target.value)}
-        disabled={loading || !items.length}
-        className="rounded-md border border-border bg-surface-2 px-3 py-2 text-[12.5px] text-text disabled:opacity-50"
-      >
-        <option value="">{label}</option>
-        {items.map((p) => (
-          <option key={p.product_id} value={p.product_id}>
-            {p.name}
-            {p.floor_price == null && p.renewal_floor_price == null ? ' — price TBA' : ''}
-          </option>
-        ))}
-      </select>
-    )
   }
 
   return (
@@ -276,21 +256,34 @@ export default function CalculatorTab() {
         />
       </div>
 
-      <div className="rounded-xl border border-border bg-surface overflow-hidden">
+      <div className="rounded-xl border border-border bg-surface">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-2.5 border-b border-border">
           <span className="text-[12.5px] font-semibold text-text">Line Items</span>
+          {loading && lines.length > 0 && <span className="text-[11.5px] text-text-muted">⏳ Updating prices…</span>}
           <div className="flex flex-wrap items-center gap-2">
-            {renderAddSelect('+ Add product…', products)}
-            {renderAddSelect('+ Add accessory…', accessories)}
+            <SearchableSelect
+              options={productOptions}
+              placeholder="+ Add product…"
+              onSelect={handleAddItem}
+              disabled={loading || !productOptions.length}
+              className="w-[220px]"
+            />
+            <SearchableSelect
+              options={accessoryOptions}
+              placeholder="+ Add accessory…"
+              onSelect={handleAddItem}
+              disabled={loading || !accessoryOptions.length}
+              className="w-[220px]"
+            />
           </div>
         </div>
 
-        {loading ? (
+        {loading && !lines.length ? (
           <div className="text-center py-10 text-text-muted text-[12.5px]">Loading catalog…</div>
         ) : !lines.length ? (
           <div className="text-center py-10 text-text-muted text-[12.5px]">No line items yet — use "+ Add product" or "+ Add accessory" above to start a quote.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className={`overflow-x-auto rounded-b-xl transition-opacity ${loading ? 'opacity-60' : ''}`}>
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className="text-left text-text-muted text-[11px] uppercase tracking-wide border-b border-border">
@@ -306,7 +299,7 @@ export default function CalculatorTab() {
               </thead>
               <tbody>
                 {lines.map((line) => {
-                  const status = lineStatus(line, catalog)
+                  const status = lineStatus(line, catalogMap)
                   const priceable = status === 'ok'
                   const belowFloorLine = priceable && line.selling_price < line.floor_price
                   const lineTotal = round2(line.qty * line.selling_price)
@@ -408,12 +401,12 @@ export default function CalculatorTab() {
 
           {blocked && (
             <div className="text-[11.5px] text-danger mt-2">
-              ⚠ Some lines are unavailable in {state} or have no price yet — remove or change them before generating a quotation.
+              ⚠ Some lines are unavailable in {state} or have no price yet — remove or change them before calculating the price.
             </div>
           )}
           {belowFloor && (
             <div className="text-[11.5px] text-danger mt-2">
-              ⚠ One or more lines are below floor price — fix before generating a quotation.
+              ⚠ One or more lines are below floor price — fix before calculating the price.
             </div>
           )}
 
@@ -423,7 +416,7 @@ export default function CalculatorTab() {
             disabled={generateDisabled}
             className="w-full mt-3 rounded-lg bg-primary text-white font-bold text-[13px] py-2.5 disabled:opacity-50"
           >
-            {generating ? 'Generating…' : 'Generate Quotation'}
+            {generating ? 'Calculating…' : 'Calculate Price'}
           </button>
 
           {quoteMsg && (

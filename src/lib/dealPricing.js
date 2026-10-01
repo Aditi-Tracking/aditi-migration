@@ -79,7 +79,7 @@ export async function resolveDefaultState(currentUser) {
 }
 
 // ── Calculator — catalog + totals ──────────────────────────────────────────
-export async function fetchPricingCatalog(state) {
+async function fetchPricingCatalogRaw(state) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_pricing_catalog`, {
     method: 'POST',
     headers: SB_HDRS_JSON(),
@@ -87,6 +87,27 @@ export async function fetchPricingCatalog(state) {
   })
   if (!res.ok) throw new Error('HTTP ' + res.status)
   return res.json()
+}
+
+// Per-state catalog cache. Stores the promise, so concurrent callers share one
+// request. Failures are evicted (never cached). 5-minute TTL so a long-lived
+// Calculator can't serve stale prices all session; submit_quote re-validates anyway.
+const CATALOG_TTL_MS = 5 * 60 * 1000
+const catalogCache = new Map() // state -> { at, promise }
+
+export function fetchPricingCatalog(state) {
+  const hit = catalogCache.get(state)
+  if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.promise
+  const promise = fetchPricingCatalogRaw(state)
+  catalogCache.set(state, { at: Date.now(), promise })
+  promise.catch(() => {
+    if (catalogCache.get(state)?.promise === promise) catalogCache.delete(state)
+  })
+  return promise
+}
+
+export function buildCatalogMap(catalog) {
+  return new Map(catalog.map((p) => [p.product_id, p]))
 }
 
 // Which floor applies to a catalog item for a given line type — null when
@@ -113,8 +134,8 @@ export function marginFromPrice(floorPrice, sellingPrice) {
 //                   product after a state change)
 //   'no_price'    — product exists but the applicable floor isn't set yet
 //   'ok'          — priceable
-export function lineStatus(line, catalog) {
-  const item = catalog.find((p) => p.product_id === line.product_id)
+export function lineStatus(line, catalogMap) {
+  const item = catalogMap.get(line.product_id)
   if (!item) return 'unavailable'
   return floorFor(item, line.line_type) == null ? 'no_price' : 'ok'
 }
@@ -125,16 +146,16 @@ export function hasBelowFloor(lines) {
   return lines.some((l) => l.product_id && l.floor_price != null && l.selling_price < l.floor_price)
 }
 
-export function hasBlockedLines(lines, catalog) {
-  return lines.some((l) => l.product_id && lineStatus(l, catalog) !== 'ok')
+export function hasBlockedLines(lines, catalogMap) {
+  return lines.some((l) => l.product_id && lineStatus(l, catalogMap) !== 'ok')
 }
 
-export function computeTotals(lines, catalog) {
+export function computeTotals(lines, catalogMap) {
   let subtotal = 0
   let gst = 0
   lines.forEach((line) => {
     if (!line.product_id) return
-    const item = catalog.find((p) => p.product_id === line.product_id)
+    const item = catalogMap.get(line.product_id)
     const gstPct = item ? item.gst_pct : 0
     subtotal += line.qty * line.selling_price
     gst += (line.qty * line.selling_price * gstPct) / 100
@@ -161,6 +182,44 @@ export async function submitQuote({ state, customerName, lines }) {
     throw new Error(errBody.message || 'HTTP ' + res.status)
   }
   return res.json()
+}
+
+// ── My Quotes — a rep's own submitted quotes ──────────────────────────────
+export const MQ_PAGE_SIZE = 20
+
+// One request via the quote_id FK embed. RLS scopes both tables; the explicit
+// rep_email filter is there because is_pricing_admin() users would otherwise
+// see every rep's quotes under "My Quotes". It's a convenience filter, not the
+// security boundary. repEmail is lowercased to match the JWT-sourced rep_email.
+export async function fetchMyQuotes({ repEmail, offset = 0, limit = MQ_PAGE_SIZE }) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/pricing_quotes?select=*,pricing_quote_lines(*)` +
+      `&rep_email=eq.${encodeURIComponent((repEmail || '').toLowerCase())}` +
+      `&order=created_at.desc&limit=${limit}&offset=${offset}`,
+    { headers: { ...SB_HDRS(), Prefer: 'count=exact' } }
+  )
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const rows = await res.json()
+  const total = parseInt((res.headers.get('Content-Range') || '').split('/')[1], 10)
+  return { rows, total: Number.isNaN(total) ? rows.length : total }
+}
+
+// Shapes a stored quote into what QuotePreviewModal expects.
+export function quoteToPreview(q, repName) {
+  return {
+    result: { quote_ref: q.quote_ref, subtotal: q.subtotal, gst_amount: q.gst_amount, grand_total: q.grand_total },
+    customerName: q.customer_name,
+    state: q.state,
+    repName,
+    date: q.created_at,
+    lines: (q.pricing_quote_lines || []).map((l) => ({
+      name: l.product_name || 'Unknown product',
+      line_type: l.line_type,
+      qty: l.qty,
+      selling_price: l.selling_price,
+      gst_pct: l.gst_pct,
+    })),
+  }
 }
 
 // ── Cost Master — MD-office only (is_pricing_admin() RPC, independent of
