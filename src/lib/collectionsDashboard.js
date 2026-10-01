@@ -189,6 +189,15 @@ export function normalizeCollectionsRows(rawRows, targetRows = []) {
   // Group indices by employee+month, then within each group find the one row whose total equals
   // the sum of every other row's total in that group — that's the synthetic month-total row.
   // `total > 0` guards against a degenerate all-zero group falsely "matching" every row in it.
+  //
+  // Candidates are checked LATEST-DATED FIRST, not in raw array order — when a month has only one
+  // real reporting day so far, that one real row's total and the synthetic row's total are
+  // identical (the "sum" of a single day is just that day), so both rows satisfy the equality
+  // check and which one gets dropped becomes a coin flip by iteration order. The synthetic row is
+  // structurally always the latest-dated one for that employee that month (it's appended as/after
+  // the month rolls on), so preferring the latest match resolves the tie correctly — confirmed
+  // against a real case where Oct had only 1 Oct active day: the real 01/10 row and a duplicate
+  // 31/10 row both totaled the same, and checking in array order wrongly dropped the real 01/10 row.
   const groups = new Map()
   parsed.forEach((r, i) => {
     const key = `${r.name}|${r.month}`
@@ -198,7 +207,8 @@ export function normalizeCollectionsRows(rawRows, targetRows = []) {
   const dropped = new Set()
   for (const idxs of groups.values()) {
     if (idxs.length < 2) continue
-    for (const i of idxs) {
+    const byLatestFirst = [...idxs].sort((a, b) => parsed[b].date - parsed[a].date)
+    for (const i of byLatestFirst) {
       const sumOthers = idxs.filter((j) => j !== i).reduce((s, j) => s + parsed[j].total, 0)
       if (parsed[i].total > 0 && Math.abs(parsed[i].total - sumOthers) < 0.01) {
         dropped.add(i)
