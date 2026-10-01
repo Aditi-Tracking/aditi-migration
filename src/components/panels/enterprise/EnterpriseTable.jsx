@@ -11,6 +11,10 @@ import TopPagination from '../../shared/table/TopPagination'
 // Columns + sortability ported from enRenderTable's `heads` — only Date/Name/Stage/Calls/Revenue
 // are sortable, matching production's `s:true` flags exactly (City/Phone/Source/Product/Owner stay
 // unsortable).
+// 'Revenue' column shows ACV (its underlying field, `r.Revenue`, is backed by the sheet's "ACV"
+// column now — see lib/enterpriseLead.js's header comment) — labeled "ACV" here to match what it
+// actually is, same field/sort key as before so nothing else needs to change. Received/Balance/SO
+// Number are new, straight from the reshaped sheet.
 const COLUMNS = [
   { key: 'EntryTs', label: 'Date', sortable: true },
   { key: 'Name', label: 'Lead Name', sortable: true },
@@ -21,7 +25,10 @@ const COLUMNS = [
   { key: null, label: 'Owner', sortable: false },
   { key: 'CurrentStage', label: 'Stage', sortable: true },
   { key: 'CallsMade', label: 'Calls', sortable: true },
-  { key: 'Revenue', label: 'Revenue', sortable: true },
+  { key: null, label: 'SO Number', sortable: false },
+  { key: 'Revenue', label: 'ACV', sortable: true },
+  { key: 'Received', label: 'Received', sortable: true },
+  { key: 'Balance', label: 'Balance', sortable: true },
 ]
 
 // Ported from old-portal/js/enterprise.js's enRenderTable/enToggleTable/enGoPage/enPagerHTML.
@@ -94,7 +101,10 @@ function LeadRow({ r }) {
         <StatusBadge color={col}>{r.CurrentStage}</StatusBadge>
       </Td>
       <Td align="center">{r.CallsMade}</Td>
+      <Td className="text-text-muted">{r.SoNumber || '—'}</Td>
       <Td className="font-semibold text-primary">{r.Revenue ? '₹' + r.Revenue.toLocaleString('en-IN') : '—'}</Td>
+      <Td className="text-text-muted">{r.Received ? '₹' + r.Received.toLocaleString('en-IN') : '—'}</Td>
+      <Td className="text-text-muted">{r.Balance ? '₹' + r.Balance.toLocaleString('en-IN') : '—'}</Td>
     </Tr>
   )
 }

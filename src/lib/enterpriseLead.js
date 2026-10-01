@@ -1,8 +1,28 @@
 // Enterprise Lead Dashboard. Ported from old-portal/js/enterprise.js. Data source: a single
-// Google Apps Script web app (EN_URL) — a call-tracking lead funnel sheet, one row per lead, up
-// to 6 dialling attempts (Connected/Time/Stage per call). 100% read-only — no writes anywhere.
+// Google Apps Script web app (EN_URL) — a call-tracking lead funnel sheet, one row per lead.
+// 100% read-only — no writes anywhere.
+//
+// Sheet reshape (headers confirmed live): the old 6-attempt call-tracking block (bare
+// "Connected"/"Time"/"Stage" for the 1st call, "Nth Call - " prefixed for the rest) is gone —
+// there's now exactly one call, under the sheet's own typo'd header "1nd Call - Connected"/"1nd
+// Call - Time" (literally "1nd", not "1st" — must match exactly). Also gone: "SR.No", "Reason for
+// Lost" (both read as blank now, their old header names no longer exist) — gained: "Designation",
+// "Demo by", "SO Number", "ACV" (now backs `Revenue`), "Received", "Balance", "Next Payment Date",
+// "Lead Quality" ('Valid'/'Invalid'/blank), and "Last Known Stage" (the sheet's own current-stage
+// label, replacing the old 1st-call "Stage" cell as the authoritative source — values seen: 'Lost',
+// 'Quotation Sent', 'Invalid', 'Future Lead', 'Demo Done', 'Won', 'Trials In Progress',
+// 'Negotiation', blank).
 const EN_URL = 'https://script.google.com/macros/s/AKfycbwDeTRXcVrBVoanjxapudBwQFIxSxtoUEBdKUbz979yyeoGoVWO1s1jnYwg-jN2O2o/exec'
-const CALL_SUFFIXES = ['1st', '2nd', '3rd', '4th', '5th', '6th']
+
+// This Apps Script deployment is just plain slow server-side (measured ~8s for a clean response,
+// before accounting for the content-delivery flakiness fetchWithRetry below works around, which can
+// stack multiple ~8s attempts back to back) — nothing client-side can make Google's own execution
+// time faster. A short sessionStorage cache is the practical fix: the panel's own mount-time fetch
+// re-hits this on every navigation to the page, which otherwise means re-paying that full ~8s (or
+// worse) just to re-open a tab you were already on. `forceRefresh` (wired to the panel's own
+// Refresh button) bypasses it outright.
+const CACHE_KEY = 'enterpriseLeads:cache:v1'
+const CACHE_TTL_MS = 5 * 60 * 1000
 
 // ── Permission ───────────────────────────────────────────────────────────────
 // Ported byte-for-byte from _canAccessEnterprise. The Python permissions backend doesn't have a
@@ -55,10 +75,19 @@ function parseEnterpriseResponse(rows) {
 }
 
 // "dd/mm/yyyy hh:mm AM/PM" -> {key:'yyyy-mm-dd', ts: epoch millis} — key groups/filters by
-// calendar day, ts sorts numerically.
+// calendar day, ts sorts numerically. Falls back to parsing it as plain ISO 8601
+// ("2026-10-01T06:58:23.101Z") when it doesn't match that shape — at least some of today's rows
+// come through from the sheet in ISO instead of its usual dd/mm/yyyy string, and parsing only the
+// slash format silently dropped those rows out of every Lead-Entry-keyed view (EntryKey === '').
 function parseEntryDateTime(s) {
-  const m = (s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
-  if (!m) return { key: '', ts: 0 }
+  const str = (s || '').toString().trim()
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+  if (!m) {
+    const iso = new Date(str)
+    if (!str || isNaN(iso.getTime())) return { key: '', ts: 0 }
+    const key = iso.getFullYear() + '-' + String(iso.getMonth() + 1).padStart(2, '0') + '-' + String(iso.getDate()).padStart(2, '0')
+    return { key, ts: iso.getTime() }
+  }
   let [, d, mo, y, h, mi, ap] = m
   h = +h
   if (ap) {
@@ -71,29 +100,16 @@ function parseEntryDateTime(s) {
   return { key, ts: dt.getTime() }
 }
 
-export function enterpriseTodayKey() {
-  const d = new Date()
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-}
-
 function normalizeLeadRow(r) {
-  // The sheet's 1st-call block has bare "Connected"/"Time"/"Stage" headers (no
-  // "1st Call - " prefix like every later call) — its Stage cell is also the
-  // sheet's single authoritative "Master Stage" column, so that's what
-  // Won/Lost/Demo/Quotation counts are driven by, not the later calls.
-  const calls = CALL_SUFFIXES.map((suf) => {
-    const prefix = suf === '1st' ? '' : suf + ' Call - '
-    return {
-      connected: (r[prefix + 'Connected'] || '').toString().trim(),
-      time: (r[prefix + 'Time'] || '').toString().trim(),
-      stage: (r[prefix + 'Stage'] || '').toString().trim(),
-    }
-  })
-  const attempted = calls.filter((c) => c.connected)
-  const connected = calls.filter((c) => c.connected === 'Yes')
-  const masterStage = calls[0].stage || 'Not Contacted'
+  const callConnected = (r['1nd Call - Connected'] || '').toString().trim()
+  const currentStage = (r['Last Known Stage'] || '').toString().trim() || 'Not Contacted'
   const entry = parseEntryDateTime((r['Lead Entry'] || '').toString().trim())
-  const revenue = parseFloat(String(r['Revenue'] || '').replace(/[^0-9.-]/g, '')) || 0
+  // "Revenue" is now backed by the sheet's "ACV" column (its old "Revenue" header is gone — see
+  // this file's header comment) — every existing `r.Revenue` consumer (KPI tile, table, rep
+  // leaderboard) keeps working unchanged, just fed from the new column.
+  const revenue = parseFloat(String(r['ACV'] || '').replace(/[^0-9.-]/g, '')) || 0
+  const balance = parseFloat(String(r['Balance'] || '').replace(/[^0-9.-]/g, '')) || 0
+  const received = parseFloat(String(r['Received'] || '').replace(/[^0-9.-]/g, '')) || 0
   return {
     SrNo: r['SR.No'] ?? '',
     Name: (r['Lead Name'] || '').toString().trim(),
@@ -108,23 +124,40 @@ function normalizeLeadRow(r) {
     Owner: (r['Lead Owner'] || '').toString().trim() || 'Unassigned',
     Comments: (r['Comments'] || '').toString().trim(),
     Reason: (r['Reason for Lost'] || '').toString().trim(),
+    SoNumber: (r['SO Number'] || '').toString().trim(),
     Revenue: revenue,
-    CallsMade: attempted.length,
-    Connected: connected.length,
-    CurrentStage: masterStage,
-    ReachedInterested: masterStage === 'Interested',
-    ReachedDemo: masterStage === 'Demo',
-    ReachedQuotation: masterStage === 'Quotation',
-    ReachedWon: masterStage === 'Won',
+    Received: received,
+    Balance: balance,
+    CallsMade: callConnected ? 1 : 0,
+    Connected: callConnected === 'Yes' ? 1 : 0,
+    CurrentStage: currentStage,
+    LeadQuality: (r['Lead Quality'] || '').toString().trim(),
+    ReachedInterested: currentStage === 'Interested',
+    ReachedDemo: currentStage === 'Demo Done',
+    ReachedQuotation: currentStage === 'Quotation Sent',
+    ReachedWon: currentStage === 'Won',
   }
 }
 
-export async function fetchEnterpriseLeads() {
+export async function fetchEnterpriseLeads({ forceRefresh = false } = {}) {
+  if (!forceRefresh) {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null')
+      if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.rows
+    } catch {
+      // Corrupt/inaccessible cache (private browsing, quota, bad JSON) — fall through to a real fetch.
+    }
+  }
   const res = await fetchWithRetry(EN_URL)
   const raw = parseEnterpriseResponse(await res.json())
   if (!Array.isArray(raw) || !raw.length) throw new Error('API returned empty or invalid data')
   const rows = raw.map(normalizeLeadRow).filter((r) => r.Name)
   if (!rows.length) throw new Error('No data — could not detect a Lead Name column.')
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), rows }))
+  } catch {
+    // Storage full/unavailable — caching is a pure optimization, safe to skip silently.
+  }
   return rows
 }
 
@@ -132,8 +165,11 @@ export async function fetchEnterpriseLeads() {
 export function enterpriseStageColor(stage) {
   const s = (stage || '').toString().toLowerCase()
   if (s === 'interested') return '#4e9af1'
-  if (s === 'demo scheduled' || s === 'demo') return '#f0a500'
-  if (s === 'quotation') return '#a78bfa'
+  if (s === 'demo scheduled' || s === 'demo' || s === 'demo done') return '#f0a500'
+  if (s === 'quotation' || s === 'quotation sent') return '#a78bfa'
+  if (s === 'negotiation') return '#ec4899'
+  if (s === 'trials in progress') return '#06b6d4'
+  if (s === 'future lead') return '#9ca3af'
   if (s === 'won') return '#00d4aa'
   if (s === 'lost') return '#ff5c7c'
   if (s === 'invalid') return '#6b7280'
@@ -182,7 +218,7 @@ export function matchesEnterpriseCrossFilter(r, cf) {
   if (cf.milestone === 'won' && !r.ReachedWon) return false
   if (cf.milestone === 'lost' && r.CurrentStage !== 'Lost') return false
   if (cf.milestone === 'revenue' && !(r.Revenue > 0)) return false
-  if (cf.milestone === 'today' && r.EntryKey !== enterpriseTodayKey()) return false
+  if (cf.milestone === 'validLead' && r.LeadQuality !== 'Valid') return false
   return true
 }
 
@@ -207,8 +243,10 @@ export function computeEnterpriseKpis(rows) {
   const won = rows.filter((r) => r.ReachedWon).length
   const lost = rows.filter((r) => r.CurrentStage === 'Lost').length
   const revenue = rows.reduce((s, r) => s + r.Revenue, 0)
-  const todayLeads = rows.filter((r) => r.EntryKey === enterpriseTodayKey()).length
-  return { total: t, totalCalls, totalConnected, demo, quotation, won, lost, revenue, todayLeads }
+  const balance = rows.reduce((s, r) => s + r.Balance, 0)
+  const validLeads = rows.filter((r) => r.LeadQuality === 'Valid').length
+  const invalidLeads = rows.filter((r) => r.LeadQuality === 'Invalid').length
+  return { total: t, totalCalls, totalConnected, demo, quotation, won, lost, revenue, balance, validLeads, invalidLeads }
 }
 
 // Kept as an explicitly separate function (not derived from chartData) so nothing downstream can

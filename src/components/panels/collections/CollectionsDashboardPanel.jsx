@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   EMPTY_COLLECTIONS_FILTERS,
   fetchCollectionsRaw,
+  fetchCollectionsTargetsRaw,
   filterCollectionsRows,
   getMonthWeekOptions,
   getWeekOptions,
+  MONTH_NAMES,
   normalizeCollectionsRows,
   sortedMonths,
   uniqueSorted,
@@ -16,12 +18,13 @@ import CollectionsLocationChart from './CollectionsLocationChart'
 import CollectionsEmployeeChart from './CollectionsEmployeeChart'
 import CollectionsEntriesTable from './CollectionsEntriesTable'
 
-// Collections & Repeat Orders Dashboard — a single Google Apps Script endpoint
-// (lib/collectionsDashboard.js's COLLECTIONS_URL), fetched on mount, then re-polled on an
-// interval so a new row added on the sheet side shows up here without the user needing to hit
-// Refresh — filtered entirely client-side (the whole dataset is a few hundred KB of JSON, same
-// scale as Enterprise Solutions' single-fetch pattern — no server-side pagination/query needed).
-// 100% read-only.
+// Collections & Repeat Orders Dashboard — one Google Apps Script, two sheets fetched in parallel
+// (lib/collectionsDashboard.js's COLLECTIONS_URL for daily numbers, its ?sheet=Sheet6 variant for
+// commitment/target data, merged together by normalizeCollectionsRows), fetched on mount then
+// re-polled on an interval so a new row added on either sheet shows up here without the user
+// needing to hit Refresh — filtered entirely client-side (the whole dataset is a few hundred KB of
+// JSON, same scale as Enterprise Solutions' single-fetch pattern — no server-side pagination/query
+// needed). 100% read-only.
 const REFRESH_MS = 60 * 1000
 
 export default function CollectionsDashboardPanel() {
@@ -40,8 +43,8 @@ export default function CollectionsDashboardPanel() {
     if (!silent) setLoading(true)
     setError('')
     try {
-      const raw = await fetchCollectionsRaw()
-      setDaily(normalizeCollectionsRows(raw))
+      const [raw, targetsRaw] = await Promise.all([fetchCollectionsRaw(), fetchCollectionsTargetsRaw()])
+      setDaily(normalizeCollectionsRows(raw, targetsRaw))
       setLastSync(new Date())
     } catch (e) {
       setError(e.message)
@@ -80,6 +83,23 @@ export default function CollectionsDashboardPanel() {
   }, [filters])
 
   const months = useMemo(() => sortedMonths(daily), [daily])
+
+  // Defaults the Month filter to the REAL current calendar month once data first arrives, instead
+  // of leaving it on "All Months" (which put the oldest data first in Entries/Employee Summary,
+  // since rows sort ascending) — regardless of whether that month actually has any real (nonzero)
+  // data yet. Falls back to the latest month present only if the real current month has no rows at
+  // all (not even blank placeholder ones). Only fires once (didDefaultMonthRef) so it never fights
+  // a later silent poll refresh or the user explicitly clearing back to "All Months".
+  const didDefaultMonthRef = useRef(false)
+  useEffect(() => {
+    if (didDefaultMonthRef.current || !months.length) return
+    didDefaultMonthRef.current = true
+    const currentMonthName = MONTH_NAMES[new Date().getMonth()]
+    const defaultMonth = months.includes(currentMonthName) ? currentMonthName : months[months.length - 1]
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time default once months load
+    setFilters((f) => (f.month ? f : { ...f, month: defaultMonth }))
+  }, [months])
+
   const monthWeekOptions = useMemo(() => getMonthWeekOptions(daily, filters.month), [daily, filters.month])
   const locations = useMemo(() => uniqueSorted(daily, 'location'), [daily])
   const names = useMemo(() => uniqueSorted(daily, 'name'), [daily])
@@ -88,6 +108,9 @@ export default function CollectionsDashboardPanel() {
   // along with the other filters — picking Month=September only ever offers September's weeks,
   // instead of listing weeks that would show empty once combined with the active filters.
   const weeks = useMemo(() => getWeekOptions(filteredRows), [filteredRows])
+  // Drives CollectionsEmployeeSummaryTable's own period default (Daily for the real current month,
+  // Monthly for any other month picked, including "All Months") — see that component's own comment.
+  const isCurrentMonth = filters.month === MONTH_NAMES[new Date().getMonth()]
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -128,7 +151,7 @@ export default function CollectionsDashboardPanel() {
             onClear={handleClear}
           />
 
-          <CollectionsEmployeeSummaryTable rows={filteredRows} weeks={weeks} />
+          <CollectionsEmployeeSummaryTable rows={filteredRows} weeks={weeks} isCurrentMonth={isCurrentMonth} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <CollectionsLocationChart rows={filteredRows} filters={filters} onChange={handleFilterChange} />

@@ -2,35 +2,49 @@
 // endpoint (a Google Sheet exposed as a web app), same integration shape as
 // lib/enterpriseSolutions.js's ESOL_URL (plain fetch, no Supabase). 100% read-only.
 //
-// Raw shape: { sheet, count, data: [{ Date, "Month name", No, Name, Location, "Monthly Target",
-// Commitment, Achievement, "Commitment Calls", "Achievement Calls", "Resale Amt", MTD, Status }] }.
-// Each row is one telecaller's one day at one branch:
-// - Commitment / "Commitment Calls": that day's committed (planned) business value and call count
-// - Achievement / "Achievement Calls": that day's actual value and calls done — Achievement is
-//   shown throughout this dashboard as "Outstanding" (the sheet owner's own naming; the values
-//   are unchanged, only the label)
-// - "Resale Amt": that day's repeat/resale order value — the "Repeat Orders" half of this
-//   dashboard's name
-// - MTD: the sheet's own running month-to-date cumulative total (Achievement + Resale, summed
-//   from the 1st of the month through this row's date) — NOT a per-row total, so it's kept
-//   separate from `total` (this row's own Achievement + Resale) rather than conflated with it
-// - "Monthly Target": each employee's monthly target, formatted with Indian digit-grouping
-//   commas (e.g. "30,00,000") — parsed to a plain number
-// - Status: 'Week Off '/'On Leave '/blank
+// Raw shape: { success, count, data: [{ month, date, location, name, connectCall, nbd, resale,
+// outstanding, total, remark, isSunday }] }. Each row is one telecaller's one day at one branch:
+// - date: unambiguous 'DD/MM/YYYY' (unlike the previous sheet's day/month-order-flips-at-13
+//   quirk) — parseRowDate no longer needs a month name to disambiguate it.
+// - month: full name for some months, 3-letter abbreviation for others as emitted by the sheet
+//   itself (seen: 'June'/'July' full, 'Aug'/'Sept' abbreviated) — normalizeMonthName maps
+//   whichever form shows up to its canonical full name via prefix match, so sortedMonths/filters
+//   never see both 'Aug' and 'August' as two different months.
+// - connectCall: that day's calls actually done.
+// - nbd: a new per-row value (deal/business value, name as given by the sheet) not surfaced as
+//   its own tile/column for now — it's already folded into `total` by the sheet itself (verified:
+//   total === resale + outstanding + nbd), so Grand Total still reflects it even though it has no
+//   dedicated UI yet.
+// - remark: replaces the old Status column ('WO'/'AB'/'SL'/'Visha'/'Off'/'PL'/'HD'/'WF'/blank —
+//   shown as-is, no longer just Week Off/On Leave).
+// - isSunday: a flag for a Sunday row: always false in every row seen so far (this source hasn't
+//   started emitting real Sunday entries yet), carried through but not used for any filtering.
 //
-// Date quirk (confirmed by cross-checking every row's Date against its own "Month name"): the
-// sheet does NOT emit a single consistent day/month order. Days 1-12 of a month come out
-// MM/DD/YYYY while days 13-31 come out DD/MM/YYYY (a classic Google Sheets locale artifact —
-// Date objects display MM/DD by default, but flip to DD/MM once the day exceeds 12 and MM/DD
-// would be invalid). "Month name" is reliable ground truth, so parseRowDate uses it to
-// disambiguate which slash-separated segment is the day vs the month, instead of assuming one
-// fixed order like the previous sheet (whose dates were unambiguously DD/MM throughout).
-const COLLECTIONS_URL = 'https://script.google.com/macros/s/AKfycbxwLcnPnMH8QJehPf4ot1gWXyNzHZ_MVD1S9vStRSfeX81Uz9_uEYfj4ZZBk5NcdXA/exec'
+// Month-total row quirk (confirmed across all 28 employee×month groups present, zero exceptions):
+// the sheet appends one extra row per employee per month, dated as that month's last day so far,
+// whose total/resale/outstanding/connectCall exactly equal the SUM of that employee's real daily
+// rows for the month — i.e. a running month-to-date total disguised as one more daily row. Left
+// in, it would silently double-count every KPI/chart/summary total. normalizeCollectionsRows
+// detects and drops it per (name, month) group (matched by total equality, not by date, since its
+// date is just "whatever day it is when fetched", not a fixed end-of-month marker).
+//
+// Commitment/target data lives in a SEPARATE sheet on the same Apps Script, fetched from the same
+// URL with `?sheet=Sheet6` and merged in by fetchCollectionsTargetsRaw/mergeCollectionsTargets.
+// Its raw shape: [{ date, name, location, monthlyTarget, commitment, commitmentCalls }] — no
+// `month`/`total`/other fields, joined onto the main rows by (date, name). Only covers Aug 2026
+// onward (49 dates) — earlier months (June/July) have no commitment data at all, since this sheet
+// simply doesn't go back that far, so those rows show 0 Calls Planned/Commitment/Achievement %.
+// One data-quality quirk here too: 29/08/2026 has a literal duplicate row per employee (typo
+// re-entry, not a computed total like the main sheet's quirk) — mergeCollectionsTargets keeps
+// whichever occurrence comes last in the sheet, on the assumption a later duplicate is a
+// correction of an earlier one, not the other way round.
+const COLLECTIONS_URL = 'https://script.google.com/macros/s/AKfycbwCerophLS1zNBzdN1Uhd5-zyCSrGxs_LzAyGcntyIv96SrSr0TuENkjvoSwTvLXt8/exec'
+const COLLECTIONS_TARGETS_URL = `${COLLECTIONS_URL}?sheet=Sheet6`
 
 export const COLLECTIONS_PAGE_SIZE = 25
 export const COLLECTIONS_CHART_PALETTE = ['#00d4aa', '#3b82f6', '#f0a500', '#a78bfa', '#10b981', '#ff5c7c', '#f5a623', '#6366f1']
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 // ── Permission ───────────────────────────────────────────────────────────────
 // Same shape as lib/enterpriseSolutions.js's canAccessEnterpriseSolutions / lib/enterpriseLead.js's
@@ -55,31 +69,39 @@ export async function fetchCollectionsRaw() {
   return json.data
 }
 
-// 'A/B/YYYY' + the row's own stated month name -> Date (local). Whichever of A/B matches the
-// stated month's number is treated as the month, the other as the day — see the header comment
-// above for why a fixed MM/DD or DD/MM assumption doesn't hold for this sheet. Falls back to
-// MM/DD (the sheet's more common emission) if neither segment matches the stated month.
+export async function fetchCollectionsTargetsRaw() {
+  const res = await fetch(COLLECTIONS_TARGETS_URL)
+  if (!res.ok) throw new Error(String(res.status))
+  const json = await res.json()
+  if (!json || !Array.isArray(json.data)) throw new Error('Targets API returned an unexpected shape — expected {data:[]}')
+  return json.data
+}
+
+// 'DD/MM/YYYY' -> Date (local). Day and year come from the string, but month comes from the row's
+// own stated month name (`monthName`, already run through normalizeMonthName by the caller) rather
+// than the string's own middle segment — the sheet has had rows where that segment was mistyped
+// (e.g. '07/01/2026' on a row stated as "Oct", clearly meant to be '07/10/2026'). Left as the
+// string's own month, a typo like that silently misfiles the row into an unrelated calendar month,
+// which then blows up any month-scoped computation built from these dates (getWeekOptions' min/max
+// range, in particular, since one such row can stretch "this month's weeks" back to January). Falls
+// back to the string's own month segment only if `monthName` doesn't resolve to a real month.
 export function parseRowDate(raw, monthName) {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(raw || '').trim())
   if (!m) return null
-  const a = +m[1]
-  const b = +m[2]
+  const day = +m[1]
   const year = +m[3]
-  const monthIdx = MONTH_NAMES.findIndex((mn) => mn.toLowerCase() === String(monthName || '').trim().toLowerCase())
-  let day, month
-  if (monthIdx !== -1 && b === monthIdx + 1) {
-    month = b
-    day = a
-  } else {
-    month = a
-    day = b
-  }
+  const monthIdx = MONTH_NAMES.indexOf(normalizeMonthName(monthName))
+  const month = monthIdx !== -1 ? monthIdx + 1 : +m[2]
   const d = new Date(year, month - 1, day)
   return isNaN(d.getTime()) ? null : d
 }
 
-function parseMonthlyTarget(raw) {
-  return Number(String(raw || '').replace(/,/g, '').trim()) || 0
+// Maps whichever form the sheet emits ('Aug', 'Sept', 'June', ...) to its canonical full name —
+// see header comment. Falls back to the trimmed raw value if it matches no month at all.
+function normalizeMonthName(raw) {
+  const trimmed = String(raw || '').trim().toLowerCase()
+  const found = MONTH_NAMES.find((mn) => mn.toLowerCase().startsWith(trimmed) && trimmed.length >= 3)
+  return found || String(raw || '').trim()
 }
 
 // Local calendar date -> 'YYYY-MM-DD', using local getters (not toISOString(), which converts to
@@ -89,56 +111,129 @@ export function isoDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// All amounts in this sheet run into lakhs, so every aggregate display (KPI tiles, chart axes/
-// tooltips/labels) is shown in Lakhs rather than full rupee digit-grouping — only the Entries
-// table keeps exact per-row rupee amounts, where a single day's value is small enough that "L"
-// would lose precision.
+// Aggregate display (KPI tiles, chart axes/tooltips/labels) — Lakhs below 1 crore, Crores at or
+// above it (a whole-dataset/"All Months" total routinely clears 1 Cr, where "512.34L" reads worse
+// than "5.12Cr"). Only the Entries table keeps exact per-row rupee amounts, where a single day's
+// value is small enough that this would lose precision.
 export function formatLakh(n) {
   const v = Number(n) || 0
   const sign = v < 0 ? '-' : ''
-  return `${sign}₹${(Math.abs(v) / 100000).toFixed(2)}L`
+  const abs = Math.abs(v)
+  if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(2)}Cr`
+  return `${sign}₹${(abs / 100000).toFixed(2)}L`
 }
 
 // Same idea as formatLakh, but for the Employee Summary table — a single week's per-employee
 // amounts are often well under a lakh, where "₹0.06L" reads worse than "₹6.0k". Steps down to
-// thousands below 1 lakh, and to plain rupees below 1 thousand, instead of always dividing by
-// 100000.
+// thousands below 1 lakh and to plain rupees below 1 thousand, and up to Crores at/above 1 crore,
+// instead of always dividing by 100000.
 export function formatMoneyAdaptive(n) {
   const v = Number(n) || 0
   const sign = v < 0 ? '-' : ''
   const abs = Math.abs(v)
+  if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(2)}Cr`
   if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(2)}L`
   if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(1)}k`
   return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`
 }
 
-// Normalizes the raw API payload into one row per telecaller-day, coercing every numeric field
-// defensively and trimming the sheet's stray trailing spaces on text fields (e.g. 'Guddu ',
-// 'Mumbai ').
-export function normalizeCollectionsRows(rawRows) {
-  const daily = []
-  for (const r of rawRows || []) {
-    const month = String(r['Month name'] || '').trim()
-    const location = String(r.Location || '').trim() || 'Unspecified'
-    const name = String(r.Name || '').trim()
-    const date = parseRowDate(r.Date, month)
-    if (!date || !name) continue
-
-    const commitment = Number(r.Commitment) || 0
-    const outstanding = Number(r.Achievement) || 0 // shown in the UI as "Outstanding"
-    const commitmentCalls = Number(r['Commitment Calls']) || 0
-    const connectCall = Number(r['Achievement Calls']) || 0
-    const resale = Number(r['Resale Amt']) || 0
-    const mtd = Number(r.MTD) || 0
-    const monthlyTarget = parseMonthlyTarget(r['Monthly Target'])
-    const remark = String(r.Status || '').trim()
-
-    daily.push({
-      month, location, name, date, dateStr: r.Date,
-      commitment, commitmentCalls, connectCall, resale, outstanding, mtd, monthlyTarget, remark,
-      total: outstanding + resale,
+// Builds a (date, name) -> {commitment, commitmentCalls, monthlyTarget} lookup from the targets
+// sheet's raw rows — see header comment for the join key and the 29/08 duplicate-row handling
+// (a plain Map keeps whichever occurrence is set last, i.e. the later one in sheet order).
+function buildTargetsLookup(targetRows) {
+  const map = new Map()
+  for (const r of targetRows || []) {
+    const name = String(r.name || '').trim().toLowerCase()
+    const dateStr = String(r.date || '').trim()
+    if (!name || !dateStr) continue
+    map.set(`${dateStr}|${name}`, {
+      commitment: Number(r.commitment) || 0,
+      commitmentCalls: Number(r.commitmentCalls) || 0,
+      monthlyTarget: Number(r.monthlyTarget) || 0,
     })
   }
+  return map
+}
+
+// Normalizes the raw API payload into one row per telecaller-day, coercing every numeric field
+// defensively, trimming stray whitespace on text fields, dropping each employee-month's synthetic
+// running-total row, and merging in that day's commitment/target data from the separate targets
+// sheet (see header comment) — `targetRows` defaults to none, so callers that only need the main
+// sheet's numbers can omit it entirely.
+export function normalizeCollectionsRows(rawRows, targetRows = []) {
+  const targets = buildTargetsLookup(targetRows)
+  const parsed = []
+  for (const r of rawRows || []) {
+    const month = normalizeMonthName(r.month)
+    const location = String(r.location || '').trim() || 'Unspecified'
+    const name = String(r.name || '').trim()
+    const date = parseRowDate(r.date, month)
+    if (!date || !name) continue
+
+    const connectCall = Number(r.connectCall) || 0
+    const resale = Number(r.resale) || 0
+    const outstanding = Number(r.outstanding) || 0
+    const total = Number(r.total) || 0
+    const remark = String(r.remark || '').trim()
+    const target = targets.get(`${String(r.date || '').trim()}|${name.toLowerCase()}`)
+    const commitment = target?.commitment || 0
+    const commitmentCalls = target?.commitmentCalls || 0
+    const monthlyTarget = target?.monthlyTarget || 0
+
+    parsed.push({
+      month, location, name, date, dateStr: r.date, connectCall, resale, outstanding, total, remark,
+      commitment, commitmentCalls, monthlyTarget,
+    })
+  }
+
+  // Group indices by employee+month, then within each group find the one row whose total equals
+  // the sum of every other row's total in that group — that's the synthetic month-total row.
+  // `total > 0` guards against a degenerate all-zero group falsely "matching" every row in it.
+  const groups = new Map()
+  parsed.forEach((r, i) => {
+    const key = `${r.name}|${r.month}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(i)
+  })
+  const dropped = new Set()
+  for (const idxs of groups.values()) {
+    if (idxs.length < 2) continue
+    for (const i of idxs) {
+      const sumOthers = idxs.filter((j) => j !== i).reduce((s, j) => s + parsed[j].total, 0)
+      if (parsed[i].total > 0 && Math.abs(parsed[i].total - sumOthers) < 0.01) {
+        dropped.add(i)
+        break
+      }
+    }
+  }
+
+  const daily = parsed.filter((_, i) => !dropped.has(i))
+
+  // The main sheet can also have a plain stray duplicate row for the SAME (date, name) that isn't
+  // the month-total pattern above — seen on 30/09/2026, where every employee has both their real
+  // day's row and an extra all-zero one. Harmless for connectCall/resale/outstanding/total (the
+  // duplicate just adds 0), but commitment/commitmentCalls/monthlyTarget come from the separate
+  // by-(date,name) targets lookup and get attached to EVERY row sharing that key — so a duplicate
+  // row doubles them when a caller sums per row (KPI tiles, Employee Summary). Keep those 3 fields
+  // on only one row per (date, name) — whichever one actually has real activity, since that's the
+  // row genuinely representing the day — and zero them out on any other row sharing the same key.
+  const byDateName = new Map()
+  daily.forEach((r) => {
+    const key = `${r.dateStr}|${r.name}`
+    if (!byDateName.has(key)) byDateName.set(key, [])
+    byDateName.get(key).push(r)
+  })
+  for (const group of byDateName.values()) {
+    if (group.length < 2) continue
+    const primary = group.find((r) => r.total !== 0 || r.connectCall !== 0) || group[0]
+    for (const r of group) {
+      if (r === primary) continue
+      r.commitment = 0
+      r.commitmentCalls = 0
+      r.monthlyTarget = 0
+    }
+  }
+
   daily.sort((a, b) => a.date - b.date)
   return daily
 }
@@ -195,21 +290,6 @@ export function groupSumBy(rows, key, valueKey) {
   return map
 }
 
-// One combined total per date, across whichever rows are currently in scope — powers the trend
-// chart's 3 lines (Outstanding/Repeat Orders/Commitment) in one pass.
-export function groupByDate(rows) {
-  const map = new Map()
-  rows.forEach((r) => {
-    const key = r.dateStr
-    const cur = map.get(key) || { date: r.date, dateStr: r.dateStr, outstanding: 0, resale: 0, commitment: 0 }
-    cur.outstanding += r.outstanding
-    cur.resale += r.resale
-    cur.commitment += r.commitment
-    map.set(key, cur)
-  })
-  return [...map.values()].sort((a, b) => a.date - b.date)
-}
-
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 // The Monday (local midnight) of the week containing `d` — getDay() is 0=Sun..6=Sat, so this
@@ -247,10 +327,11 @@ export function filterRowsByWeek(rows, weekKey, weeks) {
   return rows.filter((r) => r.date >= week.start && r.date <= week.end)
 }
 
-// Per-employee rollup for the Employee Summary table — Achievement % is measured against this
-// same scope's own Commitment total (not the employee's fixed Monthly Target), so it stays
-// meaningful whatever date range is selected (a single week's achievement vs a whole month's
-// target would understate every employee by construction).
+// Per-employee rollup for the Employee Summary table. Achievement % is measured against this same
+// scope's own Commitment total (not monthlyTarget), so it stays meaningful whatever date range is
+// selected — a single week's achievement vs a whole month's target would understate every
+// employee by construction. monthlyTarget itself is shown separately, taken from this employee's
+// most recent row in scope (rows arrive date-sorted ascending), since it can change month to month.
 export function summarizeByEmployee(rows) {
   const names = uniqueSorted(rows, 'name')
   return names.map((name) => {
@@ -260,8 +341,9 @@ export function summarizeByEmployee(rows) {
     const commitment = rowsForName.reduce((s, r) => s + r.commitment, 0)
     const outstanding = rowsForName.reduce((s, r) => s + r.outstanding, 0)
     const resale = rowsForName.reduce((s, r) => s + r.resale, 0)
-    const total = outstanding + resale
+    const total = rowsForName.reduce((s, r) => s + r.total, 0)
     const achievementPct = commitment > 0 ? (total / commitment) * 100 : 0
-    return { name, callsPlanned, callsDone, commitment, outstanding, resale, total, achievementPct }
+    const monthlyTarget = rowsForName[rowsForName.length - 1]?.monthlyTarget || 0
+    return { name, callsPlanned, callsDone, commitment, outstanding, resale, total, achievementPct, monthlyTarget }
   })
 }

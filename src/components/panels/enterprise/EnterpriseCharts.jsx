@@ -33,13 +33,28 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
     return Object.keys(counts).map((k) => [k, counts[k]])
   }, [data])
 
+  // The last 7 calendar days ending on the MOST RECENT date actually present in the "Lead Entry"
+  // column (EntryKey, 'yyyy-mm-dd' — sorts correctly as a plain string) — not the real wall-clock
+  // date, which can run ahead of the sheet if nothing's been entered yet today. A day with zero
+  // leads still gets its own point at 0, so a quiet day reads as an honest dip, not a skipped gap.
+  const DAILY_LEADS_WINDOW = 7
   const dailyLeads = useMemo(() => {
     const counts = {}
+    let latestKey = ''
     data.forEach((r) => {
-      if (r.EntryKey) counts[r.EntryKey] = (counts[r.EntryKey] || 0) + 1
+      if (!r.EntryKey) return
+      counts[r.EntryKey] = (counts[r.EntryKey] || 0) + 1
+      if (r.EntryKey > latestKey) latestKey = r.EntryKey
     })
-    const keys = Object.keys(counts).sort()
-    return { labels: keys.map((d) => d.slice(5)), values: keys.map((d) => counts[d]) }
+    if (!latestKey) return { labels: [], values: [] }
+    const [ly, lm, ld] = latestKey.split('-').map(Number)
+    const latest = new Date(ly, lm - 1, ld)
+    const keys = []
+    for (let i = DAILY_LEADS_WINDOW - 1; i >= 0; i--) {
+      const d = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate() - i)
+      keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+    }
+    return { labels: keys.map((d) => d.slice(5)), values: keys.map((d) => counts[d] || 0) }
   }, [data])
 
   const topCities = useMemo(() => {
@@ -113,7 +128,7 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
           />
         </ChartCard>
 
-        <ChartCard title="Daily Leads">
+        <ChartCard title="Daily Leads (Last 7 Days)">
           <Line
             data={{
               labels: dailyLeads.labels,

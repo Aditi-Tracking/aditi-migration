@@ -1,28 +1,34 @@
-import { formatLakh } from '../../../lib/collectionsDashboard'
+import { formatMoneyAdaptive } from '../../../lib/collectionsDashboard'
 
 // Same accent-stripe tile pattern as Field Service Dashboard's DashboardKpiTiles.jsx.
 function AccentStripe() {
   return <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl bg-primary" />
 }
 
+// Commitment/Commitment Calls come from the separate targets sheet merged in by
+// normalizeCollectionsRows — 0 for any row from before that sheet's Aug-2026 start (see
+// lib/collectionsDashboard.js's header comment). Money tiles use formatMoneyAdaptive (steps
+// k/L/Cr by magnitude), not formatLakh's fixed "always divide by 100000" — a filtered view this
+// small reads much better as "₹13.0k" than "₹0.13L", matching the Employee Summary table's own
+// adaptive formatting. "MTD" is this dashboard's name for what was the Grand Total tile — same
+// number (sum of the currently filtered scope's own `total`, already includes nbd — see lib
+// comment), just renamed; it is NOT separately re-bounded to the real calendar month, since
+// whichever Month/Week/Date filter the user has picked already defines what "to date" means here.
 export default function CollectionsKpiTiles({ rows }) {
   const totalCallsPlanned = rows.reduce((s, r) => s + r.commitmentCalls, 0)
   const totalCallsDone = rows.reduce((s, r) => s + r.connectCall, 0)
   const totalOutstanding = rows.reduce((s, r) => s + r.outstanding, 0)
   const totalResale = rows.reduce((s, r) => s + r.resale, 0)
   const totalCommitment = rows.reduce((s, r) => s + r.commitment, 0)
-  // Commitment is a target, not realized business — Grand Total counts only what was actually
-  // achieved (Outstanding + Repeat Orders).
-  const grandTotal = totalOutstanding + totalResale
+  const mtdTotal = rows.reduce((s, r) => s + r.total, 0)
 
-  // Commitment (Target) pinned to the 3rd tile — everything else keeps its relative order.
   const tiles = [
     { label: 'Calls Planned', value: totalCallsPlanned.toLocaleString('en-IN') },
     { label: 'Calls Done', value: totalCallsDone.toLocaleString('en-IN') },
-    { label: 'Commitment (Target)', value: formatLakh(totalCommitment) },
-    { label: 'Outstanding', value: formatLakh(totalOutstanding) },
-    { label: 'Repeat Orders (Resale)', value: formatLakh(totalResale) },
-    { label: 'Grand Total', value: formatLakh(grandTotal) },
+    { label: 'Commitment (Target)', value: formatMoneyAdaptive(totalCommitment) },
+    { label: 'Outstanding', value: formatMoneyAdaptive(totalOutstanding) },
+    { label: 'Repeat Orders (Resale)', value: formatMoneyAdaptive(totalResale) },
+    { label: 'MTD', value: formatMoneyAdaptive(mtdTotal) },
   ]
 
   return (

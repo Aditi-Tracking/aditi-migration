@@ -25,9 +25,13 @@ export default function EnterpriseKpiGrid({ kpis, activeMilestone, onKpiClick })
     { key: 'demo', icon: '🖥', label: 'Demo', value: kpis.demo.toLocaleString(), sub: pct(kpis.demo) != null ? `${pct(kpis.demo)}% of leads` : '—', clickable: true },
     { key: 'quotation', icon: '📄', label: 'Quotation', value: kpis.quotation.toLocaleString(), sub: pct(kpis.quotation) != null ? `${pct(kpis.quotation)}% of leads` : '—', clickable: true },
     { key: 'won', icon: '✅', label: 'Won', value: kpis.won.toLocaleString(), sub: pct(kpis.won) != null ? `${pct(kpis.won)}% win rate` : '—', clickable: true },
-    { key: 'revenue', icon: '💰', label: 'Revenue', value: '₹' + formatINR(kpis.revenue), sub: `${kpis.won} won deal${kpis.won !== 1 ? 's' : ''}`, clickable: true },
+    // value = ACV total, sub = Balance total — one tile, not two (Balance is a breakdown of
+    // Revenue, same "big number + secondary line" shape as the "No. of Calls"/"Valid Leads" tiles).
+    { key: 'revenue', icon: '💰', label: 'Revenue', value: '₹' + formatINR(kpis.revenue), sub: `₹${formatINR(kpis.balance)} balance pending`, clickable: true },
     { key: 'lost', icon: '❌', label: 'Lost', value: kpis.lost.toLocaleString(), sub: pct(kpis.lost) != null ? `${pct(kpis.lost)}% of leads` : '—', clickable: true },
-    { key: 'today', icon: '📅', label: 'Daily Lead', value: kpis.todayLeads.toLocaleString(), sub: 'Added today', clickable: true },
+    // Lead Quality — Valid is the headline number, Invalid rides along as the smaller sub-count,
+    // same "big number + secondary breakdown" shape as the "No. of Calls" tile above.
+    { key: 'validLead', icon: '✅', label: 'Valid Leads', value: kpis.validLeads.toLocaleString(), sub: `${kpis.invalidLeads} invalid`, clickable: true },
   ]
 
   return (

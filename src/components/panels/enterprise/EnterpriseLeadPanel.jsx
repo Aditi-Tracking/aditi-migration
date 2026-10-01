@@ -44,11 +44,14 @@ export default function EnterpriseLeadPanel() {
   const [tableOpen, setTableOpen] = useState(true)
   const [repAllMode, setRepAllMode] = useState(false)
 
-  async function load() {
+  // `forceRefresh` bypasses lib/enterpriseLead.js's sessionStorage cache — the mount-time load
+  // below is happy to reuse a still-fresh cached fetch (this endpoint is slow, ~8s+ per real hit),
+  // but the user's own Refresh click should always go to the network.
+  async function load({ forceRefresh = false } = {}) {
     setLoading(true)
     setError('')
     try {
-      const data = await fetchEnterpriseLeads()
+      const data = await fetchEnterpriseLeads({ forceRefresh })
       setRows(data)
       setLastSync(new Date())
     } catch (e) {
@@ -65,7 +68,7 @@ export default function EnterpriseLeadPanel() {
 
   async function handleRefresh() {
     setRefreshing(true)
-    await load() // deliberately doesn't reset filters, matching refreshEnterprise()
+    await load({ forceRefresh: true }) // deliberately doesn't reset filters, matching refreshEnterprise()
     setRefreshing(false)
   }
 

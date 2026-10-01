@@ -3,7 +3,10 @@ import TopPagination from '../../shared/table/TopPagination'
 
 const INR = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`
 
-const COLUMNS = ['Date', 'Location', 'Employee', 'Call Commitment', 'Call Done', 'Commitment', 'Repeat Orders', 'Outstanding', 'Total', 'MTD', 'Remark']
+// Call Commitment/Commitment come from the separate targets sheet merged in by
+// normalizeCollectionsRows — 0 for any row from before that sheet's Aug-2026 start (see
+// lib/collectionsDashboard.js's header comment). No MTD column — neither sheet has that field.
+const COLUMNS = ['Date', 'Location', 'Employee', 'Call Commitment', 'Call Done', 'Commitment', 'Repeat Orders', 'Outstanding', 'Total', 'Remark']
 
 // Client-side paginated table — the full dataset (~750 rows across 4 months) is already in
 // memory from the one-shot fetch, unlike Field Service Dashboard's server-paginated entries.
@@ -45,7 +48,6 @@ export default function CollectionsEntriesTable({ rows, page, onPageChange }) {
                   <td className="px-2.5 py-2 text-center">{INR(r.resale)}</td>
                   <td className="px-2.5 py-2 text-center">{INR(r.outstanding)}</td>
                   <td className="px-2.5 py-2 text-center font-semibold text-text">{INR(r.total)}</td>
-                  <td className="px-2.5 py-2 text-center text-text-muted">{INR(r.mtd)}</td>
                   <td className="px-2.5 py-2 whitespace-nowrap text-center">{r.remark}</td>
                 </tr>
               ))}
