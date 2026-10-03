@@ -1,16 +1,69 @@
-# React + Vite
+# Aditi Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Internal employee portal for Aditi Tracking, served at <https://learn.adititracking.com>.
+It brings HR content, sales and after-sales resources, operational dashboards and
+workflow tools into a single role-aware web app.
 
-Currently, two official plugins are available:
+The portal was migrated from a hand-written multi-file HTML/JS site to a React
+single-page app. The migration is complete and the project is in maintenance mode.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech stack
 
-## React Compiler
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Vite, Tailwind CSS 4 |
+| Charts / diagrams | Chart.js (+ datalabels), React Flow (`@xyflow/react`) with dagre layout |
+| Data / auth | Supabase (Postgres, Row Level Security, Storage, Edge Functions) |
+| Backend services | Python (Flask API + scheduled sync jobs), deployed on Railway |
+| Notifications | OneSignal web push, Resend (email) |
+| Hosting | GitHub Pages with a custom domain (`public/CNAME`) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Getting started
 
-## Expanding the ESLint configuration
+Prerequisites: Node.js 20+ and npm.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+cp .env.example .env     # then fill in your Supabase values
+npm run dev              # start the Vite dev server
+```
+
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Local dev server with hot reload |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run lint` | Run ESLint |
+| `npm run deploy` | Publish `dist/` to GitHub Pages |
+
+### Environment variables
+
+Frontend variables live in `.env` (never committed; see `.env.example`):
+
+- `VITE_SUPABASE_URL` - Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Supabase anon (public) key
+
+The backend reads `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` from the host's
+environment (Railway). The service key must never be placed in frontend code.
+
+## Repository layout
+
+```
+src/
+  components/
+    shell/      Sidebar, mobile nav, profile modal, toasts, nav item definitions
+    panels/     One folder per portal module (FMS, Field Service, HR, ...)
+    shared/     Reusable UI: file viewer, upload modal, tables, overlays
+  context/      Auth, celebrations, file viewer and navigation contexts
+  hooks/        Theme, chart theme, attachment and screenshot caches
+  lib/          Data-access and business-rule modules, one per feature
+backend/        Flask permissions API and Supabase sync scripts
+supabase/       Edge Functions (e.g. birthday reminder email)
+public/         Static assets, push-notification service worker, CNAME
+```
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) - how the pieces fit together
+- [Modules](docs/MODULES.md) - what each portal module does and who can see it
+- [MIGRATION-NOTES.md](MIGRATION-NOTES.md) - historical record of the old-portal to React conversion
