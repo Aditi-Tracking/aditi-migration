@@ -30,10 +30,11 @@ export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, on
   const [uploadOpen, setUploadOpen] = useState(false)
 
   useEffect(() => {
-    if (!open || !module || !hrSectionId) return
     // Resolve the node fresh each time the overlay opens for a (possibly
-    // different) module — the overlay stays mounted between opens.
+    // different) module — the overlay stays mounted between opens. Reset on
+    // close so the next open never renders the previous module's node.
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!open || !module || !hrSectionId) { setNode(null); setResolved(false); return }
     setNode(resolveHRDocNode(hrSectionId, module) || null)
     setResolved(true)
   }, [open, module, hrSectionId])
@@ -77,7 +78,7 @@ export default function HRDocsOverlay({ open, module, hrSectionId, canDelete, on
       {!resolved ? (
         <div className="text-center py-10 text-text-muted text-[12.5px]">Loading…</div>
       ) : node ? (
-        <CNCategoryBrowser rootNodeId={node.id} rootName={module} canDelete={canDelete} onContentChanged={onContentChanged} />
+        <CNCategoryBrowser key={node.id} rootNodeId={node.id} rootName={module}canDelete={canDelete} onContentChanged={onContentChanged} />
       ) : (
         <div className="text-center py-10 text-text-muted text-[12.5px]">No documents found.</div>
       )}
