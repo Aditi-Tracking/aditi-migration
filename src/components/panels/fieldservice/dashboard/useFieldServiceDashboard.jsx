@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../../../context/AuthContext'
 import { canViewAllFieldService, fetchEngineerOptions } from '../../../../lib/fieldService'
-import { fetchDailyStats, fetchDashboardEntries, fetchTodayCount, resolveActiveFilters } from '../../../../lib/fieldServiceDashboard'
+import { fetchDailyStats, fetchDashboardEntries, fetchReviewEngineerIds, fetchTodayCount, resolveActiveFilters } from '../../../../lib/fieldServiceDashboard'
 import DashboardFilterBar from './DashboardFilterBar'
 import DashboardKpiTiles from './DashboardKpiTiles'
 import DashboardTrendChart from './DashboardTrendChart'
 import DashboardJobTypeChart from './DashboardJobTypeChart'
 import DashboardEngineerChart from './DashboardEngineerChart'
+import DashboardReviewsByEngineerCard from './DashboardReviewsByEngineerCard'
 import DashboardEntriesTable from './DashboardEntriesTable'
 
 const INITIAL_FILTERS = { preset: '30d', customFrom: '', customTo: '', jobType: '', engineerId: '' }
@@ -39,11 +40,16 @@ export default function useFieldServiceDashboard({ active }) {
   const [engineerOptionsLoaded, setEngineerOptionsLoaded] = useState(false)
   const [summaryRows, setSummaryRows] = useState([])
   const [todayCount, setTodayCount] = useState(0)
+  const [reviewEngineerIds, setReviewEngineerIds] = useState([])
   const [entriesRows, setEntriesRows] = useState([])
   const [entriesTotal, setEntriesTotal] = useState(0)
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Summary-fetch-only error (daily stats / today / reviews) — `error` above is shared with the
+  // entries table, so the Reviews-by-Engineer card reads this one instead and a table-only failure
+  // never shows up as "Could not load reviews".
+  const [summaryError, setSummaryError] = useState('')
   // Tracks the current page synchronously so the activation effect can reload "wherever the
   // table was left" (production never resets pagination on tab re-activation, only on an actual
   // filter change/Clear) without adding `page` itself as an effect dependency.
@@ -58,14 +64,17 @@ export default function useFieldServiceDashboard({ active }) {
 
   async function loadSummary() {
     try {
-      const [rows, today] = await Promise.all([
+      const [rows, today, reviewIds] = await Promise.all([
         fetchDailyStats({ ...active_, viewAll }),
         fetchTodayCount({ jobType: active_.jobType, engineer: active_.engineer, viewAll }),
+        fetchReviewEngineerIds({ ...active_, viewAll }),
       ])
       setSummaryRows(rows)
       setTodayCount(today)
+      setReviewEngineerIds(reviewIds)
     } catch (e) {
       setError(e.message)
+      setSummaryError(e.message)
     }
   }
 
@@ -82,6 +91,7 @@ export default function useFieldServiceDashboard({ active }) {
   async function loadAll(targetPage = 0) {
     setLoading(true)
     setError('')
+    setSummaryError('')
     await Promise.all([loadSummary(), loadEntries(targetPage)])
     setLoading(false)
   }
@@ -151,14 +161,26 @@ export default function useFieldServiceDashboard({ active }) {
 
   const body = (
     <div>
-      <DashboardKpiTiles summaryRows={summaryRows} viewAll={viewAll} filters={filters} todayCount={todayCount} onChange={handleFilterChange} onScrollToEntries={scrollToEntries} />
+      <DashboardKpiTiles summaryRows={summaryRows} viewAll={viewAll} filters={filters} todayCount={todayCount} reviewCount={reviewEngineerIds.length} onChange={handleFilterChange} onScrollToEntries={scrollToEntries} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 mb-1.5">
         <DashboardJobTypeChart rows={summaryRows} filters={filters} onChange={handleFilterChange} />
         {viewAll && <DashboardEngineerChart rows={summaryRows} engineerOptions={engineerOptions} loading={!engineerOptionsLoaded} filters={filters} onChange={handleFilterChange} />}
       </div>
-      <div className="mb-2.5">
-        <DashboardTrendChart rows={summaryRows} filters={filters} onChange={handleFilterChange} />
+      {/* Trend + (view_all / branch-access only) Google Reviews by Engineer share a row on desktop;
+          the card stacks below Trend on mobile. Non-view_all keeps Trend full width. */}
+      <div className={`grid grid-cols-1 ${viewAll ? 'lg:grid-cols-3' : ''} gap-2.5 mb-2.5`}>
+        <div className={`min-w-0 ${viewAll ? 'lg:col-span-2' : ''}`}>
+          <DashboardTrendChart rows={summaryRows} filters={filters} onChange={handleFilterChange} />
+        </div>
+        {viewAll && (
+          <DashboardReviewsByEngineerCard
+            engineerIds={reviewEngineerIds}
+            engineerOptions={engineerOptions}
+            loading={loading || !engineerOptionsLoaded}
+            error={summaryError}
+          />
+        )}
       </div>
 
       <div ref={entriesTableRef}>

@@ -13,6 +13,7 @@
 import { SUPABASE_URL, SB_HDRS } from './supabaseClient'
 
 export const FSD_PAGE_SIZE = 25
+const REVIEW_PAGE_SIZE = 1000
 export const FSD_CHART_PALETTE = ['#00d4aa', '#3b82f6', '#f0a500', '#a78bfa', '#10b981', '#ff5c7c', '#f5a623', '#6366f1', '#ec4899', '#14b8a6']
 
 // Local calendar date -> 'YYYY-MM-DD', using local getters (getFullYear/getMonth/getDate), NOT
@@ -133,7 +134,7 @@ export async function fetchDailyStats({ from, to, jobType, engineer, viewAll }) 
 export async function fetchDashboardEntries({ from, to, jobType, engineer, viewAll, page }) {
   let url =
     `${SUPABASE_URL}/rest/v1/field_service_entries` +
-    `?select=id,created_at,job_type,client_name,location,engineer_id,details,field_service_photos(id,field_label,storage_path,file_name)` +
+    `?select=id,created_at,job_type,client_name,location,engineer_id,details,google_review_taken,field_service_photos(id,field_label,storage_path,file_name,photo_type)` +
     `&order=created_at.desc`
   if (from) url += `&created_at=gte.${from}T00:00:00`
   if (to) url += `&created_at=lte.${to}T23:59:59`
@@ -148,6 +149,34 @@ export async function fetchDashboardEntries({ from, to, jobType, engineer, viewA
   if (!res.ok) throw new Error('HTTP ' + res.status)
   const rows = await res.json()
   return { rows, total: parseContentRangeTotal(res.headers.get('content-range')) }
+}
+
+// ── Reviews Taken — one engineer_id per google_review_taken=true entry in the active range (+ job
+// type/engineer), read from field_service_entries (RLS-scoped). Feeds BOTH the Reviews Taken tile
+// (its length) and the Google Reviews by Engineer card (counted per engineer client-side), so the
+// two can never disagree. Same created_at from/to filter format as fetchDashboardEntries above, so
+// it stays consistent with Total Jobs (field_service_daily_stats groups by (created_at)::date).
+// Pages with Range until `total` (from Prefer: count=exact) rows are collected — PostgREST caps a
+// single response (default 1,000) — order=id keeps the pages stable. ──
+export async function fetchReviewEngineerIds({ from, to, jobType, engineer, viewAll }) {
+  let url = `${SUPABASE_URL}/rest/v1/field_service_entries?select=engineer_id&google_review_taken=eq.true&order=id`
+  if (from) url += `&created_at=gte.${from}T00:00:00`
+  if (to) url += `&created_at=lte.${to}T23:59:59`
+  if (jobType) url += `&job_type=eq.${encodeURIComponent(jobType)}`
+  if (viewAll && engineer) url += `&engineer_id=eq.${encodeURIComponent(engineer)}`
+  const ids = []
+  let total = null
+  do {
+    const res = await fetch(url, {
+      headers: { ...SB_HDRS(), 'Range-Unit': 'items', Range: `${ids.length}-${ids.length + REVIEW_PAGE_SIZE - 1}`, Prefer: 'count=exact' },
+    })
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const rows = await res.json()
+    if (total === null) total = parseContentRangeTotal(res.headers.get('content-range'))
+    if (!rows.length) break
+    rows.forEach((r) => ids.push(r.engineer_id))
+  } while (ids.length < total)
+  return ids
 }
 
 function parseContentRangeTotal(headerVal) {

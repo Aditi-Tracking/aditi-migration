@@ -8,7 +8,9 @@
 // Clicking it only removes the item from this local preview array; it never deletes the photo's
 // storage file or DB row, which stay attached to the saved entry regardless. A user who removes a
 // "done" thumbnail here will still see that photo if they reopen the entry later.
-export default function PhotoUploadSection({ photoLabel, photos, pickerDisabled, onAddFiles, onRemove, onRetry }) {
+// Renders only the items of its own `kind` ('job' | 'review') from the shared `photos` array; each
+// item keeps its index in the FULL array, which is what onRemove/onRetry expect.
+export default function PhotoUploadSection({ photoLabel, photos, kind = 'job', multiple = true, pickerDisabled, onAddFiles, onRemove, onRetry }) {
   if (!photoLabel) return null
 
   function handleChange(e) {
@@ -26,7 +28,7 @@ export default function PhotoUploadSection({ photoLabel, photos, pickerDisabled,
           }`}
         >
           📷 Take Photo
-          <input type="file" accept="image/*" capture="environment" multiple disabled={pickerDisabled} onChange={handleChange} className="hidden" />
+          <input type="file" accept="image/*" capture="environment" multiple={multiple} disabled={pickerDisabled} onChange={handleChange} className="hidden" />
         </label>
         <label
           className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 px-3 py-3.5 rounded-lg border-[1.5px] border-dashed border-border bg-surface-2 text-text-muted text-[13px] font-bold text-center box-border ${
@@ -34,12 +36,12 @@ export default function PhotoUploadSection({ photoLabel, photos, pickerDisabled,
           }`}
         >
           🖼️ Choose from Gallery
-          <input type="file" accept="image/*" multiple disabled={pickerDisabled} onChange={handleChange} className="hidden" />
+          <input type="file" accept="image/*" multiple={multiple} disabled={pickerDisabled} onChange={handleChange} className="hidden" />
         </label>
       </div>
-      {!!photos.length && (
+      {photos.some((p) => p.kind === kind) && (
         <div className="flex flex-wrap gap-2.5 mt-3">
-          {photos.map((p, i) => (
+          {photos.map((p, i) => p.kind !== kind ? null : (
             <div key={i} className="relative w-[72px] h-[72px] shrink-0">
               <img src={p.blobUrl} alt="" className="w-full h-full object-cover rounded-lg border border-border" />
               {p.status === 'uploading' && (

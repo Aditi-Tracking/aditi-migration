@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { JOB_TYPE_CONFIG, engineerName, publicPhotoUrl } from '../../../../lib/fieldService'
+import { JOB_TYPE_CONFIG, engineerName, isReviewPhoto, publicPhotoUrl } from '../../../../lib/fieldService'
 import { FSD_PAGE_SIZE } from '../../../../lib/fieldServiceDashboard'
 import TopPagination from '../../../shared/table/TopPagination'
 
@@ -27,7 +27,7 @@ export default function DashboardEntriesTable({ rows, total, page, onPageChange,
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className="border-b-2 border-border">
-                  {['Date', 'Job Type', 'Client', 'Location', ...(viewAll ? ['Engineer'] : []), 'Photos'].map((h) => (
+                  {['Date', 'Job Type', 'Client', 'Location', ...(viewAll ? ['Engineer'] : []), 'Photos', 'Review'].map((h) => (
                     <th key={h} className="text-left px-2.5 py-2 text-[10.5px] font-bold uppercase tracking-wide text-text-muted whitespace-nowrap">
                       {h}
                     </th>
@@ -38,7 +38,7 @@ export default function DashboardEntriesTable({ rows, total, page, onPageChange,
                 {rows.map((e) => {
                   const cfg = JOB_TYPE_CONFIG[e.job_type]
                   const jobLabel = (cfg && cfg.label) || e.job_type
-                  const photoCount = (e.field_service_photos || []).length
+                  const photoCount = (e.field_service_photos || []).filter((p) => !isReviewPhoto(p)).length
                   const expanded = expandedId === e.id
                   return (
                     <Fragment key={e.id}>
@@ -52,10 +52,11 @@ export default function DashboardEntriesTable({ rows, total, page, onPageChange,
                         <td className="px-2.5 py-2">{e.location}</td>
                         {viewAll && <td className="px-2.5 py-2">{engineerName(e.engineer_id)}</td>}
                         <td className="px-2.5 py-2 text-center">{photoCount}</td>
+                        <td className="px-2.5 py-2 text-center">{e.google_review_taken ? '⭐' : '—'}</td>
                       </tr>
                       {expanded && (
                         <tr>
-                          <td colSpan={viewAll ? 6 : 5} className="p-0">
+                          <td colSpan={viewAll ? 7 : 6} className="p-0">
                             <ExpandedRow entry={e} />
                           </td>
                         </tr>
@@ -78,7 +79,9 @@ function ExpandedRow({ entry: e }) {
   const fieldDefs = (cfg && cfg.fields) || []
   const details = e.details || {}
   const detailEntries = fieldDefs.filter((f) => details[f.key] != null && details[f.key] !== '')
-  const photos = e.field_service_photos || []
+  const allPhotos = e.field_service_photos || []
+  const photos = allPhotos.filter((p) => !isReviewPhoto(p))
+  const reviewPhotos = allPhotos.filter(isReviewPhoto)
 
   return (
     <div className="px-4 py-3.5 bg-surface-2 border-t border-border">
@@ -105,6 +108,23 @@ function ExpandedRow({ entry: e }) {
         </div>
       ) : (
         <div className="text-text-muted text-[12px]">No photos attached.</div>
+      )}
+
+      {e.google_review_taken && (
+        <>
+          <div className="text-[12.5px] font-bold text-text mt-3.5 mb-1.5">Google Review Screenshot</div>
+          {reviewPhotos.length ? (
+            <div className="flex flex-wrap gap-1">
+              {reviewPhotos.map((p) => (
+                <a key={p.id} href={publicPhotoUrl(p.storage_path)} target="_blank" rel="noopener noreferrer" className="inline-block m-1">
+                  <img src={publicPhotoUrl(p.storage_path)} alt={p.field_label || p.file_name} className="w-[90px] h-[90px] object-cover rounded-lg border border-border" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="text-text-muted text-[12px]">Review marked taken, but no screenshot attached.</div>
+          )}
+        </>
       )}
     </div>
   )

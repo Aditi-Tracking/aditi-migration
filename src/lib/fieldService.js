@@ -4,8 +4,9 @@
 // separately, matching production's own file split.
 // Tables (Supabase): field_service_entries (id, engineer_id [a real Supabase Auth UID, NOT an
 // Employee_details Emp_id/email], client_name, location, job_type, details [JSONB, shape varies
-// per job type], created_at), field_service_photos (id, entry_id FK, field_label, storage_path,
-// file_name). Storage bucket 'field-service-photos' is PUBLIC — plain <img src>, no blob-fetch/
+// per job type], created_at, google_review_taken [boolean, default false, write-once — no UPDATE
+// policy exists]), field_service_photos (id, entry_id FK, field_label, storage_path, file_name,
+// photo_type ['job' default | 'google_review']). Storage bucket 'field-service-photos' is PUBLIC — plain <img src>, no blob-fetch/
 // auth needed, unlike every private-bucket module elsewhere in this project.
 // Access: field_service_create is no longer permission-gated anywhere (frontend or RLS) — every
 // logged-in user can submit and see the Dashboard tab. field_service_view_all is the only
@@ -16,6 +17,10 @@ import { SUPABASE_URL, SB_HDRS, SB_HDRS_MIN, SB_HDRS_REPR, SUPABASE_ANON, getAut
 import { PAPI_URL } from './permissions'
 
 export const FS_BUCKET = 'field-service-photos'
+export const REVIEW_PHOTO_LABEL = 'Google Review Screenshot'
+
+// photo_type: 'job' (default, all pre-existing rows) | 'google_review'
+export const isReviewPhoto = (photo) => photo?.photo_type === 'google_review'
 
 // Source of truth for the dynamic form — job type -> extra fields + photo label. Ported verbatim
 // from JOB_TYPE_CONFIG.
@@ -183,11 +188,11 @@ export async function fetchEntries({ viewAll, jobType, engineerId, clientName, f
   return res.json()
 }
 
-export async function createEntry({ engineerId, clientName, location, jobType, details }) {
+export async function createEntry({ engineerId, clientName, location, jobType, details, googleReviewTaken = false }) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/field_service_entries`, {
     method: 'POST',
     headers: SB_HDRS_REPR(),
-    body: JSON.stringify({ engineer_id: engineerId, client_name: clientName, location, job_type: jobType, details }),
+    body: JSON.stringify({ engineer_id: engineerId, client_name: clientName, location, job_type: jobType, details, google_review_taken: googleReviewTaken }),
   })
   if (!res.ok) throw new Error((await res.text()) || 'HTTP ' + res.status)
   const [saved] = await res.json()
@@ -198,7 +203,7 @@ export async function createEntry({ engineerId, clientName, location, jobType, d
 // substitution, because upload.onprogress drives a real, visible per-photo progress percentage;
 // fetch() has no equivalent for a request body. Two-step, matching production exactly: the
 // storage object POST needs progress (XHR), the photo-record insert doesn't (plain fetch). ──
-export function uploadEntryPhoto(entryId, file, photoLabel, onProgress) {
+export function uploadEntryPhoto(entryId, file, photoLabel, onProgress, photoType = 'job') {
   return new Promise((resolve, reject) => {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `${entryId}/${Date.now()}_${safeName}`
@@ -222,7 +227,7 @@ export function uploadEntryPhoto(entryId, file, photoLabel, onProgress) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/field_service_photos`, {
       method: 'POST',
       headers: SB_HDRS_MIN(),
-      body: JSON.stringify({ entry_id: entryId, field_label: photoLabel, storage_path: path, file_name: file.name }),
+      body: JSON.stringify({ entry_id: entryId, field_label: photoLabel, storage_path: path, file_name: file.name, photo_type: photoType }),
     })
     if (!res.ok) throw new Error((await res.text()) || 'Could not save photo record (HTTP ' + res.status + ')')
   })

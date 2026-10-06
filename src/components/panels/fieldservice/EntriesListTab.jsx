@@ -10,6 +10,7 @@ import {
   fetchEngineerOptions,
   fetchEntries,
   getCurrentAuthUserId,
+  isReviewPhoto,
 } from '../../../lib/fieldService'
 import EntryDetailModal from './EntryDetailModal'
 
@@ -231,7 +232,7 @@ export default function EntriesListTab({ active }) {
             const cfg = JOB_TYPE_CONFIG[e.job_type]
             const label = cfg ? cfg.label : e.job_type
             const dateStr = e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-            const photoCount = (e.field_service_photos || []).length
+            const photoCount = (e.field_service_photos || []).filter((p) => !isReviewPhoto(p)).length
             const canDelete = deletableIds.has(String(e.id))
             const checked = selectedIds.has(String(e.id))
             return (
@@ -260,6 +261,7 @@ export default function EntriesListTab({ active }) {
                 </div>
                 <span className="text-[11.5px] font-bold px-2.5 py-1 rounded-full bg-primary-tint text-primary border border-primary/25 whitespace-nowrap">{label}</span>
                 {photoCount > 0 && <span className="text-[12px] text-text-muted">📷 {photoCount}</span>}
+                {e.google_review_taken && <span className="text-[12px] text-text-muted" title="Google review taken">⭐</span>}
                 {canDelete && (
                   <button
                     type="button"

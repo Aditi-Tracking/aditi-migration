@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
-import { JOB_TYPE_CONFIG, canCreateFieldService, createEntry, getCurrentAuthUserId, uploadEntryPhoto } from '../../../lib/fieldService'
+import { JOB_TYPE_CONFIG, REVIEW_PHOTO_LABEL, canCreateFieldService, createEntry, getCurrentAuthUserId, uploadEntryPhoto } from '../../../lib/fieldService'
 import PhotoUploadSection from './PhotoUploadSection'
 
 const JOB_TYPES = Object.entries(JOB_TYPE_CONFIG)
 
-function newPhoto(file) {
-  return { file, blobUrl: URL.createObjectURL(file), status: 'pending', progress: 0, error: null }
+// kind: 'job' (the per-job-type photo section) | 'review' (the single Google review screenshot).
+// Both live in ONE array so the index-based upload/retry/remove handlers keep working unchanged.
+function newPhoto(file, kind) {
+  return { file, kind, blobUrl: URL.createObjectURL(file), status: 'pending', progress: 0, error: null }
 }
 
 // Ported from old-portal/js/fieldservice.js's _fsRenderSubmitForm/_fsSelectJobType/
@@ -22,6 +24,7 @@ export default function SubmitEntryTab() {
   const [location, setLocation] = useState('')
   const [jobType, setJobType] = useState(null)
   const [fieldValues, setFieldValues] = useState({})
+  const [googleReviewTaken, setGoogleReviewTaken] = useState(false)
   const [photos, setPhotos] = useState([])
   const [savedEntryId, setSavedEntryId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -50,17 +53,34 @@ export default function SubmitEntryTab() {
 
   function handleSelectJobType(key) {
     if (locked) return
-    revokeAllPhotoUrls(photos)
+    // Review state is common to every job type — only the job photos reset on a type switch.
+    revokeAllPhotoUrls(photos.filter((p) => p.kind === 'job'))
     setJobType(key)
     setFieldValues({})
-    setPhotosAndRef([])
+    setPhotosAndRef((prev) => prev.filter((p) => p.kind === 'review'))
   }
 
-  function handleAddPhotos(fileList) {
-    const added = Array.from(fileList)
-      .filter((f) => f.type.startsWith('image/'))
-      .map(newPhoto)
-    if (added.length) setPhotosAndRef((prev) => [...prev, ...added])
+  function handleAddPhotos(fileList, kind = 'job') {
+    const files = Array.from(fileList).filter((f) => f.type.startsWith('image/'))
+    if (!files.length) return
+    if (kind === 'review') {
+      // Single slot: a new pick replaces the old one.
+      photosRef.current.filter((p) => p.kind === 'review').forEach((p) => URL.revokeObjectURL(p.blobUrl))
+      const picked = newPhoto(files[0], 'review')
+      setPhotosAndRef((prev) => [...prev.filter((p) => p.kind !== 'review'), picked])
+      return
+    }
+    setPhotosAndRef((prev) => [...prev, ...files.map((f) => newPhoto(f, 'job'))])
+  }
+
+  function handleToggleReview(yes) {
+    if (locked) return
+    setGoogleReviewTaken(yes)
+    if (!yes) {
+      // Back to No: drop any picked screenshot so it can never upload against a "No" entry.
+      photosRef.current.filter((p) => p.kind === 'review').forEach((p) => URL.revokeObjectURL(p.blobUrl))
+      setPhotosAndRef((prev) => prev.filter((p) => p.kind !== 'review'))
+    }
   }
 
   function handleRemovePhoto(i) {
@@ -75,10 +95,17 @@ export default function SubmitEntryTab() {
     setPhotosAndRef((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)))
   }
 
-  async function uploadOne(entryId, i, photoLabel) {
+  async function uploadOne(entryId, i) {
+    const isReview = photosRef.current[i].kind === 'review'
     updatePhoto(i, { status: 'uploading', progress: 0, error: null })
     try {
-      await uploadEntryPhoto(entryId, photosRef.current[i].file, photoLabel, (pct) => updatePhoto(i, { progress: pct }))
+      await uploadEntryPhoto(
+        entryId,
+        photosRef.current[i].file,
+        isReview ? REVIEW_PHOTO_LABEL : cfg.photoLabel,
+        (pct) => updatePhoto(i, { progress: pct }),
+        isReview ? 'google_review' : 'job'
+      )
       updatePhoto(i, { status: 'done', progress: 100 })
     } catch (e) {
       updatePhoto(i, { status: 'error', error: e.message })
@@ -101,7 +128,7 @@ export default function SubmitEntryTab() {
   async function handleRetryPhoto(i) {
     const item = photosRef.current[i]
     if (!item || item.status !== 'error' || !savedEntryId) return
-    await uploadOne(savedEntryId, i, cfg.photoLabel)
+    await uploadOne(savedEntryId, i)
     afterUploadRoundCheck()
   }
 
@@ -134,6 +161,10 @@ export default function SubmitEntryTab() {
       }
       if (val) details[f.key] = val
     }
+    if (googleReviewTaken && !photosRef.current.some((p) => p.kind === 'review')) {
+      setStatus({ text: '⚠️ Please upload the Google review screenshot.', tone: 'error' })
+      return
+    }
 
     setSubmitting(true)
     setStatus({ text: '⏳ Saving entry…', tone: 'info' })
@@ -141,15 +172,17 @@ export default function SubmitEntryTab() {
       const engineerId = await getCurrentAuthUserId()
       if (!engineerId) throw new Error('Could not verify your session — please log in again.')
 
-      const saved = await createEntry({ engineerId, clientName: trimmedClient, location: trimmedLocation, jobType, details })
+      const saved = await createEntry({ engineerId, clientName: trimmedClient, location: trimmedLocation, jobType, details, googleReviewTaken })
       setSavedEntryId(saved.id)
 
-      if (cfg.photoLabel && photosRef.current.length) {
+      // Not gated on cfg.photoLabel — Sensor Replace has no job-photo section but must still
+      // upload the review screenshot. Job photos can't exist when photoLabel is null.
+      if (photosRef.current.length) {
         setStatus({ text: '⏳ Uploading photos…', tone: 'info' })
         // Sequential, not parallel — a failed upload doesn't block or lose the others, and this
         // avoids piling concurrent XHRs onto one bucket.
         for (let i = 0; i < photosRef.current.length; i++) {
-          await uploadOne(saved.id, i, cfg.photoLabel)
+          await uploadOne(saved.id, i)
         }
       }
       afterUploadRoundCheck()
@@ -167,6 +200,7 @@ export default function SubmitEntryTab() {
     setLocation('')
     setJobType(null)
     setFieldValues({})
+    setGoogleReviewTaken(false)
     setPhotosAndRef([])
     setSavedEntryId(null)
     setSubmitting(false)
@@ -272,14 +306,52 @@ export default function SubmitEntryTab() {
       )}
 
       {cfg && (
-        <PhotoUploadSection
-          photoLabel={cfg.photoLabel}
-          photos={photos}
-          pickerDisabled={locked}
-          onAddFiles={handleAddPhotos}
-          onRemove={handleRemovePhoto}
-          onRetry={handleRetryPhoto}
-        />
+        <>
+          <PhotoUploadSection
+            kind="job"
+            photoLabel={cfg.photoLabel}
+            photos={photos}
+            pickerDisabled={locked}
+            onAddFiles={(files) => handleAddPhotos(files, 'job')}
+            onRemove={handleRemovePhoto}
+            onRetry={handleRetryPhoto}
+          />
+
+          <div className="mb-4">
+            <label className="block text-[12.5px] font-semibold text-text-muted mb-2.5">Google Review taken?</label>
+            <div className="flex border-[1.5px] border-border rounded-xl overflow-hidden">
+              {[
+                [false, 'No'],
+                [true, 'Yes'],
+              ].map(([val, text], i) => (
+                <button
+                  key={text}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => handleToggleReview(val)}
+                  className={`flex-1 min-h-[52px] text-[13.5px] font-bold disabled:opacity-60 ${i > 0 ? 'border-l border-border' : ''} ${
+                    googleReviewTaken === val ? 'bg-primary-tint text-primary' : 'bg-surface-2 text-text'
+                  }`}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {googleReviewTaken && (
+            <PhotoUploadSection
+              kind="review"
+              multiple={false}
+              photoLabel={`${REVIEW_PHOTO_LABEL} *`}
+              photos={photos}
+              pickerDisabled={locked}
+              onAddFiles={(files) => handleAddPhotos(files, 'review')}
+              onRemove={handleRemovePhoto}
+              onRetry={handleRetryPhoto}
+            />
+          )}
+        </>
       )}
 
       {status && <div className={`px-3.5 py-2.5 rounded-lg text-[13px] font-semibold mb-3.5 ${STATUS_CLASS[status.tone]}`}>{status.text}</div>}

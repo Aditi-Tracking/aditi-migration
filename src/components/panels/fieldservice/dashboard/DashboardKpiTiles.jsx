@@ -4,7 +4,8 @@ import { engineerName, JOB_TYPE_CONFIG } from '../../../../lib/fieldService'
 
 // Ported from old-portal/js/fieldservice-dashboard.js's _fsdRenderKpis, since revised twice:
 // first to read all 4 tiles from summaryRows instead of a separate fetchKpiComparisonStats()
-// fetch, then to this 5-tile shape — Total Jobs (with a filter-description subtitle), Avg Jobs
+// fetch, then to this 6-tile shape (the 6th, Reviews Taken, is informational-only: just the count,
+// the length of the review-entries fetch that also feeds the Reviews-by-Engineer card) — Total Jobs (with a filter-description subtitle), Avg Jobs
 // per Day, Top Service, Today's Jobs (its own lightweight fetch, independent of the active date
 // preset), and Highest Jobs Done in a Day. Total Jobs/Top Service/Today's Jobs/Highest Day are
 // click-to-filter, each toggle-aware (clicking an already-active value clears it back to
@@ -14,7 +15,7 @@ function AccentStripe() {
   return <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-xl bg-primary" />
 }
 
-export default function DashboardKpiTiles({ summaryRows, viewAll, filters, todayCount, onChange, onScrollToEntries }) {
+export default function DashboardKpiTiles({ summaryRows, viewAll, filters, todayCount, reviewCount, onChange, onScrollToEntries }) {
   const { currentUser } = useAuth()
 
   const totalJobs = summaryRows.reduce((sum, r) => sum + Number(r.entry_count || 0), 0)
@@ -83,10 +84,11 @@ export default function DashboardKpiTiles({ summaryRows, viewAll, filters, today
         ? () => onChange(isMaxDayActive ? { preset: '30d', customFrom: '', customTo: '' } : { preset: 'custom', customFrom: maxDay, customTo: maxDay })
         : undefined,
     },
+    { label: 'Reviews Taken', value: reviewCount },
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-2.5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2.5">
       {tiles.map((t) => {
         const Wrapper = t.onClick ? 'button' : 'div'
         return (
