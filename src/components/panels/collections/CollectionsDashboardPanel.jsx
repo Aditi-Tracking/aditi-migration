@@ -25,7 +25,12 @@ import CollectionsEntriesTable from './CollectionsEntriesTable'
 // needing to hit Refresh — filtered entirely client-side (the whole dataset is a few hundred KB of
 // JSON, same scale as Enterprise Solutions' single-fetch pattern — no server-side pagination/query
 // needed). 100% read-only.
-const REFRESH_MS = 60 * 1000
+//
+// 3 minutes, not 1 — this endpoint measured 40-60+ seconds per request even on a clean success (see
+// lib/collectionsDashboard.js's fetchWithRetry comment), so a 60s interval risked a poll firing
+// again while the previous one's fetch was still in flight, piling overlapping requests onto an
+// already slow/struggling script.
+const REFRESH_MS = 3 * 60 * 1000
 
 export default function CollectionsDashboardPanel() {
   const [daily, setDaily] = useState([])
@@ -39,15 +44,33 @@ export default function CollectionsDashboardPanel() {
 
   // `silent` skips the full-page loading state so the periodic poll (and the manual Refresh
   // button) update the numbers in place instead of blanking the whole dashboard every minute.
-  async function load({ silent = false } = {}) {
+  // `background` additionally swallows a failure instead of surfacing the error banner — only the
+  // automatic interval poll passes this, since the user never asked for that fetch and the good
+  // data already on screen from the last successful load is still perfectly valid; replacing the
+  // whole dashboard with an error banner over one transient hiccup would hide real, correct numbers
+  // for no reason. A manual Refresh click failing still shows the error — the user explicitly asked
+  // for that fetch and should hear if it didn't work.
+  //
+  // The mount-time load is the only one that's allowed to read lib/collectionsDashboard.js's own
+  // sessionStorage cache (fetchCollectionsRaw/fetchCollectionsTargetsRaw default to using it) —
+  // this endpoint measured 40-60+ SECONDS per request, so reusing a still-fresh fetch from the last
+  // few minutes (e.g. navigating back to this dashboard) avoids repaying that in full every time.
+  // Both the background poll and a manual Refresh force a real network hit — the whole point of the
+  // poll is catching a genuinely new row on the sheet, which a cached read would hide for its whole
+  // TTL, and a manual Refresh click is the user explicitly asking for the current truth.
+  async function load({ silent = false, background = false, forceRefresh = false } = {}) {
     if (!silent) setLoading(true)
-    setError('')
+    if (!background) setError('')
     try {
-      const [raw, targetsRaw] = await Promise.all([fetchCollectionsRaw(), fetchCollectionsTargetsRaw()])
+      const [raw, targetsRaw] = await Promise.all([
+        fetchCollectionsRaw({ forceRefresh }),
+        fetchCollectionsTargetsRaw({ forceRefresh }),
+      ])
       setDaily(normalizeCollectionsRows(raw, targetsRaw))
       setLastSync(new Date())
     } catch (e) {
-      setError(e.message)
+      if (background) console.warn('Collections background refresh failed:', e)
+      else setError(e.message)
     } finally {
       if (!silent) setLoading(false)
     }
@@ -60,13 +83,13 @@ export default function CollectionsDashboardPanel() {
 
   // Cleared on unmount so navigating away from the panel doesn't leak the interval.
   useEffect(() => {
-    const id = setInterval(() => load({ silent: true }), REFRESH_MS)
+    const id = setInterval(() => load({ silent: true, background: true, forceRefresh: true }), REFRESH_MS)
     return () => clearInterval(id)
   }, [])
 
   async function handleRefresh() {
     setRefreshing(true)
-    await load({ silent: true })
+    await load({ silent: true, forceRefresh: true })
     setRefreshing(false)
   }
 

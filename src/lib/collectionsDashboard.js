@@ -61,19 +61,75 @@ export function canAccessCollections(currentUser, permissions) {
   return permissions.can_view_collections === 'true'
 }
 
-export async function fetchCollectionsRaw() {
-  const res = await fetch(COLLECTIONS_URL)
-  if (!res.ok) throw new Error(String(res.status))
+// This Apps Script deployment's content-delivery layer is intermittently flaky — a request can
+// 404 even though the script itself ran fine (confirmed directly in the Apps Script Executions
+// log: every single doGet shows "Completed" in 1-8s, with no errors at all — the install-triggers
+// cache-warming fix made the SCRIPT itself fast and reliable; the 404s happen one layer above it,
+// in Google's own delivery of the response, which no amount of script-side optimization fixes).
+// A failing attempt can still take a while to give up and return that 404 (seen: 10-80s), but a
+// SUCCEEDING one is now fast (same 1-8s the Executions log shows), so retrying is cheap when it
+// works — 4 attempts here, up from 2, trading a slightly larger worst-case wait (if every attempt
+// happens to fail) for meaningfully better odds of landing on a working one.
+async function fetchWithRetry(url, attempts = 4, delayMs = 700) {
+  let lastErr
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url)
+      if (res.ok) return res
+      lastErr = new Error(String(res.status))
+    } catch (e) {
+      lastErr = e
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs))
+  }
+  throw lastErr
+}
+
+// sessionStorage cache so a merely-slow (not failing) load only has to happen once per tab per
+// window, not on every mount/navigation back to this dashboard — same pattern as
+// lib/enterpriseLead.js's own fetchEnterpriseLeads cache, just keyed per endpoint here since the
+// main sheet and the targets sheet are two independent fetches.
+const CACHE_TTL_MS = 5 * 60 * 1000
+function readCache(key) {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(key) || 'null')
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.data
+  } catch {
+    // Corrupt/inaccessible cache (private browsing, quota, bad JSON) — fall through to a real fetch.
+  }
+  return undefined
+}
+function writeCache(key, data) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }))
+  } catch {
+    // Storage full/unavailable — caching is a pure optimization, safe to skip silently.
+  }
+}
+
+export async function fetchCollectionsRaw({ forceRefresh = false } = {}) {
+  const cacheKey = 'collectionsRaw:cache:v1'
+  if (!forceRefresh) {
+    const cached = readCache(cacheKey)
+    if (cached) return cached
+  }
+  const res = await fetchWithRetry(COLLECTIONS_URL)
   const json = await res.json()
   if (!json || !Array.isArray(json.data)) throw new Error('API returned an unexpected shape — expected {data:[]}')
+  writeCache(cacheKey, json.data)
   return json.data
 }
 
-export async function fetchCollectionsTargetsRaw() {
-  const res = await fetch(COLLECTIONS_TARGETS_URL)
-  if (!res.ok) throw new Error(String(res.status))
+export async function fetchCollectionsTargetsRaw({ forceRefresh = false } = {}) {
+  const cacheKey = 'collectionsTargetsRaw:cache:v1'
+  if (!forceRefresh) {
+    const cached = readCache(cacheKey)
+    if (cached) return cached
+  }
+  const res = await fetchWithRetry(COLLECTIONS_TARGETS_URL)
   const json = await res.json()
   if (!json || !Array.isArray(json.data)) throw new Error('Targets API returned an unexpected shape — expected {data:[]}')
+  writeCache(cacheKey, json.data)
   return json.data
 }
 

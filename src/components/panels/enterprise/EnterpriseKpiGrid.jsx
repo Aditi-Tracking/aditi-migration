@@ -14,24 +14,18 @@ export default function EnterpriseKpiGrid({ kpis, activeMilestone, onKpiClick })
 
   const tiles = [
     { key: 'total', icon: '📊', label: 'Total Leads', value: kpis.total.toLocaleString(), sub: `${kpis.total} lead${kpis.total !== 1 ? 's' : ''} tracked`, clickable: true },
-    {
-      key: 'contacted',
-      icon: '📞',
-      label: 'No. of Calls',
-      value: kpis.totalCalls.toLocaleString(),
-      sub: `${kpis.totalConnected} connected · ${kpis.totalCalls - kpis.totalConnected} no answer`,
-      clickable: true,
-    },
+    // Lead Quality — Valid is the headline number, Invalid rides along as the smaller sub-count,
+    // same "big number + secondary breakdown" shape the old "No. of Calls" tile (removed) used.
+    { key: 'validLead', icon: '✅', label: 'Valid Leads', value: kpis.validLeads.toLocaleString(), sub: `${kpis.invalidLeads} invalid`, clickable: true },
     { key: 'demo', icon: '🖥', label: 'Demo', value: kpis.demo.toLocaleString(), sub: pct(kpis.demo) != null ? `${pct(kpis.demo)}% of leads` : '—', clickable: true },
     { key: 'quotation', icon: '📄', label: 'Quotation', value: kpis.quotation.toLocaleString(), sub: pct(kpis.quotation) != null ? `${pct(kpis.quotation)}% of leads` : '—', clickable: true },
+    // Last Known Stage = 'Trials In Progress' or 'PO/LOI' — both counted together.
+    { key: 'trials', icon: '🧪', label: 'Trails', value: kpis.trials.toLocaleString(), sub: pct(kpis.trials) != null ? `${pct(kpis.trials)}% of leads` : '—', clickable: true },
     { key: 'won', icon: '✅', label: 'Won', value: kpis.won.toLocaleString(), sub: pct(kpis.won) != null ? `${pct(kpis.won)}% win rate` : '—', clickable: true },
-    // value = ACV total, sub = Balance total — one tile, not two (Balance is a breakdown of
-    // Revenue, same "big number + secondary line" shape as the "No. of Calls"/"Valid Leads" tiles).
-    { key: 'revenue', icon: '💰', label: 'Revenue', value: '₹' + formatINR(kpis.revenue), sub: `₹${formatINR(kpis.balance)} balance pending`, clickable: true },
+    // value = ACV total (the headline figure), sub = Received + Balance both — the two pieces ACV
+    // splits into (what's actually come in vs what's still owed).
+    { key: 'revenue', icon: '💰', label: 'Collected', value: '₹' + formatINR(kpis.revenue), sub: `₹${formatINR(kpis.received)} received\n₹${formatINR(kpis.balance)} balance`, clickable: true },
     { key: 'lost', icon: '❌', label: 'Lost', value: kpis.lost.toLocaleString(), sub: pct(kpis.lost) != null ? `${pct(kpis.lost)}% of leads` : '—', clickable: true },
-    // Lead Quality — Valid is the headline number, Invalid rides along as the smaller sub-count,
-    // same "big number + secondary breakdown" shape as the "No. of Calls" tile above.
-    { key: 'validLead', icon: '✅', label: 'Valid Leads', value: kpis.validLeads.toLocaleString(), sub: `${kpis.invalidLeads} invalid`, clickable: true },
   ]
 
   return (
@@ -48,7 +42,7 @@ export default function EnterpriseKpiGrid({ kpis, activeMilestone, onKpiClick })
             <div className="w-8 h-8 rounded-lg bg-primary-tint border border-primary/20 flex items-center justify-center text-[15px] mb-2">{t.icon}</div>
             <div className="text-[18px] font-bold text-text">{t.value}</div>
             <div className="text-[11px] text-text-muted mt-0.5">{t.label}</div>
-            <div className="text-[10.5px] font-semibold text-primary mt-1">{t.sub}</div>
+            <div className="text-[10.5px] font-semibold text-primary mt-1 whitespace-pre-line">{t.sub}</div>
             <div className="text-[10px] text-primary mt-1">{isActive && t.key !== 'total' ? '✕ Clear' : '↗ Filter'}</div>
           </button>
         )

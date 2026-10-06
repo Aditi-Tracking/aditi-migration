@@ -12,7 +12,7 @@
 // label, replacing the old 1st-call "Stage" cell as the authoritative source — values seen: 'Lost',
 // 'Quotation Sent', 'Invalid', 'Future Lead', 'Demo Done', 'Won', 'Trials In Progress',
 // 'Negotiation', blank).
-const EN_URL = 'https://script.google.com/macros/s/AKfycbwDeTRXcVrBVoanjxapudBwQFIxSxtoUEBdKUbz979yyeoGoVWO1s1jnYwg-jN2O2o/exec'
+const EN_URL = 'https://script.google.com/macros/s/AKfycbyWpT5JkfaGSYCbk30iLJJK9ML_tJd4ZaMwtA1YnPbQYY3WsW2EFnE_7OD1y4Yi94Jz/exec'
 
 // This Apps Script deployment is just plain slow server-side (measured ~8s for a clean response,
 // before accounting for the content-delivery flakiness fetchWithRetry below works around, which can
@@ -21,7 +21,7 @@ const EN_URL = 'https://script.google.com/macros/s/AKfycbwDeTRXcVrBVoanjxapudBwQ
 // re-hits this on every navigation to the page, which otherwise means re-paying that full ~8s (or
 // worse) just to re-open a tab you were already on. `forceRefresh` (wired to the panel's own
 // Refresh button) bypasses it outright.
-const CACHE_KEY = 'enterpriseLeads:cache:v1'
+const CACHE_KEY = 'enterpriseLeads:cache:v4' // bumped again: v3 was cached against the previous (HTML-dashboard, non-JSON) EN_URL
 const CACHE_TTL_MS = 5 * 60 * 1000
 
 // ── Permission ───────────────────────────────────────────────────────────────
@@ -75,14 +75,50 @@ function parseEnterpriseResponse(rows) {
 }
 
 // "dd/mm/yyyy hh:mm AM/PM" -> {key:'yyyy-mm-dd', ts: epoch millis} — key groups/filters by
-// calendar day, ts sorts numerically. Falls back to parsing it as plain ISO 8601
-// ("2026-10-01T06:58:23.101Z") when it doesn't match that shape — at least some of today's rows
-// come through from the sheet in ISO instead of its usual dd/mm/yyyy string, and parsing only the
-// slash format silently dropped those rows out of every Lead-Entry-keyed view (EntryKey === '').
+// calendar day, ts sorts numerically. Checked in order, for rows that don't match that exact
+// shape:
+//  1. A bare "dd/mm/yyyy" with NO time at all (confirmed live: some rows are just "02/10/2026") —
+//     parsed with the SAME day/month order as the primary pattern above. This one has to come
+//     before the generic `new Date(str)` fallback, not after: a plain slash date handed to the
+//     native Date constructor is read as MM/DD/YYYY (US order), which silently swapped day and
+//     month for any day <= 12 (e.g. "02/10/2026" came out as February 10th instead of October
+//     2nd) — exactly backwards from every other row in this same column, so a Period filter like
+//     "Today"/"This Week" would correctly match the timestamped rows but skip these ones entirely.
+//  2. The SAME day/month swap, already baked into an ISO string by the upstream Apps Script before
+//     it ever reaches us — confirmed against 2 real examples: a sheet-displayed "02/10/2026" (2
+//     Oct) arrived here as "2026-02-09T18:30:00.000Z" (= midnight 10 Feb IST — month and day
+//     swapped), and "05/10/2026" (5 Oct) arrived as "2026-05-09T18:30:00.000Z" (= midnight 10 May
+//     IST, same swap). Both share one exact signature: a date-only sheet cell (no real time-of-day)
+//     round-tripped through that script's own MM/DD-assuming text conversion always serializes as
+//     local midnight IST in UTC, i.e. literally "...T18:30:00.000Z" — a real timestamped entry
+//     (actual time of day, e.g. "...T06:58:23.101Z") never matches this and is left untouched.
+//  3. Plain ISO 8601 with a real time-of-day ("2026-10-01T06:58:23.101Z") — at least some rows
+//     come through from the sheet in ISO instead of its usual dd/mm/yyyy string.
 function parseEntryDateTime(s) {
   const str = (s || '').toString().trim()
   const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
   if (!m) {
+    const bareDate = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (bareDate) {
+      const [, d, mo, y] = bareDate
+      const dt = new Date(+y, +mo - 1, +d)
+      if (isNaN(dt.getTime())) return { key: '', ts: 0 }
+      const key = y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0')
+      return { key, ts: dt.getTime() }
+    }
+    if (/T18:30:00\.000Z$/.test(str)) {
+      const broken = new Date(str)
+      if (!isNaN(broken.getTime())) {
+        const year = broken.getFullYear()
+        const wrongMonth = broken.getMonth() + 1
+        const wrongDay = broken.getDate()
+        if (wrongDay <= 12) {
+          const fixed = new Date(year, wrongDay - 1, wrongMonth)
+          const key = year + '-' + String(wrongDay).padStart(2, '0') + '-' + String(wrongMonth).padStart(2, '0')
+          return { key, ts: fixed.getTime() }
+        }
+      }
+    }
     const iso = new Date(str)
     if (!str || isNaN(iso.getTime())) return { key: '', ts: 0 }
     const key = iso.getFullYear() + '-' + String(iso.getMonth() + 1).padStart(2, '0') + '-' + String(iso.getDate()).padStart(2, '0')
@@ -113,7 +149,7 @@ function normalizeLeadRow(r) {
   return {
     SrNo: r['SR.No'] ?? '',
     Name: (r['Lead Name'] || '').toString().trim(),
-    Phone: (r['Contact No'] || '').toString().trim(),
+    Phone: (r['ContactNo'] || r['Contact No'] || '').toString().trim(),
     Email: (r['Email id'] || '').toString().trim(),
     City: (r['City'] || '').toString().trim(),
     EntryRaw: (r['Lead Entry'] || '').toString().trim(),
@@ -134,8 +170,11 @@ function normalizeLeadRow(r) {
     LeadQuality: (r['Lead Quality'] || '').toString().trim(),
     ReachedInterested: currentStage === 'Interested',
     ReachedDemo: currentStage === 'Demo Done',
-    ReachedQuotation: currentStage === 'Quotation Sent',
+    // 'Negotiation' counts as Quotation too — a negotiating lead has necessarily already had a
+    // quotation sent, so it belongs in that same stage bucket rather than falling out of it.
+    ReachedQuotation: currentStage === 'Quotation Sent' || currentStage === 'Negotiation',
     ReachedWon: currentStage === 'Won',
+    ReachedTrials: currentStage === 'Trials In Progress' || currentStage === 'PO/LOI',
   }
 }
 
@@ -148,7 +187,10 @@ export async function fetchEnterpriseLeads({ forceRefresh = false } = {}) {
       // Corrupt/inaccessible cache (private browsing, quota, bad JSON) — fall through to a real fetch.
     }
   }
-  const res = await fetchWithRetry(EN_URL)
+  // `?refresh=1` also bypasses the Apps Script's OWN CacheService cache (doGet's getDataFresh vs
+  // getData) — a forced refresh should skip both cache layers, ours and theirs.
+  const url = forceRefresh ? `${EN_URL}?refresh=1` : EN_URL
+  const res = await fetchWithRetry(url)
   const raw = parseEnterpriseResponse(await res.json())
   if (!Array.isArray(raw) || !raw.length) throw new Error('API returned empty or invalid data')
   const rows = raw.map(normalizeLeadRow).filter((r) => r.Name)
@@ -212,9 +254,9 @@ export function matchesEnterpriseCrossFilter(r, cf) {
   if (cf.owner && r.Owner !== cf.owner) return false
   if (cf.source && r.Source !== cf.source) return false
   if (cf.product && r.Product !== cf.product) return false
-  if (cf.milestone === 'contacted' && r.CallsMade === 0) return false
   if (cf.milestone === 'demo' && !r.ReachedDemo) return false
   if (cf.milestone === 'quotation' && !r.ReachedQuotation) return false
+  if (cf.milestone === 'trials' && !r.ReachedTrials) return false
   if (cf.milestone === 'won' && !r.ReachedWon) return false
   if (cf.milestone === 'lost' && r.CurrentStage !== 'Lost') return false
   if (cf.milestone === 'revenue' && !(r.Revenue > 0)) return false
@@ -236,17 +278,17 @@ export function applyEnterpriseKpiClick(cf, fk) {
 // ── KPIs + Funnel — both read the FULL unfiltered set, never the cross-filtered one ──────────
 export function computeEnterpriseKpis(rows) {
   const t = rows.length
-  const totalCalls = rows.reduce((s, r) => s + r.CallsMade, 0)
-  const totalConnected = rows.reduce((s, r) => s + r.Connected, 0)
   const demo = rows.filter((r) => r.ReachedDemo).length
   const quotation = rows.filter((r) => r.ReachedQuotation).length
+  const trials = rows.filter((r) => r.ReachedTrials).length
   const won = rows.filter((r) => r.ReachedWon).length
   const lost = rows.filter((r) => r.CurrentStage === 'Lost').length
   const revenue = rows.reduce((s, r) => s + r.Revenue, 0)
+  const received = rows.reduce((s, r) => s + r.Received, 0)
   const balance = rows.reduce((s, r) => s + r.Balance, 0)
   const validLeads = rows.filter((r) => r.LeadQuality === 'Valid').length
   const invalidLeads = rows.filter((r) => r.LeadQuality === 'Invalid').length
-  return { total: t, totalCalls, totalConnected, demo, quotation, won, lost, revenue, balance, validLeads, invalidLeads }
+  return { total: t, demo, quotation, trials, won, lost, revenue, received, balance, validLeads, invalidLeads }
 }
 
 // Kept as an explicitly separate function (not derived from chartData) so nothing downstream can
@@ -266,6 +308,54 @@ export function computeEnterpriseFunnel(rows) {
     { label: 'Quotation', value: quotation, color: '#ec4899' },
     { label: 'Won', value: won, color: '#00d4aa' },
   ]
+}
+
+// ── Period filter — the single upstream scope every other view (KPIs, funnel, charts, table,
+// Explorer dropdown options) gets built from, keyed off each lead's own Entry date (EntryTs/
+// EntryKey, from the "Lead Entry" column). Applied before the cross-filter/search/Explorer
+// selects, not instead of them, so "Today" + a chart-click filter both narrow the data together.
+export const ENTERPRISE_PERIODS = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'weekly', label: 'Weekly' },
+  { key: 'monthly', label: 'Monthly' },
+  { key: 'overall', label: 'Overall' },
+]
+
+function dayKey_(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+
+// Monday (local midnight) of the week containing `d` — getDay() is 0=Sun..6=Sat, so this walks
+// back (day - Monday) days regardless of which day of the week `d` itself falls on.
+function mondayOf_(d) {
+  const day = d.getDay()
+  const diff = (day + 6) % 7
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff)
+}
+
+export function filterEnterpriseByPeriod(rows, period) {
+  if (!period || period === 'overall') return rows
+  const now = new Date()
+
+  if (period === 'today') {
+    const todayKey = dayKey_(now)
+    return rows.filter((r) => r.EntryKey === todayKey)
+  }
+  if (period === 'yesterday') {
+    const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    const yKey = dayKey_(y)
+    return rows.filter((r) => r.EntryKey === yKey)
+  }
+  if (period === 'weekly') {
+    const monday = mondayOf_(now).getTime()
+    return rows.filter((r) => r.EntryTs >= monday)
+  }
+  if (period === 'monthly') {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+    return rows.filter((r) => r.EntryTs >= monthStart)
+  }
+  return rows
 }
 
 // ── Table-only layer — additive on top of the cross-filter (a second, independent constraint on

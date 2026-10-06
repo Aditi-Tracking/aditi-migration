@@ -5,6 +5,7 @@ import {
   computeEnterpriseFunnel,
   computeEnterpriseKpis,
   fetchEnterpriseLeads,
+  filterEnterpriseByPeriod,
   matchesEnterpriseCrossFilter,
   matchesEnterpriseExplorerSelects,
   matchesEnterpriseSearch,
@@ -12,6 +13,8 @@ import {
   toggleEnterpriseChartFilter,
 } from '../../../lib/enterpriseLead'
 import EnterpriseKpiGrid from './EnterpriseKpiGrid'
+import EnterprisePeriodFilter from './EnterprisePeriodFilter'
+import EnterpriseLeadJourney from './EnterpriseLeadJourney'
 import EnterpriseRepLeaderboard from './EnterpriseRepLeaderboard'
 import EnterpriseCharts from './EnterpriseCharts'
 import EnterpriseFilterBar from './EnterpriseFilterBar'
@@ -33,6 +36,7 @@ export default function EnterpriseLeadPanel() {
   const [lastSync, setLastSync] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
 
+  const [period, setPeriod] = useState('overall')
   const [crossFilter, setCrossFilter] = useState(EMPTY_ENTERPRISE_CROSS_FILTER)
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('')
@@ -43,6 +47,7 @@ export default function EnterpriseLeadPanel() {
   const [page, setPage] = useState(1)
   const [tableOpen, setTableOpen] = useState(true)
   const [repAllMode, setRepAllMode] = useState(false)
+  const [journeyOpen, setJourneyOpen] = useState(false)
 
   // `forceRefresh` bypasses lib/enterpriseLead.js's sessionStorage cache — the mount-time load
   // below is happy to reuse a still-fresh cached fetch (this endpoint is slow, ~8s+ per real hit),
@@ -105,32 +110,39 @@ export default function EnterpriseLeadPanel() {
     }
   }
 
-  const kpis = useMemo(() => computeEnterpriseKpis(rows), [rows])
-  const funnel = useMemo(() => computeEnterpriseFunnel(rows), [rows])
+  // The Period filter (Today/Yesterday/Weekly/Monthly/Overall) is the one upstream scope
+  // EVERYTHING below derives from — KPIs, funnel, charts, table, and even the Explorer dropdown
+  // options are all built from `periodRows`, never the raw `rows`, so picking e.g. "Today" makes
+  // the whole dashboard dynamically narrow to today's leads at once.
+  const periodRows = useMemo(() => filterEnterpriseByPeriod(rows, period), [rows, period])
 
-  const chartData = useMemo(() => rows.filter((r) => matchesEnterpriseCrossFilter(r, crossFilter)), [rows, crossFilter])
+  const kpis = useMemo(() => computeEnterpriseKpis(periodRows), [periodRows])
+  const funnel = useMemo(() => computeEnterpriseFunnel(periodRows), [periodRows])
+
+  const chartData = useMemo(() => periodRows.filter((r) => matchesEnterpriseCrossFilter(r, crossFilter)), [periodRows, crossFilter])
 
   const tableRows = useMemo(() => {
-    const filtered = rows.filter(
+    const filtered = periodRows.filter(
       (r) =>
         matchesEnterpriseCrossFilter(r, crossFilter) &&
         matchesEnterpriseSearch(r, search) &&
         matchesEnterpriseExplorerSelects(r, { cityFilter, ownerFilter, stageFilter })
     )
     return sortEnterpriseLeads(filtered, sortKey, sortDir)
-  }, [rows, crossFilter, search, cityFilter, ownerFilter, stageFilter, sortKey, sortDir])
+  }, [periodRows, crossFilter, search, cityFilter, ownerFilter, stageFilter, sortKey, sortDir])
 
   useEffect(() => {
     // Jump back to page 1 whenever any filter changes, matching enApply's ENp=1 reset.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1)
-  }, [crossFilter, search, cityFilter, ownerFilter, stageFilter])
+  }, [period, crossFilter, search, cityFilter, ownerFilter, stageFilter])
 
-  // Built once from the full lead set, matching enBuildFilters — not re-derived from the
-  // currently cross-filtered/searched subset.
-  const cityOptions = useMemo(() => [...new Set(rows.map((r) => r.City).filter(Boolean))].sort(), [rows])
-  const ownerOptions = useMemo(() => [...new Set(rows.map((r) => r.Owner).filter(Boolean))].sort(), [rows])
-  const stageOptions = useMemo(() => [...new Set(rows.map((r) => r.CurrentStage).filter(Boolean))].sort(), [rows])
+  // Built from the period-scoped set, matching enBuildFilters — not re-derived from the currently
+  // cross-filtered/searched subset, but still following the Period filter (e.g. "Today" only
+  // offers cities/owners/stages that actually have a lead today).
+  const cityOptions = useMemo(() => [...new Set(periodRows.map((r) => r.City).filter(Boolean))].sort(), [periodRows])
+  const ownerOptions = useMemo(() => [...new Set(periodRows.map((r) => r.Owner).filter(Boolean))].sort(), [periodRows])
+  const stageOptions = useMemo(() => [...new Set(periodRows.map((r) => r.CurrentStage).filter(Boolean))].sort(), [periodRows])
 
   const activeFilterCount = Object.values(crossFilter).filter(Boolean).length
 
@@ -159,10 +171,19 @@ export default function EnterpriseLeadPanel() {
 
       {!loading && !error && (
         <div className="mt-5">
+          <EnterprisePeriodFilter period={period} onChange={setPeriod} />
           <div className="text-[12px] font-semibold text-text-muted uppercase tracking-wide mb-2.5">Key Performance Indicator</div>
           <EnterpriseKpiGrid kpis={kpis} activeMilestone={crossFilter.milestone} onKpiClick={handleKpiClick} />
 
-          <EnterpriseRepLeaderboard rows={rows} active={repAllMode} onToggle={() => setRepAllMode((v) => !v)} />
+          <EnterpriseLeadJourney
+            rows={periodRows}
+            active={journeyOpen}
+            onToggle={() => setJourneyOpen((v) => !v)}
+            statusFilter={crossFilter.status}
+            onStatusClick={(stage) => handleChartFilterToggle('status', stage)}
+          />
+
+          <EnterpriseRepLeaderboard rows={periodRows} active={repAllMode} onToggle={() => setRepAllMode((v) => !v)} />
 
           <div className="flex items-center justify-between mt-1 mb-2.5">
             <div className="text-[12px] font-semibold text-text-muted uppercase tracking-wide">Lead Analytics</div>
