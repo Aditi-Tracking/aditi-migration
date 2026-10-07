@@ -8,12 +8,14 @@
 #   GET  /api/admin/all-users-permissions  — called when admin opens panel
 # ═══════════════════════════════════════════════════════════════
 
-from flask import Flask, request, jsonify   # Flask web framework
+from flask import Flask, request, jsonify, g  # Flask web framework
+from functools import wraps
 from flask_cors import CORS                  # allows your frontend to call this server
 from supabase import create_client, ClientOptions  # Supabase Python client
 import httpx
 import os                                   # to read environment variables
 import time
+import hashlib
 
 # ── App setup ───────────────────────────────────────────────────
 app = Flask(__name__)
@@ -611,167 +613,304 @@ def all_users_permissions():
     })
     
 # ══════════════════════════════════════════════════════════════════
+# CUSTOMER MAPPING — auth
+#
+# Every mapping endpoint below requires the caller's Supabase JWT:
+#   Authorization: Bearer <access_token>
+# The token is verified against Supabase Auth (sb.auth.get_user), the verified e-mail is run
+# through the same role_defaults + user_permissions merge /api/permissions uses, and then:
+#   reads  -> can_view_mapping == 'true'
+#   writes -> can_edit_mapping == 'true'
+#   region -> mapping_region_* flags (same permissive fallback as the frontend: none set = all four)
+# mapped_by is stamped from the VERIFIED e-mail. X-User-Email is ignored for these endpoints.
+#
+# Rollout switch: MAPPING_AUTH_ENFORCE defaults to enforcing. Only the exact string "false" turns on
+# LENIENT mode, which lets a request WITHOUT a token through (permissions unrestricted, mapped_by
+# empty) so the old frontend keeps working until the new one is live. A token that IS sent is
+# always verified normally, in either mode. The legacy endpoints (mapping-data, odoo-search,
+# save-mapping, clear-mapping) are the only ones lenient mode applies to; the new mapping-shared and
+# mapping-archive endpoints always require a token.
+# ══════════════════════════════════════════════════════════════════
+MAPPING_AUTH_ENFORCE = os.environ.get("MAPPING_AUTH_ENFORCE", "true").strip().lower() != "false"
+if not MAPPING_AUTH_ENFORCE:
+    print("WARNING: MAPPING_AUTH_ENFORCE=false — mapping endpoints accept requests without a sign-in token")
+MAPPING_REGIONS = ["HeadOffice", "Goa", "Bangalore", "Gujarat"]
+MAPPING_REGION_FLAGS = [
+    ("mapping_region_headoffice", "HeadOffice"),
+    ("mapping_region_goa",        "Goa"),
+    ("mapping_region_bangalore",  "Bangalore"),
+    ("mapping_region_gujarat",    "Gujarat"),
+]
+_MAPPING_CTX_TTL = 60          # seconds a verified token + its permissions are reused
+_mapping_ctx_cache = {}        # sha256(token) -> (expires_at, email, permissions)
+
+
+def _permissions_for_email(email):
+    """Same lookup as GET /api/permissions: Employee_details -> role -> role_defaults +
+    user_permissions merge. Kept as a helper so that endpoint stays untouched."""
+    emp_res = _execute_with_retry(lambda: sb.table("Employee_details")
+        .select("Employee_Dept")
+        .ilike("Email_Id", email)
+        .limit(1)
+        .execute())
+    raw_role = str(emp_res.data[0].get("Employee_Dept", "")).strip().lower() if emp_res.data else ""
+    return get_permissions(email, ROLE_MAP.get(raw_role, "employee"))
+
+
+def _mapping_context(token):
+    """-> ((email, permissions), None) or (None, (http_status, code, message))."""
+    key = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = time.time()
+    hit = _mapping_ctx_cache.get(key)
+    if hit and hit[0] > now:
+        return (hit[1], hit[2]), None
+    try:
+        user = sb.auth.get_user(token)
+        email = str(getattr(getattr(user, "user", None), "email", "") or "").strip().lower()
+    except Exception as e:
+        # A rejected/expired token raises an Auth* error; anything else means Supabase Auth itself
+        # could not be reached — don't tell the user their session expired for that.
+        if type(e).__name__.startswith("Auth"):
+            return None, (401, "BAD_TOKEN", "Session expired or invalid — sign in again")
+        print(f"mapping auth: could not verify token: {type(e).__name__}")
+        return None, (503, "AUTH_UNAVAILABLE", "Could not verify sign-in right now — try again")
+    if not email:
+        return None, (401, "BAD_TOKEN", "Session expired or invalid — sign in again")
+    try:
+        perms = _permissions_for_email(email)
+    except Exception as e:
+        print(f"mapping auth: permission lookup failed for {email}: {e}")
+        return None, (503, "PERMISSIONS_UNAVAILABLE", "Could not load permissions — try again")
+    if len(_mapping_ctx_cache) > 500:
+        _mapping_ctx_cache.clear()
+    _mapping_ctx_cache[key] = (now + _MAPPING_CTX_TTL, email, perms)
+    return (email, perms), None
+
+
+def _mapping_region_scope(perms):
+    """None = unrestricted (all four region flags, or none set — the frontend's permissive
+    fallback; includes 'GPS Portal'/other rows); otherwise the list of regions this caller may
+    see or edit."""
+    allowed = [region for flag, region in MAPPING_REGION_FLAGS if perms.get(flag) == "true"]
+    if not allowed or len(allowed) == len(MAPPING_REGIONS):
+        return None
+    return allowed
+
+
+def mapping_auth(level, legacy_ok=False):
+    """level: 'view' (can_view_mapping) or 'edit' (can_edit_mapping). Fills g.mapping_email and
+    g.mapping_scope for the view function. legacy_ok: the endpoint existed before token auth, so in
+    lenient mode (MAPPING_AUTH_ENFORCE=false) a request with no token is let through."""
+    flag = "can_view_mapping" if level == "view" else "can_edit_mapping"
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            err = db_check()
+            if err:
+                return err
+            header = request.headers.get("Authorization", "")
+            token = header[7:].strip() if header[:7].lower() == "bearer " else ""
+            if not token:
+                if MAPPING_AUTH_ENFORCE or not legacy_ok:
+                    return jsonify({"error": "Sign-in required", "code": "NO_TOKEN"}), 401
+                # lenient mode, old frontend: no token, so no identity and no permission check.
+                # Unrestricted regions; mapped_by stays empty — X-User-Email is NEVER trusted.
+                g.mapping_email = ""
+                g.mapping_scope = None
+                return fn(*args, **kwargs)
+            ctx, problem = _mapping_context(token)
+            if ctx is None:
+                status, code, message = problem
+                return jsonify({"error": message, "code": code}), status
+            email, perms = ctx
+            if perms.get(flag) != "true":
+                return jsonify({"error": "You don't have permission to do that", "code": "FORBIDDEN"}), 403
+            g.mapping_email = email
+            g.mapping_scope = _mapping_region_scope(perms)
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# error text raised by the mapping_* SQL functions -> (http status, message)
+_MAPPING_SQL_ERRORS = {
+    "GPS_NOT_FOUND":                    (404, "That GPS company no longer exists"),
+    "ODOO_NOT_FOUND":                   (404, "That Odoo name no longer exists"),
+    "REGION_FORBIDDEN":                 (403, "You don't have access to that region"),
+    "ODOO_INACTIVE":                    (409, "That Odoo partner is archived and cannot be linked"),
+    "ODOO_IN_USE_BY_OTHER_CUSTOMER":    (409, "That Odoo name is already linked to another customer"),
+    "ODOO_NOT_LINKED_TO_THIS_CUSTOMER": (409, "That Odoo name is not linked to this GPS company"),
+}
+
+
+def _mapping_rpc_error(e):
+    msg = str(getattr(e, "message", "") or "")
+    status, text = _MAPPING_SQL_ERRORS.get(msg, (500, "Request failed"))
+    if status == 500:
+        print(f"mapping rpc error: {e}")      # full detail stays in the server log only
+    body = {"error": text, "code": msg if msg in _MAPPING_SQL_ERRORS else "SERVER_ERROR"}
+    detail = getattr(e, "details", None)
+    if msg == "ODOO_IN_USE_BY_OTHER_CUSTOMER" and detail:
+        body["detail"] = detail
+    return jsonify(body), status
+
+
+# ══════════════════════════════════════════════════════════════════
 # ENDPOINT 4: GET /api/mapping-data?region=Goa
 #
-# Returns GPS companies + their current mapping status for a region.
+# One entry per GPS company, each with its linked Odoo names (odoo_links). Built by the
+# mapping_data() SQL function in one query. Needs can_view_mapping; region-scoped.
 # ══════════════════════════════════════════════════════════════════
 @app.route("/api/mapping-data", methods=["GET"])
+@mapping_auth("view", legacy_ok=True)
 def get_mapping_data():
-    err = db_check()
-    if err:
-        return err
-
     region = request.args.get("region", "").strip()
-    page_size = 1000
-
+    scope = g.mapping_scope
+    if region and region != "All" and scope is not None and region not in scope:
+        return jsonify({"error": "You don't have access to that region", "code": "REGION_FORBIDDEN"}), 403
     try:
-        all_gps_rows = []
-        start = 0
-        while True:
-            q = sb.table("customer_gps_aliases").select("id,gps_name,region,customer_id")
-            if region and region != "All":
-                q = q.eq("region", region)
-            res = q.order("gps_name").range(start, start + page_size - 1).execute()
-            rows = res.data or []
-            all_gps_rows.extend(rows)
-            if len(rows) < page_size:
-                break
-            start += page_size
-
-        crm_all = []
-        start = 0
-        while True:
-            res = sb.table("customer_crm").select("company_name,tier,total_vehicles").range(start, start+page_size-1).execute()
-            rows = res.data or []
-            crm_all.extend(rows)
-            if len(rows) < page_size:
-                break
-            start += page_size
-        crm_map = {r["company_name"]: r for r in crm_all}
-
-        master_res = sb.table("customer_master").select("*").execute()
-        master_map = {r["customer_id"]: r for r in (master_res.data or [])}
-
-        result = []
-        for g in all_gps_rows:
-            crm = crm_map.get(g["gps_name"], {})
-            master = master_map.get(g["customer_id"], {}) if g["customer_id"] else {}
-            result.append({
-                "gps_alias_id":  g["id"],
-                "gps_name":      g["gps_name"],
-                "region":        g["region"],
-                "customer_id":   g["customer_id"],
-                "canonical_name":master.get("canonical_name", ""),
-                "tier":          crm.get("tier", ""),
-                "total_vehicles":crm.get("total_vehicles", 0),
-                "is_mapped":     g["customer_id"] is not None,
-            })
-
-        return jsonify(result)
+        res = _execute_with_retry(lambda: sb.rpc(
+            "mapping_data", {"p_allowed_regions": scope, "p_region": region}).execute())
+        return jsonify(res.data or [])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"mapping-data failed: {e}")
+        return jsonify({"error": "Could not load customers", "code": "SERVER_ERROR"}), 500
 
 
 # ══════════════════════════════════════════════════════════════════
 # ENDPOINT 5: GET /api/odoo-search?q=sai ganesh
 #
-# Search Odoo customer names from customer_odoo_aliases table.
+# search_odoo_aliases() SQL function: min 2 chars, max 20 rows, prefix matches first, archived
+# Odoo partners hidden. Only the edit UI calls this, so it needs can_edit_mapping.
 # ══════════════════════════════════════════════════════════════════
 @app.route("/api/odoo-search", methods=["GET"])
+@mapping_auth("edit", legacy_ok=True)
 def odoo_search():
-    err = db_check()
-    if err:
-        return err
-
     query = request.args.get("q", "").strip()
-    if not query:
+    if len(query) < 2:
         return jsonify([])
-
     try:
-        res = sb.table("customer_odoo_aliases") \
-            .select("id,odoo_name,customer_id") \
-            .ilike("odoo_name", f"%{query}%") \
-            .order("odoo_name") \
-            .limit(25) \
-            .execute()
-        rows = res.data or []
-        # Names jo query se SHURU hote hain unhe top par lao (zyada relevant)
-        q_lower = query.lower()
-        rows.sort(key=lambda r: 0 if str(r.get("odoo_name","")).lower().startswith(q_lower) else 1)
-        return jsonify(rows[:15])
+        res = sb.rpc("search_odoo_aliases", {"p_q": query, "p_limit": 20}).execute()
+        return jsonify(res.data or [])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"odoo-search failed: {e}")
+        return jsonify({"error": "Search failed", "code": "SERVER_ERROR"}), 500
 
 
 # ══════════════════════════════════════════════════════════════════
-# ENDPOINT 6: POST /api/save-mapping
+# ENDPOINT 6: POST /api/save-mapping   { gps_alias_id, odoo_alias_id }
 #
-# Save GPS company → Odoo customer mapping.
-# Creates customer_master entry if needed.
+# Links ONE Odoo alias to a GPS company, atomically (mapping_save() SQL function). First link
+# creates the customer_master row; further links join the company's existing one. Needs
+# can_edit_mapping. mapped_by comes from the verified token.
 # ══════════════════════════════════════════════════════════════════
 @app.route("/api/save-mapping", methods=["POST"])
+@mapping_auth("edit", legacy_ok=True)
 def save_mapping():
-    err = db_check()
-    if err:
-        return err
-
-    caller_email = request.headers.get("X-User-Email", "").strip().lower()
-    body = request.get_json() or {}
-
-    gps_alias_id   = body.get("gps_alias_id")
-    gps_name       = body.get("gps_name", "").strip()
-    odoo_alias_ids = body.get("odoo_alias_ids", [])  # list of odoo alias IDs
-    canonical_name = body.get("canonical_name", "").strip()
-    tier           = body.get("tier", "").strip()
-
-    if not gps_name or not canonical_name:
-        return jsonify({"error": "gps_name and canonical_name required"}), 400
-
+    body = request.get_json(silent=True) or {}
+    gps_alias_id = body.get("gps_alias_id")
+    # New body: odoo_alias_id. Legacy body: odoo_alias_ids (a list; the old UI sent one id) plus
+    # gps_name / canonical_name / tier, which are ignored — the customer name now comes from the
+    # chosen Odoo row and the tier from customer_crm, inside mapping_save.
+    odoo_alias_id = body.get("odoo_alias_id")
+    if odoo_alias_id is not None:
+        odoo_alias_ids = [odoo_alias_id]
+    else:
+        legacy_ids = body.get("odoo_alias_ids")
+        odoo_alias_ids = [i for i in legacy_ids if i is not None][:20] if isinstance(legacy_ids, list) else []
+    if gps_alias_id is None or not odoo_alias_ids:
+        return jsonify({"error": "gps_alias_id and odoo_alias_id required", "code": "BAD_REQUEST"}), 400
+    result = None
     try:
-        # Step 1: customer_master mein insert/update karo
-        master_res = sb.table("customer_master").upsert({
-            "canonical_name": canonical_name,
-            "tier":           tier,
-            "mapped_by":      caller_email,
-        }, on_conflict="canonical_name").execute()
-
-        customer_id = master_res.data[0]["customer_id"]
-
-        # Step 2: GPS alias ko customer_id se link karo
-        sb.table("customer_gps_aliases").update({
-            "customer_id": customer_id
-        }).eq("id", gps_alias_id).execute()
-
-        # Step 3: Odoo aliases ko customer_id se link karo
-        for odoo_id in odoo_alias_ids:
-            sb.table("customer_odoo_aliases").update({
-                "customer_id": customer_id
-            }).eq("id", odoo_id).execute()
-
-        return jsonify({"ok": True, "customer_id": customer_id})
+        for one_id in odoo_alias_ids:      # each call is its own atomic transaction
+            res = sb.rpc("mapping_save", {
+                "p_gps_alias_id":    gps_alias_id,
+                "p_odoo_alias_id":   one_id,
+                "p_email":           g.mapping_email,
+                "p_allowed_regions": g.mapping_scope,
+            }).execute()
+            result = res.data
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _mapping_rpc_error(e)
+
 
 # ══════════════════════════════════════════════════════════════════
-# ENDPOINT 7: POST /api/clear-mapping
-# Removes customer_id link from GPS alias (clears mapping)
+# ENDPOINT 7: POST /api/clear-mapping   { gps_alias_id, odoo_alias_id? }
+#
+# odoo_alias_id given: unlink that one Odoo name (or the whole company if it is the last one).
+# Omitted: unlink the whole GPS company. Atomic (mapping_clear() SQL function), which also deletes
+# a customer_master row left with no GPS and no Odoo links. Needs can_edit_mapping.
 # ══════════════════════════════════════════════════════════════════
 @app.route("/api/clear-mapping", methods=["POST"])
+@mapping_auth("edit", legacy_ok=True)
 def clear_mapping():
-    err = db_check()
-    if err:
-        return err
-    body         = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     gps_alias_id = body.get("gps_alias_id")
-    if not gps_alias_id:
-        return jsonify({"error": "gps_alias_id required"}), 400
+    if gps_alias_id is None:
+        return jsonify({"error": "gps_alias_id required", "code": "BAD_REQUEST"}), 400
     try:
-        sb.table("customer_gps_aliases").update({
-            "customer_id": None
-        }).eq("id", gps_alias_id).execute()
-        return jsonify({"ok": True})
+        res = sb.rpc("mapping_clear", {
+            "p_gps_alias_id":    gps_alias_id,
+            "p_odoo_alias_id":   body.get("odoo_alias_id"),
+            "p_allowed_regions": g.mapping_scope,
+        }).execute()
+        return jsonify(res.data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return _mapping_rpc_error(e)
+
+
+# ══════════════════════════════════════════════════════════════════
+# ENDPOINT 7a: GET /api/mapping-shared?gps_alias_id=
+#
+# Read-only. Which other GPS companies share this company's customer — used by the unlink
+# confirm dialog to list who loses the Odoo name (up to 9 names, plus a count of the rest).
+# Needs can_edit_mapping; region-scoped (names outside the caller's regions are only counted).
+# ══════════════════════════════════════════════════════════════════
+@app.route("/api/mapping-shared", methods=["GET"])
+@mapping_auth("edit")
+def get_mapping_shared():
+    gps_alias_id = request.args.get("gps_alias_id")
+    if not gps_alias_id:
+        return jsonify({"error": "gps_alias_id required", "code": "BAD_REQUEST"}), 400
+    try:
+        res = _execute_with_retry(lambda: sb.rpc("mapping_shared_with", {
+            "p_gps_alias_id":    gps_alias_id,
+            "p_allowed_regions": g.mapping_scope,
+            "p_limit":           9,
+        }).execute())
+        return jsonify(res.data or {"names": [], "more": 0})
+    except Exception as e:
+        print(f"mapping-shared failed: {e}")
+        return jsonify({"error": "Could not check shared companies", "code": "SERVER_ERROR"}), 500
+
+
+# ══════════════════════════════════════════════════════════════════
+# ENDPOINT 7b: GET /api/mapping-archive?q=&limit=&offset=
+#
+# Read-only list of customer_gps_aliases_archive (mapping_archive_list() SQL function).
+# Needs can_view_mapping; region-scoped.
+# ══════════════════════════════════════════════════════════════════
+@app.route("/api/mapping-archive", methods=["GET"])
+@mapping_auth("view")
+def get_mapping_archive():
+    try:
+        limit = max(1, min(int(request.args.get("limit", 200)), 500))
+        offset = max(0, int(request.args.get("offset", 0)))
+    except ValueError:
+        return jsonify({"error": "limit and offset must be numbers", "code": "BAD_REQUEST"}), 400
+    try:
+        res = _execute_with_retry(lambda: sb.rpc("mapping_archive_list", {
+            "p_allowed_regions": g.mapping_scope,
+            "p_q":               request.args.get("q", "").strip(),
+            "p_limit":           limit,
+            "p_offset":          offset,
+        }).execute())
+        return jsonify(res.data or {"total": 0, "rows": []})
+    except Exception as e:
+        print(f"mapping-archive failed: {e}")
+        return jsonify({"error": "Could not load the archive", "code": "SERVER_ERROR"}), 500
 
 
 # ══════════════════════════════════════════════════════════════════
