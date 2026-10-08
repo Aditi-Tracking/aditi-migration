@@ -27,7 +27,7 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
   const statusBreakdown = useMemo(() => {
     const counts = {}
     data.forEach((r) => {
-      const s = r.CurrentStage || 'Not Contacted'
+      const s = r.CurrentStage || 'Blank'
       counts[s] = (counts[s] || 0) + 1
     })
     return Object.keys(counts).map((k) => [k, counts[k]])

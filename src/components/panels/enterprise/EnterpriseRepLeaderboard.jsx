@@ -15,7 +15,7 @@ export default function EnterpriseRepLeaderboard({ rows, active, onToggle }) {
       if (!reps[key]) reps[key] = { name: key, total: 0, demo: 0, quoted: 0, won: 0, revenue: 0 }
       const s = reps[key]
       s.total++
-      if (r.ReachedDemo) s.demo++
+      if (r.DemoBy) s.demo++
       if (r.ReachedQuotation) s.quoted++
       if (r.ReachedWon) {
         s.won++

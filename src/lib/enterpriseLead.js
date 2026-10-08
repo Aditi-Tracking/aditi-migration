@@ -21,7 +21,7 @@ const EN_URL = 'https://script.google.com/macros/s/AKfycbyWpT5JkfaGSYCbk30iLJJK9
 // re-hits this on every navigation to the page, which otherwise means re-paying that full ~8s (or
 // worse) just to re-open a tab you were already on. `forceRefresh` (wired to the panel's own
 // Refresh button) bypasses it outright.
-const CACHE_KEY = 'enterpriseLeads:cache:v4' // bumped again: v3 was cached against the previous (HTML-dashboard, non-JSON) EN_URL
+const CACHE_KEY = 'enterpriseLeads:cache:v9' // bumped again: ReachedDemo back to "Demo by" (non-blank) for KPI/funnel/journey, same source the Rep Leaderboard already used
 const CACHE_TTL_MS = 5 * 60 * 1000
 
 // ── Permission ───────────────────────────────────────────────────────────────
@@ -138,7 +138,8 @@ function parseEntryDateTime(s) {
 
 function normalizeLeadRow(r) {
   const callConnected = (r['1nd Call - Connected'] || '').toString().trim()
-  const currentStage = (r['Last Known Stage'] || '').toString().trim() || 'Not Contacted'
+  const currentStage = (r['Last Known Stage'] || '').toString().trim()
+  const demoBy = (r['Demo by'] || '').toString().trim()
   const entry = parseEntryDateTime((r['Lead Entry'] || '').toString().trim())
   // "Revenue" is now backed by the sheet's "ACV" column (its old "Revenue" header is gone — see
   // this file's header comment) — every existing `r.Revenue` consumer (KPI tile, table, rep
@@ -168,8 +169,12 @@ function normalizeLeadRow(r) {
     Connected: callConnected === 'Yes' ? 1 : 0,
     CurrentStage: currentStage,
     LeadQuality: (r['Lead Quality'] || '').toString().trim(),
+    DemoBy: demoBy,
     ReachedInterested: currentStage === 'Interested',
-    ReachedDemo: currentStage === 'Demo Done',
+    // Driven by the "Demo by" column (whoever conducted the demo), not "Last Known Stage" — a lead
+    // can move on to later stages after its demo, so "Last Known Stage === 'Demo Done'" undercounts
+    // everyone who had a demo but has since progressed further.
+    ReachedDemo: !!demoBy,
     // 'Negotiation' counts as Quotation too — a negotiating lead has necessarily already had a
     // quotation sent, so it belongs in that same stage bucket rather than falling out of it.
     ReachedQuotation: currentStage === 'Quotation Sent' || currentStage === 'Negotiation',
