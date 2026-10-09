@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
-import { JOB_TYPE_CONFIG, REVIEW_PHOTO_LABEL, canCreateFieldService, createEntry, getCurrentAuthUserId, uploadEntryPhoto } from '../../../lib/fieldService'
+import { JOB_TYPE_CONFIG, REVIEW_PHOTO_LABEL, canCreateFieldService, createEntry, getCurrentAuthUserId, requiresGoogleReview, uploadEntryPhoto } from '../../../lib/fieldService'
 import PhotoUploadSection from './PhotoUploadSection'
 
 const JOB_TYPES = Object.entries(JOB_TYPE_CONFIG)
@@ -24,7 +24,6 @@ export default function SubmitEntryTab() {
   const [location, setLocation] = useState('')
   const [jobType, setJobType] = useState(null)
   const [fieldValues, setFieldValues] = useState({})
-  const [googleReviewTaken, setGoogleReviewTaken] = useState(false)
   const [photos, setPhotos] = useState([])
   const [savedEntryId, setSavedEntryId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -53,11 +52,13 @@ export default function SubmitEntryTab() {
 
   function handleSelectJobType(key) {
     if (locked) return
-    // Review state is common to every job type — only the job photos reset on a type switch.
-    revokeAllPhotoUrls(photos.filter((p) => p.kind === 'job'))
+    // Job photos always reset on a type switch. The review screenshot survives only if the new type
+    // also requires one — otherwise it is discarded so a stale one can never upload.
+    const keepReview = requiresGoogleReview(key)
+    revokeAllPhotoUrls(photos.filter((p) => p.kind === 'job' || !keepReview))
     setJobType(key)
     setFieldValues({})
-    setPhotosAndRef((prev) => prev.filter((p) => p.kind === 'review'))
+    setPhotosAndRef((prev) => prev.filter((p) => p.kind === 'review' && keepReview))
   }
 
   function handleAddPhotos(fileList, kind = 'job') {
@@ -71,16 +72,6 @@ export default function SubmitEntryTab() {
       return
     }
     setPhotosAndRef((prev) => [...prev, ...files.map((f) => newPhoto(f, 'job'))])
-  }
-
-  function handleToggleReview(yes) {
-    if (locked) return
-    setGoogleReviewTaken(yes)
-    if (!yes) {
-      // Back to No: drop any picked screenshot so it can never upload against a "No" entry.
-      photosRef.current.filter((p) => p.kind === 'review').forEach((p) => URL.revokeObjectURL(p.blobUrl))
-      setPhotosAndRef((prev) => prev.filter((p) => p.kind !== 'review'))
-    }
   }
 
   function handleRemovePhoto(i) {
@@ -161,7 +152,8 @@ export default function SubmitEntryTab() {
       }
       if (val) details[f.key] = val
     }
-    if (googleReviewTaken && !photosRef.current.some((p) => p.kind === 'review')) {
+    const reviewRequired = requiresGoogleReview(jobType)
+    if (reviewRequired && !photosRef.current.some((p) => p.kind === 'review')) {
       setStatus({ text: '⚠️ Please upload the Google review screenshot.', tone: 'error' })
       return
     }
@@ -172,11 +164,11 @@ export default function SubmitEntryTab() {
       const engineerId = await getCurrentAuthUserId()
       if (!engineerId) throw new Error('Could not verify your session — please log in again.')
 
-      const saved = await createEntry({ engineerId, clientName: trimmedClient, location: trimmedLocation, jobType, details, googleReviewTaken })
+      const saved = await createEntry({ engineerId, clientName: trimmedClient, location: trimmedLocation, jobType, details, googleReviewTaken: reviewRequired })
       setSavedEntryId(saved.id)
 
-      // Not gated on cfg.photoLabel — Sensor Replace has no job-photo section but must still
-      // upload the review screenshot. Job photos can't exist when photoLabel is null.
+      // Not gated on cfg.photoLabel — a job type with no job-photo section (e.g. Sensor Replace) must
+      // still upload a review screenshot if it requires one. Job photos can't exist when photoLabel is null.
       if (photosRef.current.length) {
         setStatus({ text: '⏳ Uploading photos…', tone: 'info' })
         // Sequential, not parallel — a failed upload doesn't block or lose the others, and this
@@ -200,7 +192,6 @@ export default function SubmitEntryTab() {
     setLocation('')
     setJobType(null)
     setFieldValues({})
-    setGoogleReviewTaken(false)
     setPhotosAndRef([])
     setSavedEntryId(null)
     setSubmitting(false)
@@ -317,29 +308,7 @@ export default function SubmitEntryTab() {
             onRetry={handleRetryPhoto}
           />
 
-          <div className="mb-4">
-            <label className="block text-[12.5px] font-semibold text-text-muted mb-2.5">Google Review taken?</label>
-            <div className="flex border-[1.5px] border-border rounded-xl overflow-hidden">
-              {[
-                [false, 'No'],
-                [true, 'Yes'],
-              ].map(([val, text], i) => (
-                <button
-                  key={text}
-                  type="button"
-                  disabled={locked}
-                  onClick={() => handleToggleReview(val)}
-                  className={`flex-1 min-h-[52px] text-[13.5px] font-bold disabled:opacity-60 ${i > 0 ? 'border-l border-border' : ''} ${
-                    googleReviewTaken === val ? 'bg-primary-tint text-primary' : 'bg-surface-2 text-text'
-                  }`}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {googleReviewTaken && (
+          {requiresGoogleReview(jobType) && (
             <PhotoUploadSection
               kind="review"
               multiple={false}

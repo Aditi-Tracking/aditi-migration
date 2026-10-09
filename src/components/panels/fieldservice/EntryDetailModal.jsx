@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import OverlayShell from '../../shared/OverlayShell'
-import { JOB_TYPE_CONFIG, engineerName, isReviewPhoto, publicPhotoUrl } from '../../../lib/fieldService'
+import { JOB_TYPE_CONFIG, engineerName, isReviewPhoto, publicPhotoUrl, requiresGoogleReview } from '../../../lib/fieldService'
 import PhotoLightbox from './PhotoLightbox'
 
 // Ported from old-portal/js/fieldservice.js's _fsOpenDetail/_fsOpenLightbox.
@@ -32,10 +32,13 @@ export default function EntryDetailModal({ entry, viewAll, onClose }) {
           {label}
         </span>
 
-        <div className="text-[13px] mt-3">
-          <span className="text-text-muted font-semibold">⭐ Google Review taken: </span>
-          {entry.google_review_taken ? 'Yes' : 'No'}
-        </div>
+        {/* Only for entries that took a review, or job types that require one — never "No" for the rest. */}
+        {(entry.google_review_taken || requiresGoogleReview(entry.job_type)) && (
+          <div className="text-[13px] mt-3">
+            <span className="text-text-muted font-semibold">⭐ Google Review taken: </span>
+            {entry.google_review_taken ? 'Yes' : 'No'}
+          </div>
+        )}
 
         {!!(cfg && cfg.fields.length) && (
           <div className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-2 text-[13px] mt-4">

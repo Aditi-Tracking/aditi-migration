@@ -22,6 +22,12 @@ export const REVIEW_PHOTO_LABEL = 'Google Review Screenshot'
 // photo_type: 'job' (default, all pre-existing rows) | 'google_review'
 export const isReviewPhoto = (photo) => photo?.photo_type === 'google_review'
 
+// Job types (JOB_TYPE_CONFIG keys) whose entries MUST include a Google review screenshot. To require
+// it for another job type, add its key here — nothing else needs to change. Every other job type
+// never shows the review section.
+export const GOOGLE_REVIEW_JOB_TYPES = ['new_installation']
+export const requiresGoogleReview = (jobType) => GOOGLE_REVIEW_JOB_TYPES.includes(jobType)
+
 // Source of truth for the dynamic form — job type -> extra fields + photo label. Ported verbatim
 // from JOB_TYPE_CONFIG.
 export const JOB_TYPE_CONFIG = {
