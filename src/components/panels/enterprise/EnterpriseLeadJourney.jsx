@@ -34,7 +34,7 @@ function computeJourney(rows) {
 }
 
 function pct(count, total) {
-  return total ? ((count / total) * 100).toFixed(0) : '0'
+  return total ? ((count / total) * 100).toFixed(1) : '0'
 }
 
 function JourneyBox({ icon, label, count, total, tone, isActive, onClick }) {
@@ -218,7 +218,7 @@ function FunnelExits({ journey, geo, statusFilter, onStatusClick }) {
           icon="❌"
           label="Lost"
           count={journey.lostCount}
-          total={journey.total}
+          total={journey.validCount}
           tone="red"
           isActive={statusFilter === 'Lost'}
           onClick={() => onStatusClick('Lost')}
@@ -229,7 +229,7 @@ function FunnelExits({ journey, geo, statusFilter, onStatusClick }) {
           icon="📭"
           label="No Response"
           count={journey.noResponseCount}
-          total={journey.total}
+          total={journey.validCount}
           tone="gray"
           isActive={statusFilter === 'No Response'}
           onClick={() => onStatusClick('No Response')}
@@ -320,7 +320,7 @@ export default function EnterpriseLeadJourney({ rows, active, onToggle, statusFi
                         icon={STAGE_ICONS[f.stage] || '📍'}
                         label={f.stage}
                         count={f.count}
-                        total={journey.total}
+                        total={journey.validCount}
                         tone={STAGE_TONES[f.stage] || 'gray'}
                       />
                     </div>

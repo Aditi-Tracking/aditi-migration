@@ -10,22 +10,22 @@ import { formatINR } from '../../../lib/smartFleet'
 // tile never visually highlights, even though it's functionally the "no filter" state. Here it
 // highlights whenever no milestone is active, same category as the Mapping KPI-highlight fix.
 export default function EnterpriseKpiGrid({ kpis, activeMilestone, onKpiClick }) {
-  const pct = (v) => (kpis.total ? ((v / kpis.total) * 100).toFixed(1) : null)
+  const pct = (v) => (kpis.validLeads ? ((v / kpis.validLeads) * 100).toFixed(1) : null)
 
   const tiles = [
     { key: 'total', icon: '📊', label: 'Total Leads', value: kpis.total.toLocaleString(), sub: `${kpis.total} lead${kpis.total !== 1 ? 's' : ''} tracked`, clickable: true },
     // Lead Quality — Valid is the headline number, Invalid rides along as the smaller sub-count,
     // same "big number + secondary breakdown" shape the old "No. of Calls" tile (removed) used.
     { key: 'validLead', icon: '✅', label: 'Valid Leads', value: kpis.validLeads.toLocaleString(), sub: `${kpis.invalidLeads} invalid`, clickable: true },
-    { key: 'demo', icon: '🖥', label: 'Demo', value: kpis.demo.toLocaleString(), sub: pct(kpis.demo) != null ? `${pct(kpis.demo)}% of leads` : '—', clickable: true },
-    { key: 'quotation', icon: '📄', label: 'Quotation', value: kpis.quotation.toLocaleString(), sub: pct(kpis.quotation) != null ? `${pct(kpis.quotation)}% of leads` : '—', clickable: true },
+    { key: 'demo', icon: '🖥', label: 'Demo', value: kpis.demo.toLocaleString(), sub: pct(kpis.demo) != null ? `${pct(kpis.demo)}% of valid` : '—', clickable: true },
+    { key: 'quotation', icon: '📄', label: 'Quotation', value: kpis.quotation.toLocaleString(), sub: pct(kpis.quotation) != null ? `${pct(kpis.quotation)}% of valid` : '—', clickable: true },
     // Last Known Stage = 'Trials In Progress' or 'PO/LOI' — both counted together.
-    { key: 'trials', icon: '🧪', label: 'Trails', value: kpis.trials.toLocaleString(), sub: pct(kpis.trials) != null ? `${pct(kpis.trials)}% of leads` : '—', clickable: true },
+    { key: 'trials', icon: '🧪', label: 'Trails', value: kpis.trials.toLocaleString(), sub: pct(kpis.trials) != null ? `${pct(kpis.trials)}% of valid` : '—', clickable: true },
     { key: 'won', icon: '✅', label: 'Won', value: kpis.won.toLocaleString(), sub: pct(kpis.won) != null ? `${pct(kpis.won)}% win rate` : '—', clickable: true },
     // value = ACV total (the headline figure), sub = Received + Balance both — the two pieces ACV
     // splits into (what's actually come in vs what's still owed).
     { key: 'revenue', icon: '💰', label: 'Collected', value: '₹' + formatINR(kpis.revenue), sub: `₹${formatINR(kpis.received)} received\n₹${formatINR(kpis.balance)} balance`, clickable: true },
-    { key: 'lost', icon: '❌', label: 'Lost', value: kpis.lost.toLocaleString(), sub: pct(kpis.lost) != null ? `${pct(kpis.lost)}% of leads` : '—', clickable: true },
+    { key: 'lost', icon: '❌', label: 'Lost', value: kpis.lost.toLocaleString(), sub: pct(kpis.lost) != null ? `${pct(kpis.lost)}% of valid` : '—', clickable: true },
   ]
 
   return (
