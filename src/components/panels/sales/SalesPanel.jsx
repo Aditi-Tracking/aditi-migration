@@ -44,8 +44,8 @@ export default function SalesPanel({ onNavigate }) {
   return (
     <CNSectionPanel
       sectionName="Sales"
-      title="Sales"
-      breadcrumb="Home › Sales"
+      title="Pre-Sales"
+      breadcrumb="Home › Pre-Sales"
       trackCardClose
       extraCard={
         showDealCalcCard ? (

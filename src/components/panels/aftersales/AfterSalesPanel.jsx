@@ -4,5 +4,5 @@ import CNSectionPanel from '../../shared/CNSectionPanel'
 // content-nodes grid, identical shape to Sales (no special static cards,
 // no injected cards).
 export default function AfterSalesPanel() {
-  return <CNSectionPanel sectionName="After Sales" title="After Sales" breadcrumb="Home › After Sales" />
+  return <CNSectionPanel sectionName="After Sales" title="Post Sales" breadcrumb="Home › Post Sales" />
 }
