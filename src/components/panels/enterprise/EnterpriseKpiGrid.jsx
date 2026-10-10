@@ -26,10 +26,21 @@ export default function EnterpriseKpiGrid({ kpis, activeMilestone, onKpiClick })
     // splits into (what's actually come in vs what's still owed).
     { key: 'revenue', icon: '💰', label: 'Collected', value: '₹' + formatINR(kpis.revenue), sub: `₹${formatINR(kpis.received)} received\n₹${formatINR(kpis.balance)} balance`, clickable: true },
     { key: 'lost', icon: '❌', label: 'Lost', value: kpis.lost.toLocaleString(), sub: pct(kpis.lost) != null ? `${pct(kpis.lost)}% of valid` : '—', clickable: true },
+    // From the sheet's "Onboarding Status" column (Won leads being handed off) — Completed is the
+    // headline, In Progress/Pending ride along as the sub-count, same shape as Valid Leads' own
+    // "invalid" sub-count above.
+    {
+      key: 'onboarding',
+      icon: '📦',
+      label: 'Onboarding',
+      value: kpis.onboardingCompleted.toLocaleString(),
+      sub: `${kpis.onboardingInProgress} in progress, ${kpis.onboardingPending} pending`,
+      clickable: true,
+    },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-5">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-3 mb-5">
       {tiles.map((t) => {
         const isActive = activeMilestone === t.key || (t.key === 'total' && activeMilestone == null)
         return (

@@ -21,7 +21,7 @@ const EN_URL = 'https://script.google.com/macros/s/AKfycbyWpT5JkfaGSYCbk30iLJJK9
 // re-hits this on every navigation to the page, which otherwise means re-paying that full ~8s (or
 // worse) just to re-open a tab you were already on. `forceRefresh` (wired to the panel's own
 // Refresh button) bypasses it outright.
-const CACHE_KEY = 'enterpriseLeads:cache:v9' // bumped again: ReachedDemo back to "Demo by" (non-blank) for KPI/funnel/journey, same source the Rep Leaderboard already used
+const CACHE_KEY = 'enterpriseLeads:cache:v10' // bumped again: added OnboardedBy/OnboardingStatus from the sheet's 2 new columns
 const CACHE_TTL_MS = 5 * 60 * 1000
 
 // ── Permission ───────────────────────────────────────────────────────────────
@@ -136,10 +136,22 @@ function parseEntryDateTime(s) {
   return { key, ts: dt.getTime() }
 }
 
+// The sheet's "Onboarded by" / "Onboarding Status" cells sometimes come back as a raw ISO
+// timestamp (e.g. "2026-10-08T06:43:07.652Z") instead of the real dropdown value — an Apps
+// Script serialization artifact on these two new columns, same family of issue as the day/month
+// swap bug documented on parseEntryDateTime. Strip those out so the dashboard shows blank instead
+// of a nonsense timestamp string.
+function cleanOnboardingText(v) {
+  const s = (v || '').toString().trim()
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s) ? '' : s
+}
+
 function normalizeLeadRow(r) {
   const callConnected = (r['1nd Call - Connected'] || '').toString().trim()
   const currentStage = (r['Last Known Stage'] || '').toString().trim()
   const demoBy = (r['Demo by'] || '').toString().trim()
+  const onboardedBy = cleanOnboardingText(r['Onboarded by'])
+  const onboardingStatus = cleanOnboardingText(r['Onboarding Status'])
   const entry = parseEntryDateTime((r['Lead Entry'] || '').toString().trim())
   // "Revenue" is now backed by the sheet's "ACV" column (its old "Revenue" header is gone — see
   // this file's header comment) — every existing `r.Revenue` consumer (KPI tile, table, rep
@@ -170,6 +182,8 @@ function normalizeLeadRow(r) {
     CurrentStage: currentStage,
     LeadQuality: (r['Lead Quality'] || '').toString().trim(),
     DemoBy: demoBy,
+    OnboardedBy: onboardedBy,
+    OnboardingStatus: onboardingStatus,
     ReachedInterested: currentStage === 'Interested',
     // Driven by the "Demo by" column (whoever conducted the demo), not "Last Known Stage" — a lead
     // can move on to later stages after its demo, so "Last Known Stage === 'Demo Done'" undercounts
@@ -266,6 +280,7 @@ export function matchesEnterpriseCrossFilter(r, cf) {
   if (cf.milestone === 'lost' && r.CurrentStage !== 'Lost') return false
   if (cf.milestone === 'revenue' && !(r.Revenue > 0)) return false
   if (cf.milestone === 'validLead' && r.LeadQuality !== 'Valid') return false
+  if (cf.milestone === 'onboarding' && r.OnboardingStatus !== 'Completed') return false
   return true
 }
 
@@ -293,7 +308,25 @@ export function computeEnterpriseKpis(rows) {
   const balance = rows.reduce((s, r) => s + r.Balance, 0)
   const validLeads = rows.filter((r) => r.LeadQuality === 'Valid').length
   const invalidLeads = rows.filter((r) => r.LeadQuality === 'Invalid').length
-  return { total: t, demo, quotation, trials, won, lost, revenue, received, balance, validLeads, invalidLeads }
+  const onboardingCompleted = rows.filter((r) => r.OnboardingStatus === 'Completed').length
+  const onboardingInProgress = rows.filter((r) => r.OnboardingStatus === 'In Progress').length
+  const onboardingPending = rows.filter((r) => r.OnboardingStatus === 'Pending').length
+  return {
+    total: t,
+    demo,
+    quotation,
+    trials,
+    won,
+    lost,
+    revenue,
+    received,
+    balance,
+    validLeads,
+    invalidLeads,
+    onboardingCompleted,
+    onboardingInProgress,
+    onboardingPending,
+  }
 }
 
 // Kept as an explicitly separate function (not derived from chartData) so nothing downstream can

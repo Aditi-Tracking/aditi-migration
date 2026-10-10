@@ -130,7 +130,7 @@ function SectionBox({ section, items, canManage, empDirectory, myEmail, onChange
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5 relative overflow-hidden">
+    <div className={`rounded-2xl border border-border bg-surface p-5 relative ${addOpen ? 'overflow-visible' : 'overflow-hidden'}`}>
       <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: hex }} />
       <div className="flex items-center gap-2 mb-3.5">
         <span className="text-[20px]">{icon}</span>

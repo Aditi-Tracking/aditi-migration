@@ -29,7 +29,19 @@ const COLUMNS = [
   { key: 'Revenue', label: 'ACV', sortable: true },
   { key: 'Received', label: 'Received', sortable: true },
   { key: 'Balance', label: 'Balance', sortable: true },
+  { key: null, label: 'Onboarded By', sortable: false },
+  { key: null, label: 'Onboarding Status', sortable: false },
 ]
+
+// Completed=green/In Progress=amber/Pending=gray — only tone this sheet's 2 new onboarding
+// columns actually use; anything else (including the stray timestamp-artifact values
+// cleanOnboardingText already strips in lib/enterpriseLead.js) falls back to neutral.
+function onboardingStatusTone(status) {
+  if (status === 'Completed') return '#16A34A'
+  if (status === 'In Progress') return '#F0A500'
+  if (status === 'Pending') return '#9ca3af'
+  return null
+}
 
 // Ported from old-portal/js/enterprise.js's enRenderTable/enToggleTable/enGoPage/enPagerHTML.
 // Collapsible via `open`/`onToggleOpen`, sortable/paginated exactly as production. The
@@ -105,6 +117,10 @@ function LeadRow({ r }) {
       <Td className="font-semibold text-primary">{r.Revenue ? '₹' + r.Revenue.toLocaleString('en-IN') : '—'}</Td>
       <Td className="text-text-muted">{r.Received ? '₹' + r.Received.toLocaleString('en-IN') : '—'}</Td>
       <Td className="text-text-muted">{r.Balance ? '₹' + r.Balance.toLocaleString('en-IN') : '—'}</Td>
+      <Td className="text-text-muted">{r.OnboardedBy || '—'}</Td>
+      <Td>
+        {r.OnboardingStatus ? <StatusBadge color={onboardingStatusTone(r.OnboardingStatus)}>{r.OnboardingStatus}</StatusBadge> : <span className="text-text-muted">—</span>}
+      </Td>
     </Tr>
   )
 }

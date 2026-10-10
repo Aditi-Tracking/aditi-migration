@@ -152,11 +152,9 @@ export default function SubmitEntryTab() {
       }
       if (val) details[f.key] = val
     }
-    const reviewRequired = requiresGoogleReview(jobType)
-    if (reviewRequired && !photosRef.current.some((p) => p.kind === 'review')) {
-      setStatus({ text: '⚠️ Please upload the Google review screenshot.', tone: 'error' })
-      return
-    }
+    // The review screenshot is offered (not required) for job types that call for one — whether
+    // it was actually taken is just whether one got attached, not a hard gate on submission.
+    const reviewTaken = photosRef.current.some((p) => p.kind === 'review')
 
     setSubmitting(true)
     setStatus({ text: '⏳ Saving entry…', tone: 'info' })
@@ -164,7 +162,7 @@ export default function SubmitEntryTab() {
       const engineerId = await getCurrentAuthUserId()
       if (!engineerId) throw new Error('Could not verify your session — please log in again.')
 
-      const saved = await createEntry({ engineerId, clientName: trimmedClient, location: trimmedLocation, jobType, details, googleReviewTaken: reviewRequired })
+      const saved = await createEntry({ engineerId, clientName: trimmedClient, location: trimmedLocation, jobType, details, googleReviewTaken: reviewTaken })
       setSavedEntryId(saved.id)
 
       // Not gated on cfg.photoLabel — a job type with no job-photo section (e.g. Sensor Replace) must
@@ -312,7 +310,7 @@ export default function SubmitEntryTab() {
             <PhotoUploadSection
               kind="review"
               multiple={false}
-              photoLabel={`${REVIEW_PHOTO_LABEL} *`}
+              photoLabel={`${REVIEW_PHOTO_LABEL} (optional)`}
               photos={photos}
               pickerDisabled={locked}
               onAddFiles={(files) => handleAddPhotos(files, 'review')}

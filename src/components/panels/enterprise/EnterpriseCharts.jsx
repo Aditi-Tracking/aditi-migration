@@ -83,7 +83,7 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
     const counts = {}
     data.forEach((r) => {
       const s = r.Source || 'Direct / Unspecified'
-      counts[s] = (counts[s] || 0) + 1
+      counts[s] = (counts[s] || 0) + 1 
     })
     return Object.keys(counts).map((k) => [k, counts[k]])
   }, [data])
@@ -99,6 +99,18 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
 
   const connectedCount = data.reduce((s, r) => s + r.Connected, 0)
   const noAnswerCount = data.reduce((s, r) => s + (r.CallsMade - r.Connected), 0)
+
+  // Blank (not yet onboarded) dominates the full lead set by design — only Won leads reach
+  // onboarding — so it's excluded here rather than swamping the 3 real statuses in the chart.
+  const ONBOARDING_COLORS = { Completed: '#16A34A', 'In Progress': '#F0A500', Pending: '#9ca3af' }
+  const onboardingBreakdown = useMemo(() => {
+    const counts = {}
+    data.forEach((r) => {
+      if (!r.OnboardingStatus) return
+      counts[r.OnboardingStatus] = (counts[r.OnboardingStatus] || 0) + 1
+    })
+    return Object.keys(counts).map((k) => [k, counts[k]])
+  }, [data])
 
   return (
     <>
@@ -238,7 +250,7 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
         </ChartCard>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <ChartCard title="Product Interest">
           <Doughnut
             data={{
@@ -289,6 +301,27 @@ export default function EnterpriseCharts({ data, funnel, crossFilter, onChartFil
               scales: { x: { ticks: tickOpts, grid: gridOpts }, y: { ticks: tickOpts, grid: { display: false } } },
             }}
           />
+        </ChartCard>
+
+        <ChartCard title="Onboarding Status">
+          {onboardingBreakdown.length ? (
+            <Doughnut
+              data={{
+                labels: onboardingBreakdown.map(([k]) => k),
+                datasets: [
+                  {
+                    data: onboardingBreakdown.map(([, v]) => v),
+                    backgroundColor: onboardingBreakdown.map(([k]) => ONBOARDING_COLORS[k] || dimColor),
+                    borderWidth: 0,
+                    hoverOffset: 8,
+                  },
+                ],
+              }}
+              options={{ cutout: '68%', responsive: true, maintainAspectRatio: false, plugins: { legend: legendOpts } }}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center text-[11.5px] text-text-muted">No onboarding activity yet</div>
+          )}
         </ChartCard>
       </div>
     </>
