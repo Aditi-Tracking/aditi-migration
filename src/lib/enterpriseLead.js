@@ -161,7 +161,9 @@ function normalizeLeadRow(r) {
   const received = parseFloat(String(r['Received'] || '').replace(/[^0-9.-]/g, '')) || 0
   return {
     SrNo: r['SR.No'] ?? '',
-    Name: (r['Lead Name'] || '').toString().trim(),
+    // The sheet has renamed this header before (it currently sends plain "Name") — check both so a
+    // future rename back to "Lead Name" doesn't silently empty out every row again.
+    Name: (r['Lead Name'] || r['Name'] || '').toString().trim(),
     Phone: (r['ContactNo'] || r['Contact No'] || '').toString().trim(),
     Email: (r['Email id'] || '').toString().trim(),
     City: (r['City'] || '').toString().trim(),
