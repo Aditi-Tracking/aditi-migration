@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { isOptionInUse, ODOO_SEARCH_DEBOUNCE_MS, ODOO_SEARCH_MIN_CHARS, searchOdooCustomers } from '../../../lib/customerMapping'
+import { getCachedOdooSearch, isOptionInUse, ODOO_SEARCH_DEBOUNCE_MS, ODOO_SEARCH_MIN_CHARS, searchOdooCustomers, searchOdooLocal } from '../../../lib/customerMapping'
 import StatusBadge from '../../shared/table/StatusBadge'
 
 // One Odoo-name cell of one display row (a GPS company with 3 Odoo names renders 3 of these).
@@ -117,6 +117,24 @@ function OdooPicker({ company, onPick, onCancel, onDismiss, autoFocus }) {
       abortRef.current?.abort()
       setResults([])
       setStatus('idle')
+      return
+    }
+    // Directory loaded in the browser: results on every keystroke, no request at all.
+    const local = searchOdooLocal(q)
+    if (local) {
+      abortRef.current?.abort()
+      setResults(local)
+      setActive(-1)
+      setStatus('done')
+      return
+    }
+    const cached = getCachedOdooSearch(q)
+    if (cached) {
+      // Already searched recently: show it this keystroke, no debounce and no request.
+      abortRef.current?.abort()
+      setResults(cached)
+      setActive(-1)
+      setStatus('done')
       return
     }
     timerRef.current = setTimeout(() => runSearch(q), ODOO_SEARCH_DEBOUNCE_MS)

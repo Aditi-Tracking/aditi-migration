@@ -93,21 +93,119 @@ export function fetchMappingData(region, signal) {
 }
 
 export const ODOO_SEARCH_MIN_CHARS = 2
-export const ODOO_SEARCH_DEBOUNCE_MS = 250
+export const ODOO_SEARCH_DEBOUNCE_MS = 80
+
+// ── Local Odoo directory (instant search-as-you-type) ────────────────────────
+// The whole active Odoo name list lives in the browser so typing never waits on the network:
+// /api/odoo-names -> [[id, name, is_company, parent_name]] (rarely changes, reloaded after
+// ODOO_DIR_TTL_MS) and /api/odoo-in-use -> [[id, customer_id, in_use_by, in_use]] (only names
+// linked to a customer; re-read after every save/clear and every time the panel opens).
+// searchOdooLocal mirrors search_odoo_aliases: contains-match, names that START with the text
+// first, then the rest, each group alphabetical, capped at `limit`. Until the directory has
+// loaded (or if loading failed) it returns null and the picker falls back to the server search.
+const ODOO_DIR_TTL_MS = 5 * 60 * 1000
+const odooCollator = new Intl.Collator('en')
+let odooDir = null // { entries, inUse: Map(id -> { customer_id, in_use_by, in_use }), loadedAt }
+let odooDirPromise = null
+
+function inUseMapFrom(rows) {
+  const m = new Map()
+  for (const [id, customer_id, in_use_by, in_use] of rows) m.set(id, { customer_id, in_use_by, in_use })
+  return m
+}
+
+export function refreshOdooInUse() {
+  if (!odooDir) return Promise.resolve()
+  return mappingRequest('/api/odoo-in-use')
+    .then((rows) => {
+      if (Array.isArray(rows) && odooDir) odooDir.inUse = inUseMapFrom(rows)
+    })
+    .catch(() => {}) // keep the previous markers; the server still rejects a conflicting pick
+}
+
+export function ensureOdooDirectory() {
+  if (odooDir && Date.now() - odooDir.loadedAt < ODOO_DIR_TTL_MS) return refreshOdooInUse()
+  if (odooDirPromise) return odooDirPromise
+  odooDirPromise = Promise.all([mappingRequest('/api/odoo-names'), mappingRequest('/api/odoo-in-use')])
+    .then(([names, inUse]) => {
+      if (!Array.isArray(names) || !Array.isArray(inUse)) throw new Error('Unexpected Odoo directory response')
+      const entries = names.map(([id, odoo_name, is_company, parent_name]) => ({
+        id,
+        odoo_name,
+        is_company,
+        parent_name,
+        lower: (odoo_name || '').toLowerCase(),
+      }))
+      entries.sort((a, b) => odooCollator.compare(a.odoo_name, b.odoo_name))
+      odooDir = { entries, inUse: inUseMapFrom(inUse), loadedAt: Date.now() }
+    })
+    .finally(() => {
+      odooDirPromise = null
+    })
+  return odooDirPromise
+}
+
+export function searchOdooLocal(query, limit = 20) {
+  if (!odooDir) return null
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const starts = []
+  const contains = []
+  for (const e of odooDir.entries) {
+    const at = e.lower.indexOf(q)
+    if (at === 0) starts.push(e)
+    else if (at > 0 && contains.length < limit) contains.push(e)
+    if (starts.length >= limit) break // names starting with the text rank first, so nothing later can displace these
+  }
+  return starts.concat(contains).slice(0, limit).map((e) => {
+    const u = odooDir.inUse.get(e.id)
+    return {
+      id: e.id,
+      odoo_name: e.odoo_name,
+      is_company: e.is_company,
+      parent_name: e.parent_name,
+      customer_id: u?.customer_id ?? null,
+      in_use_by: u?.in_use_by ?? null,
+      in_use: u?.in_use ?? false,
+    }
+  })
+}
+
+// Per-query result cache so retyping/backspacing to a query already searched is instant. Short TTL
+// because each result carries in_use/in_use_by, which other users' saves can change; also cleared
+// on every save/clear made from this browser (see saveMapping/clearMapping).
+const ODOO_SEARCH_CACHE_TTL_MS = 30000
+const odooSearchCache = new Map() // normalized query -> { at, data }
+const odooKey = (q) => q.trim().toLowerCase()
+
+export function getCachedOdooSearch(query) {
+  const hit = odooSearchCache.get(odooKey(query))
+  return hit && Date.now() - hit.at < ODOO_SEARCH_CACHE_TTL_MS ? hit.data : null
+}
 
 // Live Odoo-universe search (search_odoo_aliases RPC behind /api/odoo-search, max 20 rows).
 // Entirely separate from filterAndSortMappingRows below, which only searches rows already loaded.
 export function searchOdooCustomers(query, signal) {
-  return mappingRequest(`/api/odoo-search?q=${encodeURIComponent(query)}`, { signal })
+  return mappingRequest(`/api/odoo-search?q=${encodeURIComponent(query)}`, { signal }).then((data) => {
+    if (Array.isArray(data)) {
+      if (odooSearchCache.size > 100) odooSearchCache.clear()
+      odooSearchCache.set(odooKey(query), { at: Date.now(), data })
+    }
+    return data
+  })
 }
 
 // Links ONE more Odoo alias to a GPS company. First link creates the customer_master row, later
 // links join the company's existing one (never overwriting its tier/mapped_by). mapped_by is
 // stamped server-side from the verified token — the client never sends an email.
 export function saveMapping({ gpsAliasId, odooAliasId }) {
+  odooSearchCache.clear()
   return mappingRequest('/api/save-mapping', {
     method: 'POST',
     body: { gps_alias_id: gpsAliasId, odoo_alias_id: odooAliasId },
+  }).then((result) => {
+    refreshOdooInUse()
+    return result
   })
 }
 
@@ -116,7 +214,11 @@ export function saveMapping({ gpsAliasId, odooAliasId }) {
 export function clearMapping({ gpsAliasId, odooAliasId }) {
   const body = { gps_alias_id: gpsAliasId }
   if (odooAliasId !== undefined && odooAliasId !== null) body.odoo_alias_id = odooAliasId
-  return mappingRequest('/api/clear-mapping', { method: 'POST', body })
+  odooSearchCache.clear()
+  return mappingRequest('/api/clear-mapping', { method: 'POST', body }).then((result) => {
+    refreshOdooInUse()
+    return result
+  })
 }
 
 // True when picking this search result would touch a customer that a GPS company (live or

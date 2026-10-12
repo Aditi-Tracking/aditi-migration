@@ -16,6 +16,8 @@ import httpx
 import os                                   # to read environment variables
 import time
 import hashlib
+import gzip
+import json
 
 # ── App setup ───────────────────────────────────────────────────
 app = Flask(__name__)
@@ -796,6 +798,63 @@ def odoo_search():
     except Exception as e:
         print(f"odoo-search failed: {e}")
         return jsonify({"error": "Search failed", "code": "SERVER_ERROR"}), 500
+
+
+# ══════════════════════════════════════════════════════════════════
+# ENDPOINTS 5b/5c: GET /api/odoo-names and GET /api/odoo-in-use
+#
+# Feed the picker's search-as-you-type, which runs in the browser: the whole active Odoo name list
+# (mapping_odoo_names(): [[id, name, is_company, parent_name], ...], ~1.6 MB) plus a small overlay
+# (mapping_odoo_in_use(): [[id, customer_id, in_use_by, in_use], ...], only rows linked to a
+# customer). Names rarely change (the Odoo sync only inserts), so the gzipped names payload is
+# cached for _ODOO_NAMES_TTL seconds; the overlay is read fresh each time. Same auth as odoo-search.
+# ══════════════════════════════════════════════════════════════════
+_ODOO_NAMES_TTL = 300
+_odoo_names_cache = {"expires": 0.0, "body": None}
+
+
+def _json_gzip_response(data):
+    """JSON body, gzipped when the client accepts it (Flask doesn't compress by itself)."""
+    body = json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return _gzip_response(body)
+
+
+def _gzip_response(body):
+    from flask import Response
+    if "gzip" in request.headers.get("Accept-Encoding", "").lower():
+        resp = Response(gzip.compress(body, compresslevel=6), mimetype="application/json")
+        resp.headers["Content-Encoding"] = "gzip"
+    else:
+        resp = Response(body, mimetype="application/json")
+    resp.headers["Vary"] = "Accept-Encoding"
+    return resp
+
+
+@app.route("/api/odoo-names", methods=["GET"])
+@mapping_auth("edit", legacy_ok=True)
+def odoo_names():
+    now = time.time()
+    try:
+        if _odoo_names_cache["body"] is None or _odoo_names_cache["expires"] <= now:
+            res = _execute_with_retry(lambda: sb.rpc("mapping_odoo_names").execute())
+            _odoo_names_cache["body"] = json.dumps(
+                res.data or [], separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            _odoo_names_cache["expires"] = now + _ODOO_NAMES_TTL
+        return _gzip_response(_odoo_names_cache["body"])
+    except Exception as e:
+        print(f"odoo-names failed: {e}")
+        return jsonify({"error": "Could not load Odoo names", "code": "SERVER_ERROR"}), 500
+
+
+@app.route("/api/odoo-in-use", methods=["GET"])
+@mapping_auth("edit", legacy_ok=True)
+def odoo_in_use():
+    try:
+        res = _execute_with_retry(lambda: sb.rpc("mapping_odoo_in_use").execute())
+        return _json_gzip_response(res.data or [])
+    except Exception as e:
+        print(f"odoo-in-use failed: {e}")
+        return jsonify({"error": "Could not load Odoo usage", "code": "SERVER_ERROR"}), 500
 
 
 # ══════════════════════════════════════════════════════════════════

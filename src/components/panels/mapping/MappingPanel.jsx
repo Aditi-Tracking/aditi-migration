@@ -6,6 +6,7 @@ import {
   canEditMapping,
   clearMapping,
   computeMappingKpis,
+  ensureOdooDirectory,
   fetchMappingData,
   fetchMappingShared,
   filterAndSortMappingRows,
@@ -43,6 +44,12 @@ export default function MappingPanel() {
   const [addingFor, setAddingFor] = useState(null) // gps_alias_id with an open "pick another name" row
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null) // see MappingConfirmDialog
+
+  // Preload the Odoo names for the picker's instant local search. Only editors see the picker, so
+  // only they pay for the download. A failure is silent: the picker falls back to the server search.
+  useEffect(() => {
+    if (canEdit) ensureOdooDirectory().catch(() => {})
+  }, [canEdit])
 
   useEffect(() => {
     const ctrl = new AbortController()
