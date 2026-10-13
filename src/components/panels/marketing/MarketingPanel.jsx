@@ -14,6 +14,7 @@ const MARKETING_LINK_FOLDERS = {
   'enterprise solution': [
     { name: 'Click task', url: 'https://drive.google.com/drive/folders/1ZojysmGksKS3iGkwdsoKj31fntoJSde6' },
     { name: 'Cool bus', url: 'https://drive.google.com/drive/folders/1Pg79cLwMfJfQx1y_5KYDPsESU724sdfA' },
+    { name: 'Brochure', url: 'https://drive.google.com/drive/folders/1uXy0zfZejP7Kg2pvKHsO1hf1VNXAnIsT' },
   ],
 }
 
