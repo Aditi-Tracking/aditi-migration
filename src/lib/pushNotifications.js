@@ -65,13 +65,28 @@ export async function togglePushSubscription() {
   return true
 }
 
-// Ported from osSendPush — fire-and-forget via the already-deployed send-push Edge Function,
-// same non-blocking convention as taskDelegation.js's sendAssignmentEmail (a failed/slow send
-// never blocks the caller).
-export function sendPush(title, message) {
-  fetch(PUSH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, message }),
-  }).catch((e) => console.warn('sendPush error:', e))
+// Ported from osSendPush — calls the already-deployed send-push Edge Function. Returns
+// { ok, error } instead of being truly fire-and-forget: the function used to always respond 200
+// even when OneSignal itself rejected the request (bad key, no recipients, etc.), so a failure was
+// invisible — the caller could show a toast, but there was nothing to show it based on. Now that
+// the Edge Function reports its real status, this surfaces it; callers that don't care can still
+// ignore the return value exactly as before.
+export async function sendPush(title, message) {
+  try {
+    const res = await fetch(PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, message }),
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || data?.errors) {
+      const reason = data?.errors ? JSON.stringify(data.errors) : `HTTP ${res.status}`
+      console.warn('sendPush failed:', reason)
+      return { ok: false, error: reason }
+    }
+    return { ok: true, error: null }
+  } catch (e) {
+    console.warn('sendPush error:', e)
+    return { ok: false, error: e.message }
+  }
 }

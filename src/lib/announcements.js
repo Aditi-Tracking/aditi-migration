@@ -89,11 +89,6 @@ export function safeBody(text) {
   )
 }
 
-function todayKey() {
-  const d = new Date()
-  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()
-}
-
 // Stable key for a celebrant (no row id on an Employee_details record) —
 // port of _annCelebKey.
 export function celebKey(c) {
@@ -112,22 +107,16 @@ export function markAllSeen(updates, celebs = []) {
   try {
     const ids = [...updates.map((a) => 'u_' + a.id), ...celebs.map(celebKey)]
     localStorage.setItem('annSeenIds', JSON.stringify(ids))
-    localStorage.setItem('annSeen_' + todayKey(), '1')
   } catch {
     /* localStorage may be unavailable — ignore */
   }
 }
 
-export function isSeenToday() {
-  try {
-    return localStorage.getItem('annSeen_' + todayKey()) === '1'
-  } catch {
-    return false
-  }
-}
-
 export function computeUnreadCount(updates, celebs = []) {
-  if (isSeenToday()) return 0
+  // No "already opened it once today, so nothing counts as new for the rest of today" shortcut —
+  // that blocked the badge/banner from ever showing a post made AFTER the drawer was already
+  // opened earlier the same day (the exact case of posting your own update and expecting it to
+  // show immediately). Per-item `seenIds` below is the only thing that should decide "unread".
   const seenIds = getSeenIds()
   const unseenUpdates = updates.filter((a) => !seenIds.includes('u_' + a.id))
   const unseenCelebs = celebs.filter((c) => !seenIds.includes(celebKey(c)))

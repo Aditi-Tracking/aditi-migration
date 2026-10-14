@@ -48,7 +48,10 @@ export default function PostUpdateModal({ open, editingUpdate, onClose, onSaved 
         await updatePortalUpdate(editingUpdate.id, { title: t, body: b })
       } else {
         await postPortalUpdate({ title: t, body: b, postedBy: currentUser?.name || 'MIS Team' })
-        sendPush('New Announcement', t + '\nOpen the portal to view — learn.adititracking.com')
+        const pushResult = await sendPush('New Announcement', t + '\nOpen the portal to view — learn.adititracking.com')
+        // The update itself is already saved at this point — a push failure shouldn't look like
+        // the whole post failed, just a heads-up that the Chrome notification didn't go out.
+        if (!pushResult.ok) alert('✅ Update posted, but the push notification failed to send: ' + pushResult.error)
       }
       onSaved()
       onClose()
