@@ -18,7 +18,10 @@
 // consumer that omits it keeps today's exact content-driven behavior. Introduced for the 3 CN
 // folder-browser overlays (CNSectionPanel/HRDocsOverlay/TrainingModuleOverlay), so a folder's
 // modal size no longer swings with its file count.
-export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', height, children }) {
+//
+// `closeIcon` (optional) replaces the corner close button's "✕" text glyph — Lead Capture's modals pass an SVG icon so they
+// carry no emoji-style glyph; every other consumer omits it and renders exactly what it always did.
+export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', height, closeIcon = '✕', children }) {
   if (!open) return null
   return (
     <div
@@ -31,9 +34,10 @@ export default function OverlayShell({ open, onClose, maxWidth = 'max-w-2xl', he
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close"
           className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface-2 border border-border text-text-muted flex items-center justify-center z-20"
         >
-          ✕
+          {closeIcon}
         </button>
         {children}
       </div>

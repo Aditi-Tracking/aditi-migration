@@ -5,6 +5,7 @@ import { FileViewerProvider } from '../../context/FileViewerContext'
 import { CelebrationsProvider } from '../../context/CelebrationsContext'
 import { TaskChecklistNavProvider } from '../../context/TaskChecklistNavContext'
 import { RenewalsNavProvider } from '../../context/RenewalsNavContext'
+import { LeadCaptureAccessProvider } from '../../context/LeadCaptureAccessContext'
 import { TaskDelegationNavProvider } from '../../context/TaskDelegationNavContext'
 import { trackPageSwitch } from '../../lib/activityTracking'
 import { NAV_ITEMS } from './navItems'
@@ -54,6 +55,7 @@ const RenewalsPanel = lazy(() => import('../panels/renewals/RenewalsPanel'))
 const TaskDelegationPanel = lazy(() => import('../panels/taskdelegation/TaskDelegationPanel'))
 const CRMVehiclePanel = lazy(() => import('../panels/crmvehicle/CRMVehiclePanel'))
 const FieldServicePanel = lazy(() => import('../panels/fieldservice/FieldServicePanel'))
+const LeadCapturePanel = lazy(() => import('../panels/leadcapture/LeadCapturePanel'))
 const HREmployeeMasterPanel = lazy(() => import('../panels/hremployee/HREmployeeMasterPanel'))
 const VendorRequestsPanel = lazy(() => import('../panels/vendorrequests/VendorRequestsPanel'))
 const RecurringBillsPanel = lazy(() => import('../panels/vendorrequests/RecurringBillsPanel'))
@@ -78,6 +80,7 @@ const PANEL_COMPONENTS = {
   taskdelegation: TaskDelegationPanel,
   crm: CRMVehiclePanel,
   fieldservice: FieldServicePanel,
+  leadcapture: LeadCapturePanel,
   hremployee: HREmployeeMasterPanel,
   vendorrequests: VendorRequestsPanel,
   recurringbills: RecurringBillsPanel,
@@ -167,6 +170,7 @@ export default function PortalShell() {
   return (
     <TaskChecklistNavProvider>
     <RenewalsNavProvider>
+    <LeadCaptureAccessProvider>
     <TaskDelegationNavProvider>
       <FileViewerProvider>
         <CelebrationsProvider>
@@ -239,6 +243,7 @@ export default function PortalShell() {
         </CelebrationsProvider>
       </FileViewerProvider>
     </TaskDelegationNavProvider>
+    </LeadCaptureAccessProvider>
     </RenewalsNavProvider>
     </TaskChecklistNavProvider>
   )

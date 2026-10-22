@@ -2,7 +2,9 @@
 // SmartFleet/Task Checklist, now the one standard), with built-in sort
 // click-handling + arrow glyph. Consolidates SmartFleet's inline sort-arrow
 // logic and Renewals' separate SortableHeader/SortArrow components.
-export default function Th({ children, align = 'left', sortable = false, sortKey, activeSortKey, sortDir, onSort, className = '' }) {
+// `filter` (optional) is a node rendered after the label/arrow — in practice <ColumnFilter …/>, the
+// Excel-style per-column filter. Its trigger stops click propagation, so it never toggles the sort.
+export default function Th({ children, align = 'left', sortable = false, sortKey, activeSortKey, sortDir, onSort, className = '', filter = null }) {
   const isActive = sortable && activeSortKey === sortKey
   const alignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
   return (
@@ -18,6 +20,7 @@ export default function Th({ children, align = 'left', sortable = false, sortKey
           {isActive ? (sortDir === 1 ? '▲' : '▼') : '↕'}
         </span>
       )}
+      {filter}
     </th>
   )
 }

@@ -33,7 +33,6 @@ export const PERM_LABELS = {
   can_view_announcements: '🔔 View Announcements',
   can_post_announcements: '📢 Post Announcements',
   can_upload_files: '📤 Upload & Delete Files',
-  can_download_video: '⬇️ Download Training Videos',
   checklist_scope: '✅ Task Checklist Scope',
   can_delete_tasks: '🗑️ Task Checklist — Delete Tasks',
   can_use_task_scheduler: '🗓️ Task Checklist — Task Scheduler',
@@ -57,6 +56,10 @@ export const PERM_LABELS = {
 // gated was deliberately removed (see MIGRATION-NOTES.md), but the
 // permission key/value lives on in the backend untouched — filtered out
 // here so it renders nowhere, rather than falling back to its raw key.
+// The 25 per-key Lead Capture permissions are RETIRED: Lead Capture access is now ONE per-person tier (the Lead Capture access picker on each card, lib/leadCaptureAccess.js).
+// Their rows may linger in role_defaults / user_permissions until a cleanup removes them — they no longer do anything, so they are never listed as toggles.
+export const RETIRED_LEAD_CAPTURE_KEYS = ['enquiry_view', 'enquiry_create', 'enquiry_view_all', 'enquiry_assign_fms', 'enquiry_manage_dropdowns', 'enquiry_delete', 'enquiry_delete_sent', 'enquiry_field_sales', 'field_sales_form_view', 'field_sales_form_create', 'field_sales_form_view_all', 'field_sales_form_assign_fms', 'field_sales_form_delete', 'field_sales_form_manage_dropdowns', 'sales_fms_view', 'sales_fms_update', 'sales_fms_edit', 'sales_meca_view', 'sales_meca_view_all', 'sales_meca_manage', 'scot_view', 'scot_create', 'scot_update', 'scot_view_all', 'scot_manage_dropdowns']
+
 export async function fetchAllUsersPermissions(callerEmail) {
   const res = await fetch(`${PAPI_URL}/api/admin/all-users-permissions`, {
     headers: { 'X-User-Email': callerEmail },
@@ -65,7 +68,7 @@ export async function fetchAllUsersPermissions(callerEmail) {
   const data = await res.json()
   return {
     users: data.users || [],
-    allKeys: (data.all_permission_keys || []).filter((k) => k !== 'field_service_create' && k !== 'can_upload_quiz'),
+    allKeys: (data.all_permission_keys || []).filter((k) => k !== 'field_service_create' && k !== 'can_upload_quiz' && !RETIRED_LEAD_CAPTURE_KEYS.includes(k)),
   }
 }
 

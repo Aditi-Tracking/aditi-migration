@@ -44,6 +44,7 @@ export const NAV_ITEMS = [
       // things inside the panel (My vs All Entries, delete authority) — it just no longer
       // gates visibility. See lib/fieldService.js.
       { id: 'fieldservice', label: 'Field Service' },
+      { id: 'leadcapture', label: 'Lead Capture', visibility: 'leadCapturePerm' },
       { id: 'hremployee', label: 'HR Employee Master', visibility: 'hrEmployeePerm' },
       { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
     ],
@@ -127,6 +128,9 @@ export const NAV_ITEMS = [
 //   lib/collectionsDashboard.js): can_view_collections is undefined until the
 //   backend adds that column, falling through to the same owner/mis/pc/
 //   executive-assistant/ea role check — also a plain synchronous check.
+// - Lead Capture (post-migration, not a port) is ONE tile for five tabs, visible to anyone who holds a Lead Capture TIER (Field Sales, Sales Person or
+//   Admin — one per person, kept by the database in lead_capture_roles and handed over by LeadCaptureAccessContext); the panel then shows only the tabs
+//   that tier may use. Someone with no tier sees no tile. Independent of the portal role: owner / mis get no Lead Capture access unless a tier is assigned.
 // - everything else with no explicit rule is visible unconditionally once
 //   logged in (about/hr/sales/aftersales/finance/products/marketing/itadmin/
 //   training/resources/home/dashboardshub)
@@ -135,7 +139,7 @@ export const NAV_ITEMS = [
 // production itself (see MIGRATION-NOTES.md's "Dead code observed"), so 'notYetBuilt' is its
 // correct, final state, not a placeholder awaiting a real rule. Every other module that once used
 // this value has since been replaced with its own real visibility case below as it was built.
-export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible }) {
+export function isNavItemVisible(visibility, { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible, leadCaptureVisible }) {
   switch (visibility) {
     case 'notYetBuilt':
       return false
@@ -177,6 +181,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return canAccessEnterpriseSolutions(currentUser, permissions)
     case 'collectionsPerm':
       return canAccessCollections(currentUser, permissions)
+    case 'leadCapturePerm':
+      return !!leadCaptureVisible
     case 'referralAny':
       return anyReferralTabVisible(currentUser, permissions)
     default:

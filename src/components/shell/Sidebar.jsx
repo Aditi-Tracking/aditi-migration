@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTaskChecklistNav } from '../../context/TaskChecklistNavContext'
 import { useRenewalsNav } from '../../context/RenewalsNavContext'
 import { useTaskDelegationNav } from '../../context/TaskDelegationNavContext'
+import { useLeadCaptureAccess } from '../../context/LeadCaptureAccessContext'
 import { isPushSubscribed, onOneSignalReady, togglePushSubscription } from '../../lib/pushNotifications'
 import { NAV_ITEMS, isNavItemVisible } from './navItems'
 import NavIcon from './NavIcon'
@@ -35,7 +36,8 @@ export default function Sidebar({ activePanel, onNavigate, onToggleTheme, theme,
   const { navVisible: taskChecklistVisible } = useTaskChecklistNav()
   const { navVisible: renewalsVisible } = useRenewalsNav()
   const { navVisible: taskDelegationVisible } = useTaskDelegationNav()
-  const ctx = { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible }
+  const { visible: leadCaptureVisible } = useLeadCaptureAccess()
+  const ctx = { currentUser, permissions, taskChecklistVisible, renewalsVisible, taskDelegationVisible, leadCaptureVisible }
 
   // Ported from old-portal's osToggle/_osSyncBtn (the "Enable Notifications" bell) — desktop
   // sidebar only, matching production exactly (no mobile menu-sheet equivalent exists there).

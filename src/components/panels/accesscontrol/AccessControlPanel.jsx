@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import { PERM_LABELS, fetchAllUsersPermissions, saveUserPermission } from '../../../lib/adminPermissions'
+import { fetchLeadCaptureRoles, setLeadCaptureRole } from '../../../lib/leadCaptureAccess'
+import LeadCapturePicker from './LeadCapturePicker'
 
 const ROLE_BADGE_TEXT = {
   owner: 'Owner',
@@ -23,10 +25,12 @@ export default function AccessControlPanel() {
   const [search, setSearch] = useState('')
   const [savingKey, setSavingKey] = useState(null) // `${email}:${permission}` while a save is in flight
   const [savedKey, setSavedKey] = useState(null) // brief success flash
+  const [roles, setRoles] = useState(null) // email -> the person's Lead Capture tier row (null until loaded)
+  const [rolesError, setRolesError] = useState('')
+  const [roleNote, setRoleNote] = useState({}) // email -> { saving, saved, error } for the Lead Capture picker
 
   useEffect(() => {
     if (!isMis || !currentUser?.email) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time fetch, gated on isMis/currentUser resolving
     setLoading(true)
     setError('')
     fetchAllUsersPermissions(currentUser.email)
@@ -36,6 +40,13 @@ export default function AccessControlPanel() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
+    // Lead Capture access is its own list (its own table), asked of the database directly; a failure here never blocks the other switches
+    fetchLeadCaptureRoles()
+      .then((list) => {
+        setRoles(Object.fromEntries(list.map((r) => [r.email, r])))
+        setRolesError('')
+      })
+      .catch((e) => setRolesError(e.message))
   }, [isMis, currentUser?.email])
 
   const filteredUsers = useMemo(() => {
@@ -65,6 +76,18 @@ export default function AccessControlPanel() {
     }
   }
 
+  async function handleTier(email, tier) {
+    setRoleNote((n) => ({ ...n, [email]: { saving: true } }))
+    try {
+      const r = await setLeadCaptureRole(email, tier)
+      setRoles((prev) => ({ ...prev, [email]: { ...(prev?.[email] || { email }), tier: r.new, assigned_by: currentUser.email, assigned_at: new Date().toISOString() } }))
+      setRoleNote((n) => ({ ...n, [email]: { saved: true } }))
+      setTimeout(() => setRoleNote((n) => (n[email]?.saved ? { ...n, [email]: {} } : n)), 1500)
+    } catch (e) {
+      setRoleNote((n) => ({ ...n, [email]: { error: e.message } }))
+    }
+  }
+
   if (!isMis) {
     return (
       <div className="px-4 sm:px-6 py-16 text-center">
@@ -82,6 +105,12 @@ export default function AccessControlPanel() {
 
       {loading && <div className="text-center py-16 text-text-muted text-[15px]">⏳ Loading employees…</div>}
       {!loading && error && <div className="text-center py-16 text-danger text-[15px]">❌ {error}</div>}
+
+      {!loading && !error && rolesError && (
+        <div role="alert" className="mt-4 text-[13.5px] text-danger">
+          Lead Capture access could not be loaded ({rolesError}) — the Lead Capture picker is hidden until it can.
+        </div>
+      )}
 
       {!loading && !error && (
         <div className="mt-5">
@@ -106,6 +135,9 @@ export default function AccessControlPanel() {
                 savingKey={savingKey}
                 savedKey={savedKey}
                 onSave={handleSave}
+                lcPerson={roles?.[u.email]}
+                lcNote={roleNote[u.email]}
+                onTier={(tier) => handleTier(u.email, tier)}
               />
             ))}
           </div>
@@ -115,7 +147,7 @@ export default function AccessControlPanel() {
   )
 }
 
-function UserPermCard({ user, allKeys, savingKey, savedKey, onSave }) {
+function UserPermCard({ user, allKeys, savingKey, savedKey, onSave, lcPerson, lcNote, onTier }) {
   const perms = user.permissions || {}
   const roleLabel = ROLE_BADGE_TEXT[user.role] || user.role || '—'
 
@@ -133,6 +165,8 @@ function UserPermCard({ user, allKeys, savingKey, savedKey, onSave }) {
           {roleLabel}
         </span>
       </div>
+
+      {lcPerson && <LeadCapturePicker person={{ ...lcPerson, name: user.name }} saving={!!lcNote?.saving} saved={!!lcNote?.saved} error={lcNote?.error} onChange={onTier} />}
 
       <div className="flex flex-col">
         {allKeys.map((key) => {

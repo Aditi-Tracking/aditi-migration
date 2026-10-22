@@ -25,6 +25,16 @@
 // Omitted (every other table today), the table keeps its current
 // table-layout:auto with no colgroup — fully backward compatible.
 //
+// `topScrollbar` (optional, default off — every table that does not pass it renders exactly as before): an
+// always-visible horizontal scrollbar directly above the header, in the page's normal flow, for a wide table whose
+// own scrollbar is at the very bottom. Hidden while the table does not overflow. See useTopScrollbar.js. Once the
+// page scrolls past it, the sticky clone's strip below takes over.
+//
+// With the top strip on, the table's OWN native horizontal scrollbar (the one at the very bottom) is hidden — two scrollbars
+// would be redundant. Only its visible chrome goes: the wrapper still scrolls exactly as before (trackpad, touch, shift+wheel,
+// the keyboard, the top strip). A table that does not pass `topScrollbar` keeps its native scrollbar, since it has no other way
+// to scroll sideways, and its wrapper's class string is byte-for-byte what it always was.
+//
 // The clone also carries a faux horizontal-scrollbar strip directly under
 // the header cells (rendered whenever the clone itself is stuck) — for a
 // long table, the real scrollbar sits at the very bottom of the whole
@@ -36,12 +46,19 @@ import { Children, forwardRef, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import TableHead from './TableHead'
 import { useStickyClonedHeader } from './useStickyClonedHeader'
+import { useTopScrollbar } from './useTopScrollbar'
 
-const Table = forwardRef(function Table({ title, count, countLabel = 'row', actions, footer, colWidths, children }, ref) {
+// `scrollbar-width: none` (Firefox, Chrome/Edge 121+, Safari 18.2+) plus the older WebKit pseudo-element (Chrome/Edge/Safari before
+// that) — together, every engine this app targets. Both leave scrolling itself untouched; they only stop the bar being drawn.
+const HIDE_NATIVE_SCROLLBAR = '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+
+const Table = forwardRef(function Table({ title, count, countLabel = 'row', actions, footer, colWidths, topScrollbar = false, children }, ref) {
   const scrollRef = useRef(null)
   const cloneWrapRef = useRef(null)
   const stripRef = useRef(null)
+  const topRef = useRef(null)
   const stuck = useStickyClonedHeader(scrollRef, cloneWrapRef, stripRef)
+  useTopScrollbar(scrollRef, topRef, topScrollbar)
 
   const headChild = Children.toArray(children).find((child) => child.type === TableHead)
 
@@ -61,8 +78,13 @@ const Table = forwardRef(function Table({ title, count, countLabel = 'row', acti
           </div>
         </div>
       )}
+      {topScrollbar && (
+        <div ref={topRef} data-role="top-scrollbar" aria-hidden="true" tabIndex={-1} className="overflow-x-auto overflow-y-hidden h-[14px] bg-surface-2 border-b border-border" style={{ display: 'none' }}>
+          <div className="h-px" />
+        </div>
+      )}
       <div
-        className="overflow-x-auto"
+        className={topScrollbar ? `overflow-x-auto ${HIDE_NATIVE_SCROLLBAR}` : 'overflow-x-auto'}
         ref={(node) => {
           scrollRef.current = node
           if (typeof ref === 'function') ref(node)
