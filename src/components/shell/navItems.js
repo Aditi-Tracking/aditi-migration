@@ -20,6 +20,7 @@ import { canAccessEnterprise } from '../../lib/enterpriseLead'
 import { canAccessIMS } from '../../lib/ims'
 import { canAccessEnterpriseSolutions } from '../../lib/enterpriseSolutions'
 import { canAccessCollections } from '../../lib/collectionsDashboard'
+import { canAccessTender } from '../../lib/tenderDashboard'
 
 export const NAV_ITEMS = [
   { id: 'home', label: 'Home' },
@@ -47,6 +48,7 @@ export const NAV_ITEMS = [
       { id: 'leadcapture', label: 'Lead Capture', visibility: 'leadCapturePerm' },
       { id: 'hremployee', label: 'HR Employee Master', visibility: 'hrEmployeePerm' },
       { id: 'taskdelegation', label: 'Task Delegation', visibility: 'taskDelegationAsync' },
+      { id: 'tender', label: 'Tender & Project', visibility: 'tenderPerm' },
     ],
   },
   // Confirmed permanently dead in production, not a pending build — the standalone
@@ -181,6 +183,8 @@ export function isNavItemVisible(visibility, { currentUser, permissions, taskChe
       return canAccessEnterpriseSolutions(currentUser, permissions)
     case 'collectionsPerm':
       return canAccessCollections(currentUser, permissions)
+    case 'tenderPerm':
+      return canAccessTender(currentUser, permissions)
     case 'leadCapturePerm':
       return !!leadCaptureVisible
     case 'referralAny':

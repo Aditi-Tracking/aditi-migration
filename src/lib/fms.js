@@ -297,7 +297,7 @@ export function formatFmsAmount(n) {
   return '₹' + n.toLocaleString('en-IN')
 }
 
-function parseProductItems(order) {
+export function parseProductItems(order) {
   try {
     return JSON.parse(order.product_items || '[]')
   } catch {

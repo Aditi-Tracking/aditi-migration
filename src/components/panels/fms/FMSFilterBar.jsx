@@ -13,6 +13,9 @@ export default function FMSFilterBar({
   location,
   onLocationChange,
   locationOptions,
+  product,
+  onProductChange,
+  productOptions,
   dateFrom,
   onDateFromChange,
   dateTo,
@@ -51,6 +54,14 @@ export default function FMSFilterBar({
         {locationOptions.map((l) => (
           <option key={l} value={l}>
             {l}
+          </option>
+        ))}
+      </select>
+      <select value={product} onChange={(e) => onProductChange(e.target.value)} className={inputClass}>
+        <option value="">All Products</option>
+        {productOptions.map((p) => (
+          <option key={p} value={p}>
+            {p}
           </option>
         ))}
       </select>

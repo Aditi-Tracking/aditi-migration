@@ -12,6 +12,7 @@ import {
   fetchFmsOrders,
   fetchFmsProducts,
   fetchSupportPersons,
+  parseProductItems,
 } from '../../../lib/fms'
 import FMSKpiGrid from './FMSKpiGrid'
 import FMSFilterBar from './FMSFilterBar'
@@ -47,6 +48,7 @@ export default function FMSPanel() {
   const [clientType, setClientType] = useState('')
   const [createdBy, setCreatedBy] = useState('')
   const [locationFilter, setLocationFilter] = useState('')
+  const [productFilter, setProductFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -102,6 +104,8 @@ export default function FMSPanel() {
 
   const locationOptions = useMemo(() => [...new Set(locations.map((l) => l.location_name))].sort(), [locations])
 
+  const productOptions = useMemo(() => [...new Set(products.map((p) => p.product_name))].sort(), [products])
+
   const filteredOrders = useMemo(() => {
     const q = search.toLowerCase()
     return orders.filter((o) => {
@@ -115,26 +119,28 @@ export default function FMSPanel() {
       if (createdBy && (o.created_by || '').toLowerCase() !== createdBy.toLowerCase()) return false
       if (clientType && (o.client_type || 'existing') !== clientType) return false
       if (locationFilter && loc !== locationFilter) return false
+      if (productFilter && !parseProductItems(o).some((i) => i.product_name === productFilter)) return false
       if (dateFrom && o.created_at < dateFrom) return false
       if (dateTo && o.created_at.slice(0, 10) > dateTo) return false
       if (pendingPaymentActive && calcPendingAmount(o) <= 0) return false
       return true
     })
-  }, [orders, search, statusFilter, createdBy, clientType, locationFilter, dateFrom, dateTo, pendingPaymentActive, locations])
+  }, [orders, search, statusFilter, createdBy, clientType, locationFilter, productFilter, dateFrom, dateTo, pendingPaymentActive, locations])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to page 1 whenever any filter changes
     setPage(1)
-  }, [search, statusFilter, createdBy, clientType, locationFilter, dateFrom, dateTo, pendingPaymentActive])
+  }, [search, statusFilter, createdBy, clientType, locationFilter, productFilter, dateFrom, dateTo, pendingPaymentActive])
 
   const kpiSummary = useMemo(() => computeFmsKpiSummary(filteredOrders), [filteredOrders])
 
-  // Matches fmsResetFilters exactly — clears search/created-by/location/dates
+  // Matches fmsResetFilters exactly — clears search/created-by/location/product/dates
   // and the pending-payment toggle, but deliberately leaves Client Type alone.
   function handleReset() {
     setSearch('')
     setCreatedBy('')
     setLocationFilter('')
+    setProductFilter('')
     setDateFrom('')
     setDateTo('')
     setPendingPaymentActive(false)
@@ -217,6 +223,9 @@ export default function FMSPanel() {
             location={locationFilter}
             onLocationChange={setLocationFilter}
             locationOptions={locationOptions}
+            product={productFilter}
+            onProductChange={setProductFilter}
+            productOptions={productOptions}
             dateFrom={dateFrom}
             onDateFromChange={setDateFrom}
             dateTo={dateTo}

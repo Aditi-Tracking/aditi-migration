@@ -47,6 +47,7 @@ export const PERM_LABELS = {
   home_content_manage: '🏠 Home Content — Manage Sections & Cards',
   can_view_pricing: '💰 Deal Calculator',
   can_access_cost_master: '🔐 Cost Master (Pricing Admin)',
+  can_view_tender: '📋 Tender & Project Dashboard',
 }
 
 // field_service_create is no longer permission-gated anywhere (frontend or
