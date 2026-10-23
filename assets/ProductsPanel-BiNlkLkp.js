@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-D3jfb0Ew.js";import{t}from"./CNSectionPanel-BmttfZ-S.js";var n=e();function r(){return(0,n.jsx)(t,{sectionName:`Products`,title:`Products`,breadcrumb:`Home › Products`})}export{r as default};
