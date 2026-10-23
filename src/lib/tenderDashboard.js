@@ -1,14 +1,10 @@
 // Tender & Project dashboard — backed by a Google Apps Script web app over a tender-tracking
-// sheet. The script's response ({ success, count, columns, data }) is reliable in shape, but the
-// sheet's own header row is NOT: several header cells are blank (the script falls back to
-// "Column_E"/"Column_J"/etc. for those) and several others literally contain a stray DATA value
-// instead of a real label (e.g. the status column's "header" is the text "Not Submitted", the
-// month column's is "Jul 2026", the due-date column's is "30-Jul-2026") — someone's typed real
-// data into row 1 of the sheet at some point. None of that is fixable from here, so this reads the
-// sheet purely by POSITION (columns[i]) rather than trusting any header's text, with the exact
-// column index -> meaning mapping confirmed by cross-checking value distributions and KPI totals
-// against a live reference screenshot of this same sheet (Total 42/Submitted 20/Pipeline
-// 4/Not Submitted 18, month-wise breakdown, and the submitted-bids stage breakdown all matched).
+// sheet. The Apps Script's own header row used to be broken (it was reading the wrong sheet row,
+// landing on a real data row instead of the labels row) — that's since been fixed on the script
+// side, so the response now comes back with clean, stable column names (see FIELDS below) matching
+// {success, count, columns, data}. Verified against a live reference screenshot of this sheet:
+// Total 42/Submitted 20/Pipeline 4/Not Submitted 18, the month-wise breakdown, and the
+// submitted-bids stage breakdown all match exactly.
 const TENDER_URL = 'https://script.google.com/macros/s/AKfycbynS2ZkjpOO-71W3_8tAWjcLJRvZM_0Bc0KjpLgAOO0TvdPsJr-Dm4PC5qivqMPheVL/exec'
 
 // ── Permission ───────────────────────────────────────────────────────────────
@@ -25,22 +21,23 @@ export function canAccessTender(currentUser, permissions) {
   return permissions.can_view_tender === 'true'
 }
 
-const COL = {
-  SR_NO: 0,
-  STATUS: 1, // 'Submitted' | 'Not Submitted' | 'Pipeline'
-  MONTH: 2, // 'Jul 2026', 'Aug 2026', ...
-  CLIENT: 3,
-  TENDER_ID: 4,
-  TITLE: 5,
-  LOCATION: 6,
-  DUE_DATE: 7, // 'DD-Mon-YYYY'
-  DUE_TIME: 8,
-  EMD_AMOUNT: 10,
-  TENDER_FEE: 11,
-  MSME_NOTE: 12,
-  PREBID_NOTE: 13,
-  STAGE: 15, // current stage text for Submitted rows
-  NOTES: 16,
+const FIELDS = {
+  SR_NO: 'Sr.',
+  STATUS: 'Status', // 'Submitted' | 'Not Submitted' | 'Pipeline'
+  MONTH: 'Month', // 'Jul 2026', 'Aug 2026', ...
+  CLIENT: 'Department / Organisation',
+  TENDER_ID: 'Tender ID / Ref.',
+  TITLE: 'Tender Description',
+  LOCATION: 'Location',
+  DUE_DATE: 'Due Date', // 'DD-Mon-YYYY'
+  DUE_TIME: 'Time',
+  EMD_AMOUNT: 'EMD',
+  TENDER_FEE: 'Tender Fee',
+  MSME_NOTE: 'EMD Exemption',
+  PREBID_NOTE: 'Pre-bid',
+  ASSIGNED_TO: 'Assigned To',
+  STAGE: 'Bid Stage / Result', // current stage text for Submitted rows
+  NOTES: 'Remarks',
 }
 
 async function fetchWithRetry(url, attempts = 4, delayMs = 700) {
@@ -58,7 +55,7 @@ async function fetchWithRetry(url, attempts = 4, delayMs = 700) {
   throw lastErr
 }
 
-const CACHE_KEY = 'tenderDashboard:cache:v1'
+const CACHE_KEY = 'tenderDashboard:cache:v2' // bumped: the Apps Script's header-row fix changed column names from positional garbage to clean field names
 const CACHE_TTL_MS = 5 * 60 * 1000
 function readCache() {
   try {
@@ -111,30 +108,31 @@ export async function fetchTenderRaw({ forceRefresh = false } = {}) {
   return json
 }
 
-function normalizeRow(row, columns) {
-  const get = (i) => (row[columns[i]] ?? '').toString().trim()
+function normalizeRow(row) {
+  const get = (field) => (row[field] ?? '').toString().trim()
   return {
-    srNo: get(COL.SR_NO),
-    status: get(COL.STATUS) || 'Not Submitted',
-    month: get(COL.MONTH),
-    client: get(COL.CLIENT),
-    tenderId: get(COL.TENDER_ID),
-    title: get(COL.TITLE),
-    location: get(COL.LOCATION),
-    dueDateRaw: get(COL.DUE_DATE),
-    dueDate: parseDueDate(get(COL.DUE_DATE)),
-    dueTime: get(COL.DUE_TIME),
-    emdAmount: get(COL.EMD_AMOUNT),
-    tenderFee: get(COL.TENDER_FEE),
-    msmeNote: get(COL.MSME_NOTE),
-    prebidNote: get(COL.PREBID_NOTE),
-    stage: get(COL.STAGE),
-    notes: get(COL.NOTES),
+    srNo: get(FIELDS.SR_NO),
+    status: get(FIELDS.STATUS) || 'Not Submitted',
+    month: get(FIELDS.MONTH),
+    client: get(FIELDS.CLIENT),
+    tenderId: get(FIELDS.TENDER_ID),
+    title: get(FIELDS.TITLE),
+    location: get(FIELDS.LOCATION),
+    dueDateRaw: get(FIELDS.DUE_DATE),
+    dueDate: parseDueDate(get(FIELDS.DUE_DATE)),
+    dueTime: get(FIELDS.DUE_TIME),
+    emdAmount: get(FIELDS.EMD_AMOUNT),
+    tenderFee: get(FIELDS.TENDER_FEE),
+    msmeNote: get(FIELDS.MSME_NOTE),
+    prebidNote: get(FIELDS.PREBID_NOTE),
+    assignedTo: get(FIELDS.ASSIGNED_TO),
+    stage: get(FIELDS.STAGE),
+    notes: get(FIELDS.NOTES),
   }
 }
 
 export function normalizeTenderRows(raw) {
-  return raw.data.map((row) => normalizeRow(row, raw.columns)).filter((r) => r.client || r.title)
+  return raw.data.map(normalizeRow).filter((r) => r.client || r.title)
 }
 
 // "Due in next 7 days" is about tenders still needing action — a submitted tender's deadline
