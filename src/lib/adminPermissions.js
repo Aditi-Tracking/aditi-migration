@@ -48,6 +48,7 @@ export const PERM_LABELS = {
   can_view_pricing: '💰 Deal Calculator',
   can_access_cost_master: '🔐 Cost Master (Pricing Admin)',
   can_view_tender: '📋 Tender & Project Dashboard',
+  can_view_akshar_yadav_session: '🎥 Pre-Sales — Akshar Yadav Sales Session',
 }
 
 // field_service_create is no longer permission-gated anywhere (frontend or

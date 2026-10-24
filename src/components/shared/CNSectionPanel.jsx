@@ -9,10 +9,17 @@ import OverlayShell from './OverlayShell'
 import CNCategoryBrowser from './CNCategoryBrowser'
 import DocCard from './DocCard'
 import UploadModal from './UploadModal'
-import { DOC_ICON, FOLDER_ICON } from './docIcons'
+import { DOC_ICON, FOLDER_ICON, VIDEO_ICON } from './docIcons'
 
 function openExternal(url) {
   window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// A linkFolders entry's URL can be a YouTube video just as easily as a Drive folder (Sales'
+// "Akshar Yadav Sales Session" is all session recordings) — distinguished here instead of every
+// caller having to say so itself, since it's fully derivable from the URL alone.
+function isYoutubeUrl(url) {
+  return /(?:youtu\.be\/|youtube\.com\/)/i.test(url || '')
 }
 
 // Generic content-nodes section panel — ports old-portal/js/shared.js's
@@ -37,11 +44,26 @@ function openExternal(url) {
 // ResourcesPanel's owner-tier cards, just reachable from inside a generic CN grid instead of a
 // dedicated panel). A link with no `url` yet (still pending from whoever owns that folder) shows
 // as disabled rather than opening nothing silently.
-export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCardOpen = false, trackCardClose = false, extraCard = null, linkFolders = null }) {
+// `hiddenCategoryNames`, when passed, is a list of category names (lowercased) to drop from the
+// grid entirely for the current viewer — a per-card access gate on top of the whole-section one
+// `canUploadFiles` already provides, for a specific folder that needs tighter viewing rights than
+// the rest of its section (e.g. Sales' "Akshar Yadav Sales Session", owner/MIS-only). The caller
+// decides who's excluded; this just does the filtering.
+export default function CNSectionPanel({
+  sectionName,
+  title,
+  breadcrumb,
+  trackCardOpen = false,
+  trackCardClose = false,
+  extraCard = null,
+  linkFolders = null,
+  hiddenCategoryNames = [],
+}) {
   const { permissions } = useAuth()
   const canDelete = canUploadFiles(permissions)
 
-  const { loading, error, cats, reload, deleteCard } = useCNSectionLoader(sectionName)
+  const { loading, error, cats: allCats, reload, deleteCard } = useCNSectionLoader(sectionName)
+  const cats = allCats.filter((cat) => !hiddenCategoryNames.includes(cat.name.trim().toLowerCase()))
   const [openModule, setOpenModule] = useState(null) // { id, name } | null
   const [uploadOpen, setUploadOpen] = useState(false)
 
@@ -113,16 +135,19 @@ export default function CNSectionPanel({ sectionName, title, breadcrumb, trackCa
             </div>
             {linkFolders?.[openModule.name.trim().toLowerCase()] ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {linkFolders[openModule.name.trim().toLowerCase()].map((link) => (
-                  <DocCard
-                    key={link.name}
-                    icon={FOLDER_ICON}
-                    name={link.name}
-                    desc={link.url ? 'Opens the Google Drive folder in a new tab.' : 'Link coming soon.'}
-                    meta={link.url ? '📁 Open Drive Folder' : '⏳ Pending'}
-                    onClick={link.url ? () => openExternal(link.url) : undefined}
-                  />
-                ))}
+                {linkFolders[openModule.name.trim().toLowerCase()].map((link) => {
+                  const isYoutube = isYoutubeUrl(link.url)
+                  return (
+                    <DocCard
+                      key={link.name}
+                      icon={isYoutube ? VIDEO_ICON : FOLDER_ICON}
+                      name={link.name}
+                      desc={!link.url ? 'Link coming soon.' : isYoutube ? 'Opens the YouTube video in a new tab.' : 'Opens the Google Drive folder in a new tab.'}
+                      meta={!link.url ? '⏳ Pending' : isYoutube ? '▶️ Watch on YouTube' : '📁 Open Drive Folder'}
+                      onClick={link.url ? () => openExternal(link.url) : undefined}
+                    />
+                  )
+                })}
               </div>
             ) : (
               <CNCategoryBrowser rootNodeId={openModule.id} rootName={openModule.name} canDelete={canDelete} onContentChanged={reload} />
