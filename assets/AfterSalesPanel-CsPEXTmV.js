@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-D3jfb0Ew.js";import{t}from"./CNSectionPanel-Dm0_RPfT.js";var n=e();function r(){return(0,n.jsx)(t,{sectionName:`After Sales`,title:`Post Sales`,breadcrumb:`Home › Post Sales`})}export{r as default};
