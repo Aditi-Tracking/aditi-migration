@@ -6,6 +6,7 @@ import {
   canDeleteTasks,
   canSeeDateRange,
   canSeeLocationFilter,
+  canViewMyTeam,
   canViewUploads,
   computeKpiSummary,
   deleteTasks,
@@ -21,6 +22,7 @@ import TaskFilterBar from './TaskFilterBar'
 import TaskTable from './TaskTable'
 import TaskUploadModal from './TaskUploadModal'
 import TaskUploadsViewerModal from './TaskUploadsViewerModal'
+import TaskMyTeamModal from './TaskMyTeamModal'
 import TaskSchedulerTab from './TaskSchedulerTab'
 
 const PER_PAGE = 20
@@ -60,6 +62,7 @@ export default function TaskChecklistPanel() {
 
   const [uploadTarget, setUploadTarget] = useState(null) // { id, task } | null
   const [uploadsViewerOpen, setUploadsViewerOpen] = useState(false)
+  const [myTeamOpen, setMyTeamOpen] = useState(false)
 
   const isFirstLoad = useRef(true)
 
@@ -229,6 +232,15 @@ export default function TaskChecklistPanel() {
               📁 Uploaded Files
             </button>
           )}
+          {canViewMyTeam(currentUser) && (
+            <button
+              type="button"
+              onClick={() => setMyTeamOpen(true)}
+              className="text-[12px] font-medium text-primary border border-primary/30 rounded-md px-3 py-1.5"
+            >
+              👥 My Team
+            </button>
+          )}
           <button
             type="button"
             onClick={handleRefresh}
@@ -343,6 +355,8 @@ export default function TaskChecklistPanel() {
       />
 
       <TaskUploadsViewerModal open={uploadsViewerOpen} onClose={() => setUploadsViewerOpen(false)} />
+
+      <TaskMyTeamModal open={myTeamOpen} onClose={() => setMyTeamOpen(false)} />
     </div>
   )
 }

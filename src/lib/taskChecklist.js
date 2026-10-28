@@ -320,6 +320,26 @@ export function canViewUploads(currentUser) {
   return String(currentUser.name || '').trim().toLowerCase() === 'saajan jain'
 }
 
+// ── "My Team" view (Ashish-only carve-out) ──────────────────────────────
+// A one-off, no-permission-system view: Ashish (finance@adititracking.com) gets a combined read
+// of these 4 named teammates' checklists regardless of his own checklist_scope ('own' for a
+// regular employee, which would otherwise only ever return his own rows) — requested as a
+// person-specific feature, not a general team/subordinate concept this module otherwise has.
+const MY_TEAM_VIEWER_EMAIL = 'finance@adititracking.com'
+export const MY_TEAM_MEMBER_NAMES = ['Ritesh Vishwakarma', 'Surya', 'Jaya', 'Vibhavari Raikar']
+
+export function canViewMyTeam(currentUser) {
+  return String(currentUser?.email || '').trim().toLowerCase() === MY_TEAM_VIEWER_EMAIL
+}
+
+// Always fetches scope:'all' regardless of the caller's own checklist_scope permission — this
+// view's whole point is seeing past that restriction for exactly these 4 people, nobody else's.
+export async function fetchMyTeamRows({ dateFrom, dateTo }) {
+  const rows = await fetchChecklistRows({ scope: 'all', empId: null, dateFrom, dateTo })
+  const targets = MY_TEAM_MEMBER_NAMES.map((n) => n.toLowerCase())
+  return rows.filter((r) => targets.includes(String(r.name || '').trim().toLowerCase()))
+}
+
 // ── Filtering ────────────────────────────────────────────────────────────
 // Base for KPIs/charts: person/dept/location/freq/date-range/search — no
 // status/kpi filter. Matches tGetDateFiltered exactly.
