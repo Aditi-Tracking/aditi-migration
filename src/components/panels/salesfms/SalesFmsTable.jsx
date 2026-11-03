@@ -387,8 +387,8 @@ export default function SalesFmsTable({ canUpdate, canAdmin, canManage, reasons,
         </div>
       )}
 
-      {openRow && <FmsLeadModal key={openRow.enquiry_id} row={openRow} reasons={reasons} canUpdate={canUpdate} canAdmin={canAdmin} onClose={() => setDetailId(null)} onChanged={afterWrite} onClosing={setClosing} notify={setToast} />}
-      {closing && <FmsCloseDialog key={closing.enquiry_id} row={closing} canAdmin={canAdmin} onClose={() => setClosing(null)} onDone={(row) => { setClosing(null); afterWrite(row) }} notify={setToast} />}
+      {openRow && <FmsLeadModal key={`lead-${openRow.enquiry_id}`} row={openRow} reasons={reasons} canUpdate={canUpdate} canAdmin={canAdmin} onClose={() => setDetailId(null)} onChanged={afterWrite} onClosing={setClosing} notify={setToast} />}
+      {closing && <FmsCloseDialog key={`close-${closing.enquiry_id}`} row={closing} canAdmin={canAdmin} onClose={() => setClosing(null)} onDone={(row) => { setClosing(null); afterWrite(row) }} notify={setToast} />}
 
       <ManageListPopover
         anchorRef={manageAnchor}
