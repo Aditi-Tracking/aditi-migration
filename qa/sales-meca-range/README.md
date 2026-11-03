@@ -46,5 +46,13 @@ logged-in e-mail, dates and bucket, that the table shows exactly those numbers, 
 It needs the bridge's `psycopg`, and it never prints or stores a token. The app itself writes its normal login activity rows on production for each login,
 so run it only when that is acceptable. Result of the last run (2026-11-03): 78/78, Admin (`lc_admin`) and Sultan (`lc_field_sales`).
 
+## After a deploy: the live site (not part of `npm test`)
+`live_site_check.mjs` opens `https://learn.adititracking.com` in a visible Chrome; a person types the Admin login. It then checks that Sales Rep MeCa shows the
+date filter and opens on This Week with a Company total (assert the numbers with `EXPECT_TOTAL=3,2,95000`, and the deployed bundle with
+`EXPECT_BUNDLE=index-xxxx.js`), and that the Sales FMS close dialog leaves the right number of overlays behind (row route and detail-window route, dismissed
+with their X buttons). **Read-only: it never submits a close**, so the close-lead submit path is not exercised on production (the `qa/sales-fms-close` matrix
+covers it on the fake data layer). Like `real_login_check.mjs`, the login writes the app's normal activity rows. Last run 2026-11-03, right after the deploy:
+13/13.
+
 ## Not covered
 Real data is thin (all activity in one week), so the empty-range and own-scope paths are proven by structure more than by numbers.
