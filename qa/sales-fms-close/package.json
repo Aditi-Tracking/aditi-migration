@@ -1,0 +1,8 @@
+{
+  "name": "qa-sales-fms-close",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only regression tests for Sales FMS closing a lead. Not part of the app build; nothing here is imported by src/.",
+  "scripts": { "test": "node matrix.mjs" },
+  "devDependencies": { "puppeteer-core": "^24.0.0" }
+}
