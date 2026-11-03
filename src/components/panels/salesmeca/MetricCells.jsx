@@ -8,7 +8,7 @@ const DASH = <span className="text-text-muted">—</span>
 // stored monthly target. `note` is the cell's target note (see lib/salesMeca.js); `perRep` — the cell is ONE rep's.
 function targetNote(note, perRep) {
   if (!note) return { text: '', title: '' }
-  if (note.prorata) return { text: 'pro-rata', title: 'Worked out from the monthly target, by the days in this week' }
+  if (note.prorata) return { text: 'pro-rata', title: 'Worked out from the monthly target, by the calendar days this period covers' }
   if (note.partial) {
     return perRep
       ? { text: `${note.monthsSet} of ${note.monthsTotal} mo`, title: `A target is set for ${note.monthsSet} of the ${note.monthsTotal} months — months without one add nothing` }

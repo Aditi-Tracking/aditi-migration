@@ -13,6 +13,8 @@
 // READ:  sales_meca_summary(from, to, bucket) — one row per rep × bucket (zeros included), with warnings; sales_meca_leads for the
 //        lead lists behind a number. A plain rep gets only their own rows; view_all gets everyone's.
 // WRITE: set_sales_rep_alias / remove_sales_rep_alias / set_sales_rep_targets, admin only (sales_meca_manage + view_all).
+// The report answers ONE date range chosen with the tab's single filter (see rangeFor below); the old Month / Quarter / Year selection (periodFor,
+// anchorFor, shiftAnchor and the MecaDateBar) is no longer used by the tab and is left in place, dormant.
 // Dates are IST calendar dates as YYYY-MM-DD strings; whole-day arithmetic, no time zones. The weeks of a month's breakdown are by date:
 // W1 = 1–7, W2 = 8–14, W3 = 15–21, W4 = 22–end of month. Quarters and years are calendar ones (Jan–Mar …).
 //
@@ -20,6 +22,7 @@
 // average of ratios. A company target is the sum of the targets of the reps who have one, and the company "% of target" only
 // measures the turnover of those same reps.
 import { SUPABASE_URL, SB_HDRS_JSON } from './supabaseClient'
+import { addDays } from './fmsFormat'
 
 const SB = SUPABASE_URL + '/rest/v1'
 
@@ -84,9 +87,86 @@ export function periodFor({ gran, anchor }) {
   return { from: anchor, to: mkIso(+anchor.slice(0, 4), 12, 31), bucket: 'quarter', totalsBucket: 'none', label: anchor.slice(0, 4), error: '' }
 }
 
+// ── The date filter (the single control of the tab) ────────────────────────
+// This Week · Previous Week · This Month · Last Month · Last 3 Months · Custom. All dates are India calendar dates (YYYY-MM-DD), both ends INCLUDED.
+//   week          Monday to SATURDAY of the Monday-start week that contains today (Sunday is not a working day and is in no week window; if today IS a Sunday
+//                 the week is the Monday-Saturday that ended yesterday). Previous Week = the Monday-Saturday before it. A week range ends on its Saturday even
+//                 mid-week: the days that have not happened yet simply have nothing in them.
+//   This Month    the 1st of this month through today.         Last Month   the whole previous calendar month.
+//   Last 3 Months ROLLING: today minus 3 calendar months (a month-end clamps: 31 May -> 28 Feb) through today.
+//   Custom        a start and an end date; the end may not be before the start; at most about 5 years (the database's own limit).
+// The breakdown rows of a range: one per DAY up to 7 days, one per month-week block (W1 = 1-7 ...) up to 35 days, one per MONTH beyond that.
+export const RANGE_OPTIONS = [
+  { key: 'this_week', label: 'This Week' },
+  { key: 'prev_week', label: 'Previous Week' },
+  { key: 'this_month', label: 'This Month' },
+  { key: 'last_month', label: 'Last Month' },
+  { key: 'last_3_months', label: 'Last 3 Months' },
+  { key: 'custom', label: 'Custom' },
+]
+export const DEFAULT_RANGE = 'this_week'
+export const MAX_RANGE_DAYS = 1830 // sales_meca_summary refuses a longer range
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const weekday = (s) => new Date(Date.UTC(...ymd(s).map((v, i) => (i === 1 ? v - 1 : v)))).getUTCDay() // 0 = Sunday
+const spanDays = (a, b) => Math.round((Date.UTC(...ymd(b).map((v, i) => (i === 1 ? v - 1 : v))) - Date.UTC(...ymd(a).map((v, i) => (i === 1 ? v - 1 : v)))) / 86400000) + 1
+export const dayLabel = (s) => `${WEEKDAYS[weekday(s)]} ${+s.slice(8, 10)} ${monthShort(s)}` // "Mon 3 Nov"
+const plainDay = (s) => `${+s.slice(8, 10)} ${monthShort(s)}`
+function monthsBack(s, n) {
+  const [y, m, d] = ymd(s)
+  const t = y * 12 + (m - 1) - n
+  const ny = Math.floor(t / 12)
+  const nm = (t % 12) + 1
+  return mkIso(ny, nm, Math.min(d, daysIn(ny, nm)))
+}
+function rangeText(a, b) {
+  const short = spanDays(a, b) <= 7
+  const f = short ? dayLabel : plainDay
+  return a.slice(0, 4) === b.slice(0, 4) ? `${f(a)} – ${f(b)} ${b.slice(0, 4)}` : `${f(a)} ${a.slice(0, 4)} – ${f(b)} ${b.slice(0, 4)}`
+}
+const invalid = (label, error) => ({ from: '', to: '', bucket: 'none', totalsBucket: 'none', label, error })
+
+// What to ask the database for, given the choice { key, from, to } (from / to only for Custom) and today's India date.
+// → { from, to, bucket, totalsBucket, label, error }   (error: a message when the range cannot be asked for yet; from / to are then '')
+export function rangeFor({ key = DEFAULT_RANGE, from = '', to = '' } = {}, today) {
+  let a
+  let b
+  let name
+  if (key === 'this_week' || key === 'prev_week') {
+    const monday = addDays(today, -((weekday(today) + 6) % 7))
+    a = key === 'this_week' ? monday : addDays(monday, -7)
+    b = addDays(a, 5)
+    name = key === 'this_week' ? 'This Week' : 'Previous Week'
+  } else if (key === 'this_month') {
+    a = monthStart(today)
+    b = today
+    name = 'This Month'
+  } else if (key === 'last_month') {
+    a = addMonths(monthStart(today), -1)
+    b = monthEnd(a)
+    name = 'Last Month'
+  } else if (key === 'last_3_months') {
+    a = monthsBack(today, 3)
+    b = today
+    name = 'Last 3 Months'
+  } else if (key === 'custom') {
+    const ISO = /^\d{4}-\d{2}-\d{2}$/
+    if (!ISO.test(from) || !ISO.test(to)) return invalid('Custom range', 'Choose a start date and an end date.')
+    if (to < from) return invalid('Custom range', 'The end date cannot be before the start date.')
+    if (spanDays(from, to) > MAX_RANGE_DAYS) return invalid('Custom range', 'Choose a range of about 5 years or less.')
+    a = from
+    b = to
+    name = 'Custom'
+  } else {
+    return invalid('', 'Unknown date range.')
+  }
+  const n = spanDays(a, b)
+  return { from: a, to: b, bucket: n <= 7 ? 'day' : n <= 35 ? 'mweek' : 'month', totalsBucket: 'none', label: `${name} · ${rangeText(a, b)}`, error: '' }
+}
+
 // The row label of one bucket. `multiMonth` / `multiYear`: the range spans several months / years, so the label must say which.
 export function bucketLabel(bucket, start, end, { multiMonth = false, multiYear = false } = {}) {
   const year = multiYear ? ` ${start.slice(0, 4)}` : ''
+  if (bucket === 'day') return dayLabel(start)
   if (bucket === 'mweek') return `${multiMonth ? monthShort(start) + year + ' ' : ''}W${weekIndex(start) + 1} · ${+start.slice(8, 10)}–${+end.slice(8, 10)}`
   if (bucket === 'month') return `${monthLong(start)} ${start.slice(0, 4)}`
   if (bucket === 'quarter') return `Q${Math.floor((+start.slice(5, 7) - 1) / 3) + 1} ${start.slice(0, 4)} · ${monthShort(start)}–${monthShort(end)}`

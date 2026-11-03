@@ -1,25 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useLeadCaptureAccess } from '../../../context/LeadCaptureAccessContext'
 import { canAccessSalesMeca, canManageSalesMeca, canViewAllSalesMeca } from '../../../lib/salesMecaPermissions'
-import { anchorFor, buildReport, fetchMecaSummary, periodFor, shiftAnchor, warningLines } from '../../../lib/salesMeca'
+import { DEFAULT_RANGE, buildReport, fetchMecaSummary, rangeFor, warningLines } from '../../../lib/salesMeca'
 import { todayIST } from '../../../lib/fmsFormat'
 import Icon from '../../shared/Icon'
 import Toast from '../../shared/Toast'
-import MecaDateBar from './MecaDateBar'
+import MecaRangeFilter from './MecaRangeFilter'
 import MecaWarnings from './MecaWarnings'
 import MecaRepTable from './MecaRepTable'
 import MecaDetailModal from './MecaDetailModal'
 import MecaSetupModal from './MecaSetupModal'
 import { useLeadSync } from '../leadcapture/leadSync'
 
-// The Month / Quarter / Year bar with its arrows is switched OFF for now (there is no history worth browsing yet): the report always shows the CURRENT
-// month, following today's date. All of the period logic, the bar and its tests stay — set this to true to bring them back, nothing else changes.
-const SHOW_PERIOD_BAR = false
-
-const initialSelection = () => {
-  const today = todayIST()
-  return { gran: 'month', anchor: anchorFor('month', today) }
-}
+// The tab's ONE date filter (MecaRangeFilter): This Week (the default) · Previous Week · This Month · Last Month · Last 3 Months · Custom. It replaces the Month / Quarter /
+// Year bar, which was switched off; that code (periodFor, MecaDateBar) stays in the codebase, dormant.
+const initialSelection = () => ({ key: DEFAULT_RANGE, from: '', to: '' })
 
 // Sales Rep MeCa — the fourth tab of Lead Capture (LeadCapturePanel owns the page title, breadcrumb and padding; this renders without
 // any): how each sales rep is doing — meetings, clients won, conversion, turnover and average sale — against a monthly target, for a
@@ -43,27 +38,25 @@ export default function SalesMecaPanel() {
   const [setup, setSetup] = useState(false)
 
   const syncKey = useLeadSync({ holdFocus: !!detail || setup }) // another tab changed something, or the window came back
-  const eff = SHOW_PERIOD_BAR ? sel : { gran: 'month', anchor: anchorFor('month', todayIST()) } // hidden bar: always the current month
-  const period = periodFor(eff)
+  const period = rangeFor(sel, todayIST()) // India's today: a tab left open overnight moves on by itself at the next refetch
   const requestKey = period.error ? null : `${nonce}|${syncKey}|${period.from}|${period.to}|${period.bucket}|${period.totalsBucket}`
 
   useEffect(() => {
     if (!requestKey || result.key === requestKey) return undefined
     let cancelled = false
-    const p = periodFor({ gran: eff.gran, anchor: eff.anchor })
+    const p = rangeFor(sel, todayIST())
     Promise.all([fetchMecaSummary(p), fetchMecaSummary({ from: p.from, to: p.to, bucket: p.totalsBucket })])
       .then(([summary, totals]) => !cancelled && setResult({ key: requestKey, report: buildReport(summary, totals), period: p, error: '' }))
       .catch((e) => !cancelled && setResult((r) => ({ key: requestKey, report: r.report, period: r.period, error: e.message })))
     return () => {
       cancelled = true
     }
-  }, [requestKey, result.key, eff.gran, eff.anchor])
+  }, [requestKey, result.key, sel])
 
   if (!canAccessSalesMeca(permissions)) {
     return <div className="px-4 sm:px-6 py-16 text-center text-text-muted text-[13px]">You don't have access to this dashboard.</div>
   }
 
-  const today = todayIST()
   const loading = !!requestKey && result.key !== requestKey
   const firstLoad = result.report === null && !result.error
   const failed = !loading && !!requestKey && !!result.error
@@ -71,50 +64,25 @@ export default function SalesMecaPanel() {
   const shown = result.period || period // the period the report on screen answers
   const notLinked = report && !report.me.is_all && !report.me.linked
 
-  const changeGran = (g) => setSel((s) => ({ gran: g, anchor: anchorFor(g, s.anchor) }))
   const refetch = () => setNonce((n) => n + 1)
   const changeSort = (key, dir) => setSort(dir ? { key, dir } : null)
 
   const openRep = (rep) =>
-    setDetail({ title: rep.name, subtitle: `${shown.label}${rep.unmapped ? ' — no employee is linked to this Sales Person name yet' : ` · ${rep.email}`}`, repEmail: rep.email, repLabel: rep.label, from: shown.from, to: shown.to, rep, company: isAll ? report.company : null })
-  const openCompany = () => setDetail({ title: 'Company', subtitle: `${shown.label} · all sales reps`, repEmail: null, repLabel: null, from: shown.from, to: shown.to, rep: report.company, noLeads: true })
+    setDetail({ title: rep.name, subtitle: `${shown.label}${rep.unmapped ? ' — no employee is linked to this Sales Person name yet' : ` · ${rep.email}`}`, repEmail: rep.email, repLabel: rep.label, from: shown.from, to: shown.to, rep, company: isAll ? report.company : null, period: shown, buckets: report.buckets })
+  const openCompany = () => setDetail({ title: 'Company', subtitle: `${shown.label} · all sales reps`, repEmail: null, repLabel: null, from: shown.from, to: shown.to, rep: report.company, noLeads: true, period: shown, buckets: report.buckets })
 
   return (
     <div>
-      {SHOW_PERIOD_BAR ? (
-      <MecaDateBar
-        gran={sel.gran}
-        label={period.label}
-        isCurrent={anchorFor(sel.gran, today) === sel.anchor}
-        onGran={changeGran}
-        onShift={(dir) => setSel((s) => ({ ...s, anchor: shiftAnchor(s.gran, s.anchor, dir) }))}
-        onToday={() => setSel((s) => ({ ...s, anchor: anchorFor(s.gran, today) }))}
-      >
+      <MecaRangeFilter value={sel} onChange={setSel} range={period}>
         {report && <MecaWarnings lines={warningLines(report.warnings, isAll)} canSetup={canManage && isAll} onSetup={() => setSetup(true)} />}
         {canManage && (
           <button type="button" aria-label="Set up" title="Set up — link Sales Person names to employees, set monthly targets" onClick={() => setSetup(true)} className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-transparent text-text-muted hover:bg-surface-2 hover:text-text">
             <Icon name="settings" size={16} />
           </button>
         )}
-      </MecaDateBar>
-      ) : (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 min-h-8">
-          <span data-role="period-label" className="text-[13px] font-semibold text-text">
-            {period.label}
-          </span>
-          <span className="text-[11.5px] text-text-muted">The current month, live</span>
-          <div className="ml-auto inline-flex items-center gap-2">
-        {report && <MecaWarnings lines={warningLines(report.warnings, isAll)} canSetup={canManage && isAll} onSetup={() => setSetup(true)} />}
-        {canManage && (
-          <button type="button" aria-label="Set up" title="Set up — link Sales Person names to employees, set monthly targets" onClick={() => setSetup(true)} className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-transparent text-text-muted hover:bg-surface-2 hover:text-text">
-            <Icon name="settings" size={16} />
-          </button>
-        )}
-          </div>
-        </div>
-      )}
+      </MecaRangeFilter>
 
-      {period.error && <div className="text-center py-10 text-text-muted text-[13px]">{period.error}</div>}
+      {period.error && <div className="text-center py-10 text-text-muted text-[13px]">Choose a valid date range to see the report.</div>}
       {!period.error && firstLoad && loading && <div className="text-center py-10 text-text-muted text-[13px]">Loading the report…</div>}
       {failed && (
         <div className="text-center py-10 text-danger text-[13px]">
@@ -137,7 +105,7 @@ export default function SalesMecaPanel() {
         </div>
       )}
 
-      {detail && <MecaDetailModal {...detail} period={shown} buckets={report?.buckets} onClose={() => setDetail(null)} />}
+      {detail && <MecaDetailModal {...detail} onClose={() => setDetail(null)} />}
       {setup && <MecaSetupModal notify={setToast} onChanged={refetch} onClose={() => setSetup(false)} />}
       <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
