@@ -37,5 +37,14 @@ node live_modal_min.mjs          # in another terminal: opens a rep's detail on 
 `live_modal_min.mjs` expects the live data it was written against (Ronak Shah with 1 meeting and 1 client in the week of 2 Nov 2026, Sultan Mulla with
 none): on other data the numbers it prints will differ, and its "This Week" row counts are by construction 6 days.
 
+## Against production with a REAL login (not part of `npm test`)
+`real_login_check.mjs` closes the gap the bridge leaves: it starts the app's own dev server against the real Supabase project (from `.env`) and opens a
+visible Chrome. **A person types the login** (Admin first, then a Field Sales person; each in its own private window), and the script drives Sales Rep MeCa
+after that: all five presets, Custom typed into the real date inputs, and one rep detail window. For every `sales_meca_summary`, `lc_my_access` and
+`sales_meca_leads` call it checks that the real PostgREST response (HTTP 200, the user's own bearer token) is identical to the bridge's answer for the same
+logged-in e-mail, dates and bucket, that the table shows exactly those numbers, and that the filter bar and table top edge do not move.
+It needs the bridge's `psycopg`, and it never prints or stores a token. The app itself writes its normal login activity rows on production for each login,
+so run it only when that is acceptable. Result of the last run (2026-11-03): 78/78, Admin (`lc_admin`) and Sultan (`lc_field_sales`).
+
 ## Not covered
-The bridge is not PostgREST and has no login, so the real auth/JWT path is not exercised. A deployed check with a real session is still worth doing once.
+Real data is thin (all activity in one week), so the empty-range and own-scope paths are proven by structure more than by numbers.
