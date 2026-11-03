@@ -30,6 +30,18 @@ them was lost. They could not be rebuilt byte-for-byte, and a reconstruction tha
 | 22 rollback `step22_rollback.sql` | — | Not run; tested in a sandbox only | `f5155099e7ec` |
 | 23 rollback `step23_rollback.sql` | — | Not run; tested in a sandbox only | `75a107394960` |
 
-Until they are rebuilt, the live database itself is the source of truth for what steps 21 and 24 left behind (`pg_get_functiondef`, `pg_policies`).
+**[`step21_24_live_snapshot.md`](step21_24_live_snapshot.md)** is a snapshot of the CURRENT live definitions of the objects steps 21 and 24 left behind
+(functions, policies, index, grants, the step 24 column and constraints), pulled read-only on 2026-11-03. **It is not the original migration text and not a
+migration record**: it shows the state today, which later steps (22, 23, 24, 25) also changed, in the form PostgreSQL stores it. Do not run it as SQL.
+The live database remains the source of truth (`pg_get_functiondef`, `pg_policies`).
+## Flag for the future: steps 17 and 19 do not reproduce from the session record
+
+While trying to rebuild steps 21 and 24, the text of the earlier steps was replayed from the record of the working session and compared with the hash
+each one was executed with. Step 16 (`f93d07a98d6a`) and step 18 (`067561f70595`) reproduced exactly. **Step 19** (`step19_scot_calls.sql`, live hash
+`ca484dc460e2`) did not: the text rebuilt from the record hashes to `56c83dddf1f4`, so some of its edits were made in a way the record does not capture.
+**Step 17** (`step17_sales_fms_redesign.sql`, live hash `0feb7364c353`) was a generated file whose generator could not be replayed, so it could not be
+rebuilt at all. This says nothing about the live database (it ran with the correct hash at the time); it means the original text of steps 17 and 19
+cannot be verified from this repo or the session record. No action needed on them now.
+
 The lost rollbacks were also guarded: rollback 22 refused to run once SCOT rows exist and rollback 23 once conversions exist (both are true on live now),
 and rollback 24 refused once the offsets had been reconfigured. Do not count on any of them as an available undo.
