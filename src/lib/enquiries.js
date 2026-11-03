@@ -3,7 +3,7 @@
 // Tables (Supabase, schema applied manually — no migration files exist in this repo):
 //   enquiries (id, enquiry_date, name, company_name, phone, email, requirement, source,
 //     sales_person_accountable, client_type ['new'|'existing'], status [open|interested|rnr|
-//     future_lead|lost|won], entry_channel [portal_form|field_sales|excel_upload|field_sales_form|scot_call], entered_by
+//     future_lead|lost|won], entry_channel [portal_form|excel_upload|field_sales_form|scot_call; 'field_sales' is a legacy value the database still allows but nothing has assigned since step 21], entered_by
 //     [auth UID, DB default auth.uid()], import_batch_id, import_flag ['duplicate_phone'],
 //     sent_to_fms_at, created_at, updated_at, deleted_at / deleted_by [SOFT delete — see deleteEnquiries]; requirement is a
 //     text[] of products),
@@ -53,7 +53,7 @@ export const CLIENT_TYPE_OPTIONS = [
 ]
 // field_sales = a portal-form entry by someone with the enquiry_field_sales flag; field_sales_form = pushed
 // from the separate Field Sales Form module (set only by send_field_sales_to_fms, never by the API).
-export const CHANNEL_LABELS = { portal_form: 'Portal Form', field_sales: 'Field Sales', excel_upload: 'Excel Upload', field_sales_form: 'Field Sales Form', scot_call: 'SCOT Calls' }
+export const CHANNEL_LABELS = { portal_form: 'Portal Form', excel_upload: 'Excel Upload', field_sales_form: 'Field Sales Form', scot_call: 'SCOT Calls' }
 export const FMS_FILTER_OPTIONS = [
   { value: 'unsent', label: 'Not sent' },
   { value: 'sent', label: 'Sent' },
