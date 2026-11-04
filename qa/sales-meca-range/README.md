@@ -50,7 +50,7 @@ after that: all five presets, Custom typed into the real date inputs, and one re
 `sales_meca_leads` call it checks that the real PostgREST response (HTTP 200, the user's own bearer token) is identical to the bridge's answer for the same
 logged-in e-mail, dates and bucket, that the table shows exactly those numbers, and that the filter bar and table top edge do not move.
 It needs the bridge's `psycopg`, and it never prints or stores a token. The app itself writes its normal login activity rows on production for each login,
-so run it only when that is acceptable. Result of the last run (2026-11-03): 78/78, Admin (`lc_admin`) and Sultan (`lc_field_sales`).
+so run it only when that is acceptable. Result of the last run (2026-11-04, with the checks for Last 3 Months = 3 complete calendar months and the whole-month targets of This Month / Custom): 120/120, Admin (`lc_admin`) and Sultan (`lc_field_sales`).
 
 ## After a deploy: the live site (not part of `npm test`)
 `live_site_check.mjs` opens `https://learn.adititracking.com` in a visible Chrome; a person types the Admin login. It then checks that Sales Rep MeCa shows the

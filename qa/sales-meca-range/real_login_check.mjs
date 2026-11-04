@@ -77,11 +77,12 @@ async function runIdentity(name, ownRowName) {
   const tableRows = () => page.evaluate(() => { const f = document.querySelector('[data-role="range-filter"]'); return [...f.parentElement.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].map((t) => t.innerText.trim())) })
   const label = () => page.evaluate(() => document.querySelector('[data-role="period-label"]')?.innerText.trim())
   const seen = []
-  async function checkRange(key, text, since) {
+  // `only` = { from, to }: look at the requests for exactly that range (typing new dates into inputs that already hold values fires a request for every valid in-between range)
+  async function checkRange(key, text, since, only) {
     const mark = since ?? calls.length
     if (key) await page.evaluate((k) => document.querySelector(`[data-range="${k}"]`).click(), key)
     await sleep(400); await page.waitForNetworkIdle({ idleTime: 1000, timeout: 30000 }).catch(() => {})
-    const mine = calls.slice(mark).filter((c) => c.fn === 'sales_meca_summary')
+    const mine = calls.slice(mark).filter((c) => c.fn === 'sales_meca_summary' && (!only || (c.sent.p_from === only.from && c.sent.p_to === only.to)))
     const uniq = [...new Map(mine.map((c) => [canon(c.sent), c])).values()]
     ok(uniq.length >= 2 && uniq.every((c) => c.status === 200 && c.bearer), `${name} · ${text}: ${uniq.length} sales_meca_summary calls through the real path, all HTTP 200 with the user's bearer token`)
     let same = true; const diffs = []
@@ -140,7 +141,7 @@ async function runIdentity(name, ownRowName) {
   const mark0 = calls.length
   await typeDate('input[aria-label="From date"]', '2026-10-05'); await typeDate('input[aria-label="To date"]', '2026-10-31')
   await sleep(300)
-  const cr = await checkRange(null, "Custom 5-31 Oct", mark0)
+  const cr = await checkRange(null, "Custom 5-31 Oct", mark0, { from: '2026-10-05', to: '2026-10-31' })
   ok(cr.lab === 'Custom · 5 Oct – 31 Oct 2026', `${name} · Custom: range text reads "${cr.lab}"`)
   ok(cr.uniq.some((c) => c.sent.p_from === '2026-10-05' && c.sent.p_to === '2026-10-31' && c.sent.p_bucket === 'mweek'), `${name} · Custom: the typed dates reached the real database call as 2026-10-05..2026-10-31 by month-week`)
   ok(cr.uniq.every((c) => c.sent.p_prorate === false), `${name} · Custom: both requests carry p_prorate = false`)
@@ -148,7 +149,7 @@ async function runIdentity(name, ownRowName) {
   const mark1 = calls.length
   await typeDate('input[aria-label="From date"]', '2026-09-15'); await typeDate('input[aria-label="To date"]', '2026-12-10')
   await sleep(300)
-  const c2 = await checkRange(null, 'Custom 15 Sep - 10 Dec', mark1)
+  const c2 = await checkRange(null, 'Custom 15 Sep - 10 Dec', mark1, { from: '2026-09-15', to: '2026-12-10' })
   const cm = monthsTouched('2026-09-15', '2026-12-10')
   ok(c2.lab === 'Custom · 15 Sep – 10 Dec 2026', `${name} · Custom 15 Sep - 10 Dec: range text reads "${c2.lab}"`)
   ok(c2.uniq.length === 2 && c2.uniq.every((c) => c.sent.p_from === '2026-09-15' && c.sent.p_to === '2026-12-10' && c.sent.p_prorate === false) && c2.uniq.some((c) => c.sent.p_bucket === 'month') && c2.uniq.some((c) => c.sent.p_bucket === 'none'), `${name} · Custom 15 Sep - 10 Dec: both requests are those dates, by month, p_prorate = false`)
