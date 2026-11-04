@@ -19,9 +19,8 @@ executing a file, so a file here whose hash equals the one below is byte-for-byt
 | `step25_rollback.sql` | `858ecbd19212` | Undoes step 25 (restores the whole-month target) |
 | `step26_meca_target_noprorata.sql` | `ec82c5424e44` | Sales Rep MeCa: a "no proration" mode for the target. `meca_target` and `sales_meca_summary` each gain a trailing `p_prorate boolean default true`; with `false` every touched month counts at its whole target (This Month, Custom) and blocks smaller than a month carry no target. Default behaviour byte-identical (66/66 calls before/after). Old overloads dropped in the same transaction |
 | `step26_rollback.sql` | `8cdea5834d92` | Undoes step 26 (restores the step 25 pair). Never run. Roll the web app back first: an app that sends `p_prorate` would get "function not found" |
+| `step26a_service_role_grants.sql` | `92990682fbe5` | Grant-only follow-up to step 26: the two new functions did not carry the `service_role` execute grant the old pair had (a freshly created function does not get it through default privileges). Restores it; ACLs then equal the pre-step-26 pair exactly |
 
-Known detail of step 26 (2026-11-04): the two new functions do not carry the `service_role` execute grant the old pair had (a freshly created function does not get it
-through default privileges). Nothing in the app calls them as `service_role`; a grant-only follow-up is proposed separately.
 
 ## What is NOT here (applied live, text not recoverable)
 
