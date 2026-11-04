@@ -1,10 +1,12 @@
-// Run:  node live_site_check.mjs   (optional: EXPECT_BUNDLE=index-xxxx.js EXPECT_TOTAL=3,2,95000; a person types the Admin login; not part of `npm test`)
+// Run:  node live_site_check.mjs   (optional: EXPECT_BUNDLE=index-xxxx.js EXPECT_TOTAL=3,2,95000 (This Week's Company total: it changes as the week rolls over); a person types the Admin login; not part of `npm test`)
 // Post-deploy sanity check of https://learn.adititracking.com as a real Admin (typed by the person at the keyboard). READ-ONLY: it never submits a close,
-// never writes anything. 1) Sales Rep MeCa: This Week loads with the expected Company total. 2) Sales FMS: opening a lead's detail window and its close dialog,
+// never writes anything. 1) Sales Rep MeCa: This Week loads with a Company total; Last 3 Months is the 3 complete calendar months before this one (3 month rows);
+// This Month asks for the whole month's target (p_prorate = false). 2) Sales FMS: opening a lead's detail window and its close dialog,
 // then dismissing them, leaves exactly the right number of overlays (the stale-overlay fix). Tokens are never printed.
 import puppeteer from 'puppeteer-core'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { istToday, monthEnd, monthsTouched, expectedLast3, last3Label, monthTitle } from './expected_ranges.mjs'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: false, defaultViewport: null, args: ['--no-sandbox', '--window-size=1500,950'] })
@@ -49,6 +51,28 @@ if (process.env.EXPECT_TOTAL) { const [m, c, t] = process.env.EXPECT_TOTAL.split
 else ok(!!co, 'This Week shows a Company total row (set EXPECT_TOTAL=meetings,clients,turnover, e.g. 3,2,95000, to assert the numbers)')
 const first = sums.find((s) => s.sent.p_bucket === 'day')
 ok(!!first && first.status === 200 && first.body.me.is_all === true, 'the summary call is HTTP 200 and the user is shown everyone (is_all)')
+// ---- the new Last 3 Months (3 complete calendar months) and the whole-month target of This Month
+const TODAY = istToday(), L3 = expectedLast3(TODAY)
+const fresh = async (key) => { const mark = sums.length; await page.evaluate((k) => document.querySelector(`[data-range="${k}"]`).click(), key); await sleep(500); await page.waitForNetworkIdle({ idleTime: 1500, timeout: 30000 }).catch(() => {}); return [...new Map(sums.slice(mark).map((s) => [JSON.stringify(s.sent), s])).values()] }
+const tRows = () => page.evaluate(() => { const f = document.querySelector('[data-role="range-filter"]'); return [...f.parentElement.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].map((t) => t.innerText.trim())) })
+let a = await fresh('last_3_months')
+ok(a.length === 2 && a.every((s) => s.status === 200 && s.sent.p_from === L3.from && s.sent.p_to === L3.to && s.sent.p_prorate === undefined) && a.some((s) => s.sent.p_bucket === 'month') && a.some((s) => s.sent.p_bucket === 'none'), `Last 3 Months asks for ${L3.from} to ${L3.to} by month (the 3 complete calendar months before ${TODAY.slice(0, 7)}), no p_prorate sent`)
+ok((await page.evaluate(() => document.querySelector('[data-role="period-label"]')?.innerText.trim())) === last3Label(TODAY), `Last 3 Months range text reads "${last3Label(TODAY)}"`)
+const months = monthsTouched(L3.from, L3.to)
+const nm = (await tRows()).map((q) => q[0]).find((x) => x === 'Ronak Shah')
+if (nm) {
+  await page.evaluate((x) => [...document.querySelectorAll('tbody tr')].find((q) => q.children[0]?.innerText.trim() === x && q.offsetParent)?.click(), nm); await sleep(900); await page.waitForNetworkIdle({ idleTime: 1000, timeout: 30000 }).catch(() => {})
+  const dr = await page.evaluate(() => { const th = [...document.querySelectorAll('th')].find((t) => t.innerText.trim().toLowerCase() === 'period'); return th ? [...th.closest('table').querySelectorAll('tbody tr')].map((x) => x.querySelector('td').innerText.trim()) : null })
+  ok(JSON.stringify(dr) === JSON.stringify([...months.map(monthTitle), 'Total']), `Last 3 Months: the detail of ${nm} has exactly the three month rows and a Total (${dr && dr.join(' | ')})`)
+  await page.evaluate(() => document.querySelector('.fixed.inset-0 [aria-label="Close"]')?.click()); await sleep(400)
+} else console.log('   (no Ronak Shah row: the detail step is skipped)')
+a = await fresh('this_month')
+ok(a.length >= 2 && a.every((s) => s.status === 200 && s.sent.p_prorate === false), 'This Month: both requests carry p_prorate = false (the whole month\'s target)')
+{
+  const rows = (await tRows()).filter((q) => q[0] !== 'Company total' && q[6] && q[6] !== '\u2014'); const lastDay = TODAY === monthEnd(TODAY)
+  if (rows.length) ok(rows.every((q) => !/pro-rata/.test(q[6]) && /full month/.test(q[6]) === !lastDay), `This Month: every target cell is marked "full month" (never pro-rata)${lastDay ? ' except that today is the last day of the month' : ''}: ${rows.map((q) => q[0] + ' ' + q[6]).join('; ')}`)
+  else console.log('   (no rep has a target this month: the target-label check is skipped)')
+}
 // ---- Sales FMS: the stale-overlay fix, without writing anything
 await clickText('Sales FMS'); await sleep(1500); await page.waitForNetworkIdle({ idleTime: 1200, timeout: 30000 }).catch(() => {})
 // only real dialogs: full-screen overlays that carry a Close button (the live page has other fixed full-screen elements)

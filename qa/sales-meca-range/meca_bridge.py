@@ -14,7 +14,7 @@ for line in open(os.path.join(HERE, "..", "..", ".env"), encoding="utf-8"):
 SQL = {
     "lc_my_access": ("select public.lc_my_access()", lambda b: ()),
     "sales_meca_leads": ("select public.sales_meca_leads(p_rep_email => %s, p_rep_label => %s, p_from => %s::date, p_to => %s::date, p_kind => %s)", lambda b: (b.get("p_rep_email"), b.get("p_rep_label"), b["p_from"], b["p_to"], b["p_kind"])),
-    "sales_meca_summary": ("select public.sales_meca_summary(p_from => %s::date, p_to => %s::date, p_bucket => %s)", lambda b: (b["p_from"], b["p_to"], b["p_bucket"])),
+    "sales_meca_summary": ("select public.sales_meca_summary(p_from => %s::date, p_to => %s::date, p_bucket => %s, p_prorate => %s::boolean)", lambda b: (b["p_from"], b["p_to"], b["p_bucket"], b.get("p_prorate", True))),
 }
 LOG = []
 
