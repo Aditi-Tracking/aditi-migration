@@ -46,7 +46,20 @@ function targetOf(s, e) { // prorated by calendar days, like step 25
   }
   return { amount: Math.round(sum * 100) / 100, months_set: touched, months_total: touched, prorata: partial }
 }
-function summary(from, to, bucket) {
+// step 26: without proration every month the range touches counts at its WHOLE target (rep 1 has a target set for every month); a block smaller than a month has no
+// target of its own (the total row has it); the day rows never have one. With proration: the share by calendar days, as before.
+function targetFor(bucket, s, e, prorate) {
+  if (bucket === 'day' || (!prorate && bucket === 'mweek')) return null
+  if (prorate) return targetOf(s, e)
+  let touched = 0, partial = false
+  for (let t = parse(s.slice(0, 8) + '01'); t <= parse(e); ) {
+    const y = new Date(t).getUTCFullYear(), m = new Date(t).getUTCMonth() + 1, n = dim(y, m)
+    if (parse(s) > t || parse(e) < t + (n - 1) * DAY) partial = true
+    touched++; t = Date.UTC(y, m, 1)
+  }
+  return { amount: MONTHLY * touched, months_set: touched, months_total: touched, prorata: false, ...(partial ? { full_month: true } : {}) }
+}
+function summary(from, to, bucket, prorate = true) {
   const buckets = new Map()
   for (let t = parse(from); t <= parse(to); t += DAY) {
     const d = iso(t); const bs = bucketStart(d, bucket); const key = String(bs)
@@ -59,7 +72,7 @@ function summary(from, to, bucket) {
     for (const { start, days } of buckets.values()) {
       const agg = days.reduce((a, d) => { const v = dayVals(d); return { meetings: a.meetings + v.meetings, clients: a.clients + v.clients, turnover: a.turnover + v.turnover } }, { meetings: 0, clients: 0, turnover: 0 })
       const s = bucket === 'none' ? from : start; const e = bucket === 'none' ? to : bucketEnd(start, bucket)
-      rows.push({ rep_email: email, rep_name: name, rep_label: null, bucket_start: start, bucket_end: start === null ? null : bucketEnd(start, bucket), ...agg, amount_n: agg.clients, target: email.startsWith('ronak') && bucket !== 'day' ? targetOf(bucket === 'none' ? from : s > from ? s : from, bucket === 'none' ? to : e < to ? e : to) : null })
+      rows.push({ rep_email: email, rep_name: name, rep_label: null, bucket_start: start, bucket_end: start === null ? null : bucketEnd(start, bucket), ...agg, amount_n: agg.clients, target: email.startsWith('ronak') ? targetFor(bucket, bucket === 'none' ? from : s > from ? s : from, bucket === 'none' ? to : e < to ? e : to, prorate) : null })
     }
   }
   return { me: { email: 'admin@rb.test', name: 'Admin', is_all: !own, linked: true }, from, to, bucket, rows, warnings: { clients_without_amount: 0, unmapped_events: 0, unassigned_events: 0, won_without_closing_date: 0 } }
@@ -75,9 +88,9 @@ window.fetch = async (url, init = {}) => {
     return json({ tier: own ? 'lc_sales_person' : 'lc_admin', permissions: Object.fromEntries(keys.map((k) => [k, 'true'])) })
   }
   if (p.endsWith('/rpc/sales_meca_summary')) {
-    const b = JSON.parse(init.body); window.__calls.push({ from: b.p_from, to: b.p_to, bucket: b.p_bucket })
+    const b = JSON.parse(init.body); window.__calls.push({ from: b.p_from, to: b.p_to, bucket: b.p_bucket, prorate: b.p_prorate })
     if (+q.get('delay')) await new Promise((r) => setTimeout(r, +q.get('delay'))) // ?delay=ms: a slow answer, so a click can land while it is still on its way
-    return json(summary(b.p_from, b.p_to, b.p_bucket))
+    return json(summary(b.p_from, b.p_to, b.p_bucket, b.p_prorate !== false))
   }
   if (p.endsWith('/rpc/sales_meca_leads')) return json([])
   return json(p.includes('/rpc/') ? {} : [])

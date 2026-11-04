@@ -13,8 +13,14 @@ npm test               # range.mjs, then race.mjs; exit code 1 on any failure
 Needs Google Chrome; set `CHROME_PATH` if it is not at `C:/Program Files/Google/Chrome/Application/chrome.exe`. Port 5299 must be free.
 
 ## Automated (fake data layer, `meca.jsx`; nothing touches Supabase)
-- `range.mjs` — 76 checks. (A) the range maths of `rangeFor` over many dates (every weekday, a Sunday, month and year boundaries, leap years, Custom
-  validation); (B) the control wired into the real tab: the six options, the range text, Custom's date inputs, requests sent, no console errors.
+- `range.mjs` — 114 checks. (A) the range maths of `rangeFor` over many dates (every weekday, a Sunday, month and year boundaries, leap years, Custom
+  validation). **Last 3 Months is the 3 complete calendar months before the current one** (on 4 Nov 2026: 1 Aug - 31 Oct; the current month is never in it),
+  checked on named dates and on every one of 1,096 consecutive days, and each option's target mode (`prorate`) is pinned: This Week, Previous Week, Last Month
+  and Last 3 Months prorate; This Month and Custom do not. (B) the control wired into the real tab: the six options, the range text, Custom's date inputs,
+  requests sent, no console errors. (B2) the target modes over the fake data layer: Last 3 Months shows exactly 3 month rows with the plain sum of 3 whole
+  targets and sends no `p_prorate`; This Week stays pro-rata; This Month shows the FULL monthly target (and a "full month" note) on any day of the month, with
+  % of target and Gap worked out against it; Custom sums the full target of every month it touches (partial start, partial end, both, neither, a single day), with
+  no target on blocks smaller than a month.
 - `race.mjs` — 52 checks. Regression for the blank page when a rep row (or the Company row) is clicked while a NEW range is still loading: the detail
   used to take the rep from the old report but the buckets from the new one. The fake layer answers slowly (`?delay=`) so the click always lands first;
   every pair of ranges with a different bucket count, both directions, clicked 100 ms and 800 ms after the switch. Fails with
