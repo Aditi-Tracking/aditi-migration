@@ -1,4 +1,4 @@
-# supabase/migrations — Lead Capture SQL (steps 20–25)
+# supabase/migrations — Lead Capture SQL (steps 20–26)
 
 The SQL of the Lead Capture permission rebuild and everything after it, kept in git. **These files are a record of what was run, not something to
 re-run:** every one of them has already been applied to the live database (by hand, through a hash-checked runner; this repo has no migration tool).
@@ -17,6 +17,11 @@ executing a file, so a file here whose hash equals the one below is byte-for-byt
 | `step23_scot_meeting_to_enquiry.sql` | `a5cea160a790` | "Meeting Scheduled" on a SCOT call converts the contact into an enquiry (`scot_call` channel, `converted_enquiry_id`, won-back trigger) |
 | `step25_meca_target_prorata.sql` | `1099ed3f6e8a` | Sales Rep MeCa targets prorated by calendar days for a partial month (needed by the date-range filter) |
 | `step25_rollback.sql` | `858ecbd19212` | Undoes step 25 (restores the whole-month target) |
+| `step26_meca_target_noprorata.sql` | `ec82c5424e44` | Sales Rep MeCa: a "no proration" mode for the target. `meca_target` and `sales_meca_summary` each gain a trailing `p_prorate boolean default true`; with `false` every touched month counts at its whole target (This Month, Custom) and blocks smaller than a month carry no target. Default behaviour byte-identical (66/66 calls before/after). Old overloads dropped in the same transaction |
+| `step26_rollback.sql` | `8cdea5834d92` | Undoes step 26 (restores the step 25 pair). Never run. Roll the web app back first: an app that sends `p_prorate` would get "function not found" |
+
+Known detail of step 26 (2026-11-04): the two new functions do not carry the `service_role` execute grant the old pair had (a freshly created function does not get it
+through default privileges). Nothing in the app calls them as `service_role`; a grant-only follow-up is proposed separately.
 
 ## What is NOT here (applied live, text not recoverable)
 
