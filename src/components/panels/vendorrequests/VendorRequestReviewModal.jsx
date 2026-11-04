@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import OverlayShell from '../../shared/OverlayShell'
-import { canPayVendorRequests, canReviewVendorRequests, formatINR, markPaid, saveDecision } from '../../../lib/vendorRequests'
+import { canPayVendorRequests, canReviewVendorRequests, formatINR, markPaid, saveDecision, splitInvoiceLinks } from '../../../lib/vendorRequests'
 import StatusBadge from '../../shared/table/StatusBadge'
 
 const STATUS_TONE = { Approved: 'primary', Declined: 'danger', 'On Hold': 'warning' }
@@ -112,13 +112,23 @@ export default function VendorRequestReviewModal({ request, nameMap, permissions
       <div className="mb-4">
         <div className="text-[10.5px] font-extrabold uppercase tracking-wide text-text-muted mb-2">📎 Attachments</div>
         <div className="flex gap-2.5 flex-wrap">
-          {request.invoice_link ? (
-            <a href={request.invoice_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-tint border border-primary/25 text-primary text-[12px] font-bold">
-              📄 View Invoice / Quotation →
-            </a>
-          ) : (
-            <span className="text-[12px] text-text-muted px-3 py-1.5 bg-surface-2 border border-border rounded-lg">📄 No invoice attached</span>
-          )}
+          {(() => {
+            const links = splitInvoiceLinks(request.invoice_link)
+            if (!links.length) {
+              return <span className="text-[12px] text-text-muted px-3 py-1.5 bg-surface-2 border border-border rounded-lg">📄 No invoice attached</span>
+            }
+            return links.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-tint border border-primary/25 text-primary text-[12px] font-bold"
+              >
+                📄 View Invoice / Quotation{links.length > 1 ? ` ${i + 1}` : ''} →
+              </a>
+            ))
+          })()}
           {request.payment_attachment ? (
             <a href={request.payment_attachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#a855f7]/15 border border-[#a855f7]/30 text-[#a855f7] text-[12px] font-bold">
               💳 View Payment Proof →

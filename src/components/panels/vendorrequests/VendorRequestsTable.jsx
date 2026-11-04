@@ -1,4 +1,4 @@
-import { canBulkPay, canDeleteVendorRequest, canEditVendorRequest, formatINR } from '../../../lib/vendorRequests'
+import { canBulkPay, canDeleteVendorRequest, canEditVendorRequest, formatINR, splitInvoiceLinks } from '../../../lib/vendorRequests'
 import Table from '../../shared/table/Table'
 import TableHead from '../../shared/table/TableHead'
 import Th from '../../shared/table/Th'
@@ -82,19 +82,26 @@ export default function VendorRequestsTable({ rows, nameMap, currentUser, permis
                   {r.payment_status === 'Paid' ? <StatusBadge tone="purple">💳 Paid</StatusBadge> : <StatusBadge tone="neutral">Unpaid</StatusBadge>}
                 </Td>
                 <Td align="center" onClick={(e) => e.stopPropagation()}>
-                  {r.invoice_link ? (
-                    <a
-                      href={r.invoice_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="View uploaded invoice / quotation"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-tint border border-primary/30 text-primary"
-                    >
-                      📎
-                    </a>
-                  ) : (
-                    <span className="text-text-muted">—</span>
-                  )}
+                  {(() => {
+                    const links = splitInvoiceLinks(r.invoice_link)
+                    if (!links.length) return <span className="text-text-muted">—</span>
+                    return (
+                      <div className="inline-flex items-center gap-1">
+                        {links.map((url, i) => (
+                          <a
+                            key={i}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={links.length > 1 ? `View uploaded file ${i + 1} of ${links.length}` : 'View uploaded invoice / quotation'}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-tint border border-primary/30 text-primary"
+                          >
+                            📎
+                          </a>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </Td>
                 <Td className="whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                   {canEd && (

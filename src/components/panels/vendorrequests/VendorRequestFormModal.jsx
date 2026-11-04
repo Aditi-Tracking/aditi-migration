@@ -15,7 +15,7 @@ export default function VendorRequestFormModal({ open, editingRequest, vendors, 
   const [vendorId, setVendorId] = useState('')
   const [vendorDropdownOpen, setVendorDropdownOpen] = useState(false)
   const [form, setForm] = useState(BLANK)
-  const [invoiceFile, setInvoiceFile] = useState(null)
+  const [invoiceFiles, setInvoiceFiles] = useState([])
   const [existingInvoiceLink, setExistingInvoiceLink] = useState(null)
 
   const [newVendorOpen, setNewVendorOpen] = useState(false)
@@ -35,7 +35,7 @@ export default function VendorRequestFormModal({ open, editingRequest, vendors, 
     setError('')
     setNewVendorOpen(false)
     setNewVendorError('')
-    setInvoiceFile(null)
+    setInvoiceFiles([])
     setVendorDropdownOpen(false)
     if (editingRequest) {
       setVendorId(editingRequest.vendor_id ? String(editingRequest.vendor_id) : '')
@@ -129,8 +129,8 @@ export default function VendorRequestFormModal({ open, editingRequest, vendors, 
         setError('⚠️ PO Number is required.')
         return
       }
-      if (!invoiceFile) {
-        setError('⚠️ Please upload an Invoice / Quotation file.')
+      if (!invoiceFiles.length) {
+        setError('⚠️ Please upload at least one Invoice / Quotation file.')
         return
       }
     }
@@ -147,7 +147,7 @@ export default function VendorRequestFormModal({ open, editingRequest, vendors, 
         location: form.location,
         invoiceNumber: form.invoiceNo.trim(),
         poNumber: form.poNo.trim(),
-        invoiceFile,
+        invoiceFiles,
       }
       if (isEditing) {
         await updateVendorRequest(editingRequest.id, { ...payload, existingInvoiceLink })
@@ -264,15 +264,38 @@ export default function VendorRequestFormModal({ open, editingRequest, vendors, 
 
       <div className="mb-3.5">
         <label className="block text-[11.5px] font-semibold text-text-muted mb-1">
-          Invoice / Quotation {!isEditing ? '*' : <span className="font-normal text-text-muted">(optional — uploading replaces the existing file)</span>}
+          Invoice / Quotation {!isEditing ? '*' : <span className="font-normal text-text-muted">(optional — uploading replaces the existing file(s))</span>}
         </label>
         <div className="flex items-center gap-2.5 flex-wrap">
           <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-primary/30 bg-primary-tint text-primary text-[12.5px] font-bold cursor-pointer">
-            📤 Upload Invoice
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)} className="hidden" />
+            📤 Upload Invoice{invoiceFiles.length > 1 ? 's' : ''}
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={(e) => setInvoiceFiles(Array.from(e.target.files || []))}
+              className="hidden"
+            />
           </label>
-          <span className="text-[12px] text-text-muted">{invoiceFile ? invoiceFile.name : isEditing && existingInvoiceLink ? '📄 Existing file kept (upload to replace)' : 'No file chosen'}</span>
+          {!invoiceFiles.length && <span className="text-[12px] text-text-muted">{isEditing && existingInvoiceLink ? '📄 Existing file(s) kept (upload to replace)' : 'No file chosen'}</span>}
         </div>
+        {!!invoiceFiles.length && (
+          <div className="flex flex-col gap-1 mt-2">
+            {invoiceFiles.map((f, i) => (
+              <div key={i} className="flex items-center gap-2 text-[12px] text-text">
+                <span className="flex-1 truncate">📄 {f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="text-text-muted hover:text-danger shrink-0"
+                  title="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && <div className="text-danger text-[12px] mb-3.5">{error}</div>}

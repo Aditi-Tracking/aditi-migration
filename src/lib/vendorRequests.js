@@ -139,6 +139,25 @@ export async function uploadVendorFile(file, folder) {
   return `${SUPABASE_URL}/storage/v1/object/public/${VENDOR_ATTACHMENTS_BUCKET}/${safeName}`
 }
 
+// invoice_link stays a single text column (no schema change) — multiple invoice/quotation files
+// are uploaded individually, then stored as a comma-joined list of URLs in that same column. Every
+// existing single-file request still has exactly one URL there with no comma, so this is backward
+// compatible; splitInvoiceLinks() below is the one place that un-joins it for display.
+export async function uploadVendorFiles(files, folder) {
+  const urls = []
+  for (const file of files) {
+    urls.push(await uploadVendorFile(file, folder))
+  }
+  return urls.join(',')
+}
+
+export function splitInvoiceLinks(invoiceLink) {
+  return (invoiceLink || '')
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean)
+}
+
 function mapSubmitError(e) {
   const msg = e.message || ''
   if (msg.includes('23505') || msg.includes('unique_vendor_invoice')) {
@@ -150,11 +169,11 @@ function mapSubmitError(e) {
 // ── Create ───────────────────────────────────────────────────────────────────
 // Invoice upload is best-effort — a failure logs a warning and the request is still submitted
 // without an attachment, matching production exactly (never blocks the submit).
-export async function createVendorRequest({ vendorId, vendorName, product, qty, amount, location, invoiceNumber, poNumber, invoiceFile }, currentUser) {
+export async function createVendorRequest({ vendorId, vendorName, product, qty, amount, location, invoiceNumber, poNumber, invoiceFiles }, currentUser) {
   let invoiceUrl = null
-  if (invoiceFile) {
+  if (invoiceFiles?.length) {
     try {
-      invoiceUrl = await uploadVendorFile(invoiceFile, 'invoices')
+      invoiceUrl = await uploadVendorFiles(invoiceFiles, 'invoices')
     } catch (e) {
       console.warn('Invoice upload failed, proceeding without it:', e.message)
     }
@@ -183,11 +202,11 @@ export async function createVendorRequest({ vendorId, vendorName, product, qty, 
 // A new invoice file, if chosen, is best-effort too — but unlike create, a failed upload here
 // falls back to keeping the EXISTING invoice_link rather than clearing it, matching production's
 // `let invoiceUrl = existingLink; if (file) { try { invoiceUrl = await upload() } catch {} }`.
-export async function updateVendorRequest(id, { vendorId, vendorName, product, qty, amount, location, invoiceNumber, poNumber, invoiceFile, existingInvoiceLink }) {
+export async function updateVendorRequest(id, { vendorId, vendorName, product, qty, amount, location, invoiceNumber, poNumber, invoiceFiles, existingInvoiceLink }) {
   let invoiceUrl = existingInvoiceLink || null
-  if (invoiceFile) {
+  if (invoiceFiles?.length) {
     try {
-      invoiceUrl = await uploadVendorFile(invoiceFile, 'invoices')
+      invoiceUrl = await uploadVendorFiles(invoiceFiles, 'invoices')
     } catch (e) {
       console.warn('Invoice upload failed:', e.message)
     }
