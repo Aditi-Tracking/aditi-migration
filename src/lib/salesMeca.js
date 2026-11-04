@@ -93,9 +93,13 @@ export function periodFor({ gran, anchor }) {
 //                 the week is the Monday-Saturday that ended yesterday). Previous Week = the Monday-Saturday before it. A week range ends on its Saturday even
 //                 mid-week: the days that have not happened yet simply have nothing in them.
 //   This Month    the 1st of this month through today.         Last Month   the whole previous calendar month.
-//   Last 3 Months ROLLING: today minus 3 calendar months (a month-end clamps: 31 May -> 28 Feb) through today.
+//   Last 3 Months the 3 COMPLETE calendar months before this one (this month, still in progress, is not in it): on 4 Nov 2026 that is 1 Aug - 31 Oct 2026. Always whole
+//                 months, so nothing needs clamping.
 //   Custom        a start and an end date; the end may not be before the start; at most about 5 years (the database's own limit).
 // The breakdown rows of a range: one per DAY up to 7 days, one per month-week block (W1 = 1-7 ...) up to 35 days, one per MONTH beyond that.
+// The TARGET of a range: This Week and Previous Week are PRORATED by calendar days (a share of the month's target). This Month (1st to today) and Custom are NOT: every
+// calendar month they touch counts at its whole target (the database's p_prorate = false), and a block smaller than a month has no target of its own (the total row has it).
+// Last Month and Last 3 Months cover whole months, where both ways give the same answer, so they make the call they always made.
 export const RANGE_OPTIONS = [
   { key: 'this_week', label: 'This Week' },
   { key: 'prev_week', label: 'Previous Week' },
@@ -111,22 +115,15 @@ const weekday = (s) => new Date(Date.UTC(...ymd(s).map((v, i) => (i === 1 ? v - 
 const spanDays = (a, b) => Math.round((Date.UTC(...ymd(b).map((v, i) => (i === 1 ? v - 1 : v))) - Date.UTC(...ymd(a).map((v, i) => (i === 1 ? v - 1 : v)))) / 86400000) + 1
 export const dayLabel = (s) => `${WEEKDAYS[weekday(s)]} ${+s.slice(8, 10)} ${monthShort(s)}` // "Mon 3 Nov"
 const plainDay = (s) => `${+s.slice(8, 10)} ${monthShort(s)}`
-function monthsBack(s, n) {
-  const [y, m, d] = ymd(s)
-  const t = y * 12 + (m - 1) - n
-  const ny = Math.floor(t / 12)
-  const nm = (t % 12) + 1
-  return mkIso(ny, nm, Math.min(d, daysIn(ny, nm)))
-}
 function rangeText(a, b) {
   const short = spanDays(a, b) <= 7
   const f = short ? dayLabel : plainDay
   return a.slice(0, 4) === b.slice(0, 4) ? `${f(a)} – ${f(b)} ${b.slice(0, 4)}` : `${f(a)} ${a.slice(0, 4)} – ${f(b)} ${b.slice(0, 4)}`
 }
-const invalid = (label, error) => ({ from: '', to: '', bucket: 'none', totalsBucket: 'none', label, error })
+const invalid = (label, error) => ({ from: '', to: '', bucket: 'none', totalsBucket: 'none', prorate: true, label, error })
 
 // What to ask the database for, given the choice { key, from, to } (from / to only for Custom) and today's India date.
-// → { from, to, bucket, totalsBucket, label, error }   (error: a message when the range cannot be asked for yet; from / to are then '')
+// → { from, to, bucket, totalsBucket, prorate, label, error }   (prorate: false = the whole month's target; error: a message when the range cannot be asked for yet; from / to are then '')
 export function rangeFor({ key = DEFAULT_RANGE, from = '', to = '' } = {}, today) {
   let a
   let b
@@ -145,8 +142,8 @@ export function rangeFor({ key = DEFAULT_RANGE, from = '', to = '' } = {}, today
     b = monthEnd(a)
     name = 'Last Month'
   } else if (key === 'last_3_months') {
-    a = monthsBack(today, 3)
-    b = today
+    a = addMonths(monthStart(today), -3)
+    b = monthEnd(addMonths(monthStart(today), -1))
     name = 'Last 3 Months'
   } else if (key === 'custom') {
     const ISO = /^\d{4}-\d{2}-\d{2}$/
@@ -160,7 +157,7 @@ export function rangeFor({ key = DEFAULT_RANGE, from = '', to = '' } = {}, today
     return invalid('', 'Unknown date range.')
   }
   const n = spanDays(a, b)
-  return { from: a, to: b, bucket: n <= 7 ? 'day' : n <= 35 ? 'mweek' : 'month', totalsBucket: 'none', label: `${name} · ${rangeText(a, b)}`, error: '' }
+  return { from: a, to: b, bucket: n <= 7 ? 'day' : n <= 35 ? 'mweek' : 'month', totalsBucket: 'none', prorate: key !== 'this_month' && key !== 'custom', label: `${name} · ${rangeText(a, b)}`, error: '' }
 }
 
 // The row label of one bucket. `multiMonth` / `multiYear`: the range spans several months / years, so the label must say which.
@@ -188,7 +185,7 @@ export const SOURCE_LABELS = { field_sales_form: 'Field Sales Form', pipeline: '
 //   target      the target for it, or null if none applies
 //   tTurnover   the turnover that is measured AGAINST that target (= turnover when a target exists, else 0) — what makes a company
 //               "% of target" cover only the reps who have one
-//   note        { partial, prorata, monthsSet, monthsTotal, reps } describing the target, or null
+//   note        { partial, prorata, full, monthsSet, monthsTotal, reps } describing the target, or null (full: the whole month's target, not prorated)
 const emptyCell = () => ({ meetings: 0, clients: 0, turnover: 0, amountN: 0, target: null, tTurnover: 0, note: null })
 function cellOf(row) {
   const t = row.target
@@ -199,12 +196,12 @@ function cellOf(row) {
     amountN: Number(row.amount_n),
     target: t ? Number(t.amount) : null,
     tTurnover: t ? Number(row.turnover) : 0,
-    note: t ? { partial: t.months_set < t.months_total, prorata: !!t.prorata, monthsSet: t.months_set, monthsTotal: t.months_total, reps: 1 } : null,
+    note: t ? { partial: t.months_set < t.months_total, prorata: !!t.prorata, full: !!t.full_month, monthsSet: t.months_set, monthsTotal: t.months_total, reps: 1 } : null,
   }
 }
 export function addCells(a, b) {
   const target = a.target === null && b.target === null ? null : (a.target || 0) + (b.target || 0)
-  const note = !a.note ? b.note : !b.note ? a.note : { partial: a.note.partial || b.note.partial, prorata: a.note.prorata || b.note.prorata, monthsSet: a.note.monthsSet, monthsTotal: a.note.monthsTotal, reps: a.note.reps + b.note.reps }
+  const note = !a.note ? b.note : !b.note ? a.note : { partial: a.note.partial || b.note.partial, prorata: a.note.prorata || b.note.prorata, full: a.note.full || b.note.full, monthsSet: a.note.monthsSet, monthsTotal: a.note.monthsTotal, reps: a.note.reps + b.note.reps }
   return { meetings: a.meetings + b.meetings, clients: a.clients + b.clients, turnover: a.turnover + b.turnover, amountN: a.amountN + b.amountN, target, tTurnover: a.tTurnover + b.tTurnover, note }
 }
 // The derived columns of a cell. null = nothing to show ("—").
@@ -281,7 +278,7 @@ export function buildReport(summary, totals) {
   for (const rep of reps) {
     const sum = rep.cells.reduce(addCells, emptyCell())
     const t = wholeTarget.get(rep.key)
-    rep.total = t ? { ...sum, target: Number(t.amount), tTurnover: sum.turnover, note: { partial: t.months_set < t.months_total, prorata: !!t.prorata, monthsSet: t.months_set, monthsTotal: t.months_total, reps: 1 } } : { ...sum, target: null, tTurnover: 0, note: null }
+    rep.total = t ? { ...sum, target: Number(t.amount), tTurnover: sum.turnover, note: { partial: t.months_set < t.months_total, prorata: !!t.prorata, full: !!t.full_month, monthsSet: t.months_set, monthsTotal: t.months_total, reps: 1 } } : { ...sum, target: null, tTurnover: 0, note: null }
   }
   const company = { cells: starts.map((_, i) => reps.reduce((acc, r) => addCells(acc, r.cells[i]), emptyCell())), total: reps.reduce((acc, r) => addCells(acc, r.total), emptyCell()) }
   return { me: summary.me, warnings: summary.warnings, buckets, reps, company }
@@ -388,7 +385,9 @@ async function rpc(fn, body, fallback) {
 
 // → { me: { email, name, is_all, linked }, from, to, bucket, rows: [{ rep_email, rep_name, rep_label, bucket_start, bucket_end, meetings, clients,
 //     turnover, amount_n, target }], warnings: { clients_without_amount, unmapped_events, unassigned_events, won_without_closing_date } }
-export const fetchMecaSummary = ({ from, to, bucket }) => rpc('sales_meca_summary', { p_from: from, p_to: to, p_bucket: bucket }, 'Could not load the report.')
+// prorate false = every month the range touches counts at its WHOLE target (This Month, Custom). It is sent only when false, so every other range makes exactly the call it always did.
+export const fetchMecaSummary = ({ from, to, bucket, prorate = true }) =>
+  rpc('sales_meca_summary', { p_from: from, p_to: to, p_bucket: bucket, ...(prorate ? {} : { p_prorate: false }) }, 'Could not load the report.')
 
 // The leads behind a number. kind 'meetings' | 'clients'. A rep always gets their own, whatever is asked; an admin names a rep by
 // e-mail, or an unmapped label by repLabel (repEmail null). → [{ kind, source, date, name, company, amount, enquiry_id }] (at most 500)

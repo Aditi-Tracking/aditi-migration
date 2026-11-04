@@ -9,6 +9,7 @@ const DASH = <span className="text-text-muted">—</span>
 function targetNote(note, perRep) {
   if (!note) return { text: '', title: '' }
   if (note.prorata) return { text: 'pro-rata', title: 'Worked out from the monthly target, by the calendar days this period covers' }
+  if (note.full) return { text: 'full month', title: 'The whole monthly target of every calendar month this period touches, not worked out by days' }
   if (note.partial) {
     return perRep
       ? { text: `${note.monthsSet} of ${note.monthsTotal} mo`, title: `A target is set for ${note.monthsSet} of the ${note.monthsTotal} months — months without one add nothing` }

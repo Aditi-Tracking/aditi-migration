@@ -39,13 +39,13 @@ export default function SalesMecaPanel() {
 
   const syncKey = useLeadSync({ holdFocus: !!detail || setup }) // another tab changed something, or the window came back
   const period = rangeFor(sel, todayIST()) // India's today: a tab left open overnight moves on by itself at the next refetch
-  const requestKey = period.error ? null : `${nonce}|${syncKey}|${period.from}|${period.to}|${period.bucket}|${period.totalsBucket}`
+  const requestKey = period.error ? null : `${nonce}|${syncKey}|${period.from}|${period.to}|${period.bucket}|${period.totalsBucket}|${period.prorate}`
 
   useEffect(() => {
     if (!requestKey || result.key === requestKey) return undefined
     let cancelled = false
     const p = rangeFor(sel, todayIST())
-    Promise.all([fetchMecaSummary(p), fetchMecaSummary({ from: p.from, to: p.to, bucket: p.totalsBucket })])
+    Promise.all([fetchMecaSummary(p), fetchMecaSummary({ from: p.from, to: p.to, bucket: p.totalsBucket, prorate: p.prorate })])
       .then(([summary, totals]) => !cancelled && setResult({ key: requestKey, report: buildReport(summary, totals), period: p, error: '' }))
       .catch((e) => !cancelled && setResult((r) => ({ key: requestKey, report: r.report, period: r.period, error: e.message })))
     return () => {
