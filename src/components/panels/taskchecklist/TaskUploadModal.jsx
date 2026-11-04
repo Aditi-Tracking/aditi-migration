@@ -7,8 +7,10 @@ import { uploadTaskAttachment } from '../../../lib/taskChecklist'
 // all funneling into the same upload call. Only opened for tasks with no
 // existing attachment (see TaskTable's uploadUrl branch), so there's no
 // "existing files" list to show here.
+// Multi-file: click/drag-drop/paste all ADD to the selection rather than replacing it, so a mix of
+// (e.g.) two screenshots pasted one after another both end up queued for the same upload.
 export default function TaskUploadModal({ target, onClose, onUploaded }) {
-  const [file, setFile] = useState(null)
+  const [files, setFiles] = useState([])
   const [dragActive, setDragActive] = useState(false)
   const [status, setStatus] = useState(null) // { text, kind: 'info'|'success'|'error' } | null
   const [uploading, setUploading] = useState(false)
@@ -18,7 +20,7 @@ export default function TaskUploadModal({ target, onClose, onUploaded }) {
     if (!target) return
     // Reset fresh each time a new task opens — it stays mounted between opens.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFile(null)
+    setFiles([])
     setStatus(null)
     setUploading(false)
   }, [target])
@@ -32,7 +34,7 @@ export default function TaskUploadModal({ target, onClose, onUploaded }) {
         if (item.type.startsWith('image/')) {
           const pasted = item.getAsFile()
           if (!pasted) continue
-          setFile(new File([pasted], `screenshot_${Date.now()}.png`, { type: 'image/png' }))
+          setFiles((prev) => [...prev, new File([pasted], `screenshot_${Date.now()}.png`, { type: 'image/png' })])
           break
         }
       }
@@ -43,23 +45,32 @@ export default function TaskUploadModal({ target, onClose, onUploaded }) {
 
   if (!target) return null
 
+  function addFiles(list) {
+    const picked = Array.from(list || [])
+    if (picked.length) setFiles((prev) => [...prev, ...picked])
+  }
+
+  function removeFile(i) {
+    setFiles((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
   async function handleSubmit() {
-    if (!file) {
-      alert('Please select a file first!')
+    if (!files.length) {
+      alert('Please select at least one file first!')
       return
     }
     setUploading(true)
     setStatus({ text: '⏳ Uploading...', kind: 'info' })
     try {
-      const savedValue = await uploadTaskAttachment({ id: target.id, file })
+      const savedValue = await uploadTaskAttachment({ id: target.id, files })
       const isCloud = savedValue.startsWith('http')
       onUploaded(target.id, savedValue)
       setStatus(
         isCloud
-          ? { text: '✅ Upload successful! File saved to cloud.', kind: 'success' }
+          ? { text: `✅ Upload successful! ${files.length > 1 ? `${files.length} files saved` : 'File saved'} to cloud.`, kind: 'success' }
           : { text: '⚠️ Cloud upload failed — saved locally only', kind: 'error' }
       )
-      setFile(null)
+      setFiles([])
       if (inputRef.current) inputRef.current.value = ''
     } catch (e) {
       setStatus({ text: '❌ Error: ' + e.message, kind: 'error' })
@@ -87,34 +98,42 @@ export default function TaskUploadModal({ target, onClose, onUploaded }) {
         onDrop={(e) => {
           e.preventDefault()
           setDragActive(false)
-          const dropped = e.dataTransfer.files?.[0]
-          if (dropped) setFile(dropped)
+          addFiles(e.dataTransfer.files)
         }}
         className={`rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
-          dragActive || file ? 'border-primary bg-primary-tint' : 'border-border bg-surface-2'
+          dragActive || files.length ? 'border-primary bg-primary-tint' : 'border-border bg-surface-2'
         }`}
       >
-        <div className="text-[13px] font-medium text-text">{file ? file.name : 'Click, drag & drop, or paste (Ctrl+V)'}</div>
+        <div className="text-[13px] font-medium text-text">{files.length ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Click, drag & drop, or paste (Ctrl+V)'}</div>
         <div className="text-[11px] text-text-muted mt-1">
-          {file ? `${(file.size / 1024).toFixed(1)} KB` : 'You can upload a file, drag & drop, or copy-paste a screenshot directly'}
+          {files.length ? 'Click to add more' : 'You can upload one or more files, drag & drop, or copy-paste screenshots directly'}
         </div>
-        <input
-          ref={inputRef}
-          type="file"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])}
-        />
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => addFiles(e.target.files)} />
       </div>
+
+      {!!files.length && (
+        <div className="flex flex-col gap-1 mt-3">
+          {files.map((f, i) => (
+            <div key={i} className="flex items-center gap-2 text-[12px] text-text">
+              <span className="flex-1 truncate">📄 {f.name}</span>
+              <span className="text-text-muted shrink-0">{(f.size / 1024).toFixed(1)} KB</span>
+              <button type="button" onClick={() => removeFile(i)} className="text-text-muted hover:text-danger shrink-0" title="Remove">
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {status && <div className={`mt-3 rounded-md px-3 py-2 text-[12px] text-center ${statusColor}`}>{status.text}</div>}
 
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={uploading || !file}
+        disabled={uploading || !files.length}
         className="w-full mt-3 rounded-md bg-primary text-white text-[13px] font-semibold py-2.5 disabled:opacity-60"
       >
-        {uploading ? 'Uploading…' : 'Upload'}
+        {uploading ? 'Uploading…' : `Upload${files.length > 1 ? ` (${files.length})` : ''}`}
       </button>
     </OverlayShell>
   )

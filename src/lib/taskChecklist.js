@@ -492,15 +492,11 @@ export async function deleteTasks(ids) {
   if (!res.ok) throw new Error('Delete failed')
 }
 
-// Shared by both upload entry points (inline 📎 icon and the upload modal)
-// — old-portal duplicates this into tProcessTaskFile/tSubmitTaskUpload,
-// same Storage path pattern and same URL-or-filename fallback on failure.
-export async function uploadTaskAttachment({ id, file }) {
+async function uploadOneTaskFile(id, file) {
   const ts = Date.now()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const filePath = `task_docs/task_${id}/${ts}_${safeName}`
 
-  let fileUrl = null
   try {
     const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/files/${filePath}`, {
       method: 'POST',
@@ -513,18 +509,35 @@ export async function uploadTaskAttachment({ id, file }) {
       },
       body: file,
     })
-    if (uploadRes.ok) fileUrl = `${SUPABASE_URL}/storage/v1/object/public/files/${filePath}`
+    if (uploadRes.ok) return `${SUPABASE_URL}/storage/v1/object/public/files/${filePath}`
   } catch {
-    /* fall through — save the bare filename below, matching production */
+    /* fall through — save the bare filename below, matching production's single-file fallback */
   }
+  return file.name
+}
 
-  const saveValue = fileUrl || file.name
+// The `upload` column stays a single text field (no schema change) — multiple screenshots are
+// uploaded individually, then stored as a comma-joined list of URLs/filenames in that same column,
+// same approach as lib/vendorRequests.js's invoice_link. Every existing single-upload task still
+// has exactly one value there with no comma, so this is backward compatible; splitAttachmentLinks
+// below is the one place that un-joins it for display. Shared by both upload entry points (inline
+// 📎 icon and the upload modal) — old-portal's single-file version duplicated this into
+// tProcessTaskFile/tSubmitTaskUpload; kept as one function here instead.
+export async function uploadTaskAttachment({ id, files }) {
+  const saveValue = (await Promise.all(files.map((f) => uploadOneTaskFile(id, f)))).join(',')
   await fetch(`${SUPABASE_URL}/rest/v1/employee_checklists?id=eq.${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: SB_HDRS_JSON(),
     body: JSON.stringify({ upload: saveValue }),
   })
   return saveValue
+}
+
+export function splitAttachmentLinks(upload) {
+  return (upload || '')
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean)
 }
 
 // ── "Uploaded Files" viewer (owner/MIS/canViewUploads carve-out) ──────────
@@ -549,17 +562,21 @@ export async function fetchAllUploads({ dateFrom, dateTo }) {
     })
   }
 
-  return rows
-    .map((r) => {
-      const cloudUrl = r.upload ? String(r.upload).trim() : null
-      if (!cloudUrl) return null
+  // One row per individual FILE, not per task — a multi-file task's `upload` is a comma-joined
+  // list (see uploadTaskAttachment's comment), so it's split here rather than shown as one mashed-
+  // together entry. `taskId` gets a `-<i>` suffix for files past the first so React keys (and any
+  // future per-row actions) stay unique per file, not just per task.
+  return rows.flatMap((r) => {
+    const cloudUrls = splitAttachmentLinks(r.upload)
+    if (!cloudUrls.length) return []
+    const pd = String(r.planned_date || '').slice(0, 10)
+    const ed = edCache[String(r.emp_id || '')] || {}
+    return cloudUrls.map((cloudUrl, i) => {
       const rawName = cloudUrl.split('/').pop().replace(/^\d+_/, '').replace(/_/g, ' ')
-      const pd = String(r.planned_date || '').slice(0, 10)
-      const ed = edCache[String(r.emp_id || '')] || {}
       const ext = rawName.split('.').pop().toLowerCase()
       const icon = ['pdf'].includes(ext) ? '📄' : ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) ? '🖼️' : ['xls', 'xlsx', 'csv'].includes(ext) ? '📊' : ['doc', 'docx'].includes(ext) ? '📝' : '📎'
       return {
-        taskId: String(r.id || ''),
+        taskId: i === 0 ? String(r.id || '') : `${r.id}-${i}`,
         task: String(r.task_name || '—').trim(),
         employee: ed.name || String(r.emp_id || '') || '—',
         dept: ed.dept || '—',
@@ -569,5 +586,5 @@ export async function fetchAllUploads({ dateFrom, dateTo }) {
         icon,
       }
     })
-    .filter(Boolean)
+  })
 }

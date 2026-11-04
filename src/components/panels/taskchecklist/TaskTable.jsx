@@ -8,6 +8,7 @@ import {
   isOngoing,
   markDone,
   setOngoing,
+  splitAttachmentLinks,
   taskRequiresAttachment,
   undoTask,
 } from '../../../lib/taskChecklist'
@@ -324,15 +325,25 @@ export default function TaskTable({
               </Td>
               <Td align="center">
                 {row.uploadUrl ? (
-                  <a
-                    href={row.uploadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="See your uploaded file"
-                    className="inline-flex w-8 h-8 items-center justify-center rounded-md bg-primary-tint border border-primary/25 text-primary"
-                  >
-                    📄
-                  </a>
+                  (() => {
+                    const links = splitAttachmentLinks(row.uploadUrl)
+                    return (
+                      <div className="inline-flex items-center gap-1">
+                        {links.map((url, i) => (
+                          <a
+                            key={i}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`See your uploaded file${links.length > 1 ? ` ${i + 1}` : ''}`}
+                            className="inline-flex w-8 h-8 items-center justify-center rounded-md bg-primary-tint border border-primary/25 text-primary"
+                          >
+                            📄
+                          </a>
+                        ))}
+                      </div>
+                    )
+                  })()
                 ) : (
                   <button
                     type="button"
