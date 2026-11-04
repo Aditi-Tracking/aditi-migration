@@ -49,6 +49,25 @@ export const MANDATORY_ATTACHMENT_TASKS = [
   'auditing sales pitch',
   'monthly achievement self team',
   'monthly achievement self',
+  // Added per the "checklist sc" sheet's own Attachment column (Enquiry Capture Sheet/TeleCRM
+  // Screenshot/Calendar Screenshot for the enquiry-team tasks; Attendance Report/Flagged Meeting/
+  // Daily MeCA Screenshot for the field-sales tasks) — every row there names a required
+  // attachment, same "can't be marked Done without proof" treatment as the tasks above.
+  'total unique enquiries attended',
+  'total calls attempted',
+  'total calls connected',
+  'total follow up calls',
+  'demo booked',
+  'daily clicktask checkin',
+  'auditing field visit form',
+  'number of unique meetings ftd',
+  'number of unique calls ftd',
+  'revenue ftd',
+  'weekly meca',
+  'weekly sales em',
+  'weekly scoring of sales team',
+  'monthly meca',
+  'target emails',
 ]
 
 export function normalizeTaskName(s) {
