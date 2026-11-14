@@ -20,6 +20,10 @@ executing a file, so a file here whose hash equals the one below is byte-for-byt
 | `step26_meca_target_noprorata.sql` | `ec82c5424e44` | Sales Rep MeCa: a "no proration" mode for the target. `meca_target` and `sales_meca_summary` each gain a trailing `p_prorate boolean default true`; with `false` every touched month counts at its whole target (This Month, Custom) and blocks smaller than a month carry no target. Default behaviour byte-identical (66/66 calls before/after). Old overloads dropped in the same transaction |
 | `step26_rollback.sql` | `8cdea5834d92` | Undoes step 26 (restores the step 25 pair). Never run. Roll the web app back first: an app that sends `p_prorate` would get "function not found" |
 | `step26a_service_role_grants.sql` | `92990682fbe5` | Grant-only follow-up to step 26: the two new functions did not carry the `service_role` execute grant the old pair had (a freshly created function does not get it through default privileges). Restores it; ACLs then equal the pre-step-26 pair exactly |
+| `step27_all.sql` | `910e7d612529` | The Field Sales Visit Form backend: `field_sales_leads` (private to the creating rep, one per phone) + `field_sales_visits` (append-only; `submit_field_sales_visit`, `fs_find_by_phone`, `fs_search_leads`, the visit-state and lead-state views), the Growth Director alert outbox + trigger + `fs_alerts_claim` / `fs_alert_done`, `fs_get_settings` / `fs_set_setting`, the `fs_pain_area` list (the only admin-managed list; `rename_dropdown_option` cascades), MeCa counting the new visits. No rollback written |
+| `step28a_sales_field_tier.sql` | `45971d4db91c` | The `lc_sales_field` tier ("Sales Person + Field Sales": the Sales Person caps + `field_sales_form_view` / `_create`) and its first holders (Ronak, Vishwas, Suhas). No rollback written |
+| `step28_adopt.sql` | `051e58bc4c5d` | Adoption: a rep's OWN Enquiry Sheet enquiry or SCOT contact (resolved by `lc_my_label_keys`) can be adopted into a Discovery visit (`fs_adoption_candidate`, `adopt`, `adopted_from` / `adopted_scot_id`); `fs_find_by_phone` answers `adoptable`. No rollback written |
+| `step27b_user_run_delivery_and_storage.sql` | `9271cea2250d` | **NOT RUN YET (a person runs it in the SQL editor).** The vault secret + the pg_cron job that calls the alert Edge Function every 5 minutes, the private `field-sales-visits` storage bucket and its two policies (`fs_visits_upload`, `fs_visits_read`), and an optional freeze of the legacy form. Placeholders only: the real secret is typed at run time |
 
 
 ## What is NOT here (applied live, text not recoverable)
@@ -33,6 +37,8 @@ them was lost. They could not be rebuilt byte-for-byte, and a reconstruction tha
 | 24 `step24_scot_next_call_offsets.sql` | `13ad02a45dcf` | SCOT per-outcome next-call offsets (`default_next_call_days`, `log_scot_call` change) | `fee5aa0c11d6` (`step24_rollback.sql`) |
 | 22 rollback `step22_rollback.sql` | — | Not run; tested in a sandbox only | `f5155099e7ec` |
 | 23 rollback `step23_rollback.sql` | — | Not run; tested in a sandbox only | `75a107394960` |
+
+The alert e-mail is sent by an Edge Function whose source is in `supabase/functions/send-pending-followup-alert/index.ts` (**not deployed yet**; it needs the `FS_ALERT_SECRET` and `RESEND_API_KEY` function secrets, and step 27b's cron job to call it).
 
 **[`step21_24_live_snapshot.md`](step21_24_live_snapshot.md)** is a snapshot of the CURRENT live definitions of the objects steps 21 and 24 left behind
 (functions, policies, index, grants, the step 24 column and constraints), pulled read-only on 2026-11-03. **It is not the original migration text and not a
