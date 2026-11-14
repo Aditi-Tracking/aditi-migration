@@ -1,0 +1,8 @@
+{
+  "name": "qa-field-sales-visit",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only real-Chrome tests for the Field Sales Visit Form (Lead Capture). Not part of the app build; nothing in src/ imports this folder.",
+  "scripts": { "test": "node run.mjs" },
+  "devDependencies": { "puppeteer-core": "^24.0.0" }
+}
