@@ -1,4 +1,4 @@
-# supabase/migrations — Lead Capture SQL (steps 20–30)
+# supabase/migrations — Lead Capture SQL (steps 20–31)
 
 The SQL of the Lead Capture permission rebuild and everything after it, kept in git. **These files are a record of what was run, not something to
 re-run:** every one of them has already been applied to the live database (by hand, through a hash-checked runner; this repo has no migration tool).
@@ -27,6 +27,7 @@ executing a file, so a file here whose hash equals the one below is byte-for-byt
 | `step29_discovery_counts.sql` | `fc0573d15ec8` | Every Discovery visit is a meeting and puts the lead into Sales FMS at once (a Follow-up never counts; it moves the FMS stages: demo stamp, quotation plan, status `open` -> `interested`); the contact number is exactly 10 digits (`fs_phone10`: +91 / 91 / a leading 0 dropped, never cut down); `lc_sales_person` loses `enquiry_view` and `enquiries_select` shows it the leads in Sales FMS labelled to it (`sales_fms_view`); `meca_events` counts `purpose = 'Discovery'`. No rollback written |
 | `step29b_delete_test_lead.sql` | `c75363eedf39` | Soft-deletes one named end-to-end test lead (guarded: no enquiry, one visit). Data fix, not schema |
 | `step30_fms_stage_counts.sql` | `f94835f929e6` | `sales_fms_summary` gains `open` and `stage_first_call` / `stage_demo` / `stage_quotation` / `stage_negotiation` / `stage_closure` (open leads by the view's `current_stage`); every existing key unchanged. No rollback written |
+| `step31_lead_delete_cap.sql` | `0681da93ae33` | A Field Sales rep can delete a lead THEY created, at any time, even once it is in Sales FMS: the narrow capability `field_sales_lead_delete` (Field Sales and Sales Person + Field Sales tiers; admins keep `field_sales_form_delete` + `enquiry_delete_sent`), accepted by `delete_field_sales_leads` (own leads only, unless `field_sales_form_view_all`); deleting a lead whose enquiry the form created also releases an adopted SCOT contact (`converted_enquiry_id` cleared) so it can be adopted again. Deliberately NOT a grant of `field_sales_form_delete` / `enquiry_delete_sent`, which also gate the legacy entries delete and the Sheet's delete of sent rows. No rollback written |
 
 
 ## What is NOT here (applied live, text not recoverable)
