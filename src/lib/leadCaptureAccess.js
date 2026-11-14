@@ -12,7 +12,8 @@ const SB = SUPABASE_URL + '/rest/v1'
 // The tier VALUES are prefixed lc_ on purpose: they must never be confused with the portal's own roles (owner / mis / admin / employee …).
 export const LC_TIERS = [
   { value: 'lc_field_sales', label: 'Field Sales', hint: 'Field Sales Form (submit, own entries) · own Sales FMS and MeCa, view only' },
-  { value: 'lc_sales_person', label: 'Sales Person', hint: 'Enquiry Capture Sheet, view only (own entered / assigned leads) · own Sales FMS and MeCa, view only' },
+  { value: 'lc_sales_person', label: 'Sales Person', hint: 'Own Sales FMS and MeCa, view only (the leads labelled to them) · no Enquiry Capture Sheet' },
+  { value: 'lc_sales_field', label: 'Sales Person + Field Sales', hint: 'Enquiry Capture Sheet (own leads) · Field Sales Form (submit, own leads) · own Sales FMS and MeCa, view only' },
   { value: 'lc_admin', label: 'Admin', hint: 'All five tabs, every write' },
 ]
 export const tierLabel = (tier) => LC_TIERS.find((t) => t.value === tier)?.label || 'None'
@@ -37,7 +38,7 @@ async function rpc(fn, body, fallback) {
   return res.json()
 }
 
-// → { tier: 'lc_admin' | 'lc_sales_person' | 'lc_field_sales' | null, permissions: { enquiry_view: 'true', … } }
+// → { tier: 'lc_admin' | 'lc_sales_person' | 'lc_sales_field' | 'lc_field_sales' | null, permissions: { enquiry_view: 'true', … } }
 export const fetchLeadCaptureAccess = () => rpc('lc_my_access', {}, 'Could not load your Lead Capture access.')
 
 // → [{ email, name, dept, tier, assigned_by, assigned_at, linked_sales_person }]
