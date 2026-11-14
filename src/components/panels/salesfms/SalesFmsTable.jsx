@@ -123,7 +123,13 @@ export default function SalesFmsTable({ canUpdate, canAdmin, canManage, reasons,
     setStripKey((k) => k + 1)
     setNonce((x) => x + 1)
   }
-  const pickState = (state) => setQuery((q) => ({ ...q, page: 1, filters: { ...q.filters, state: state && q.filters.state?.length === 1 && q.filters.state[0] === state ? [] : state ? [state] : [] } }))
+  // A strip tile sets the State filter and the Current stage filter together (one selection at a time); clicking the selected tile again clears both.
+  const pickTile = (state, stage) =>
+    setQuery((q) => {
+      const same = (a = [], b = []) => a.length === b.length && a.every((x) => b.includes(x))
+      const already = same(q.filters.state, state) && same(q.filters.currentStage, stage)
+      return { ...q, page: 1, filters: { ...q.filters, state: already ? [] : state, currentStage: already ? [] : stage } }
+    })
   const patchRow = (fresh) => setResult((r) => ({ ...r, rows: r.rows.map((x) => (x.enquiry_id === fresh.enquiry_id ? fresh : x)) }))
 
   // After a write: re-read that one lead (its stamps, plans and state moved) and refresh the strip. A lead that has vanished (deleted meanwhile) says so.
@@ -192,7 +198,7 @@ export default function SalesFmsTable({ canUpdate, canAdmin, canManage, reasons,
 
   return (
     <div>
-      <FmsKpiStrip refreshKey={`${stripKey}|${syncKey}`} active={f.state} onPick={pickState} />
+      <FmsKpiStrip refreshKey={`${stripKey}|${syncKey}`} filters={f} onPick={pickTile} />
 
       {firstLoad && loading && <div className="text-center py-10 text-text-muted text-[13px]">Loading the pipeline…</div>}
 

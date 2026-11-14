@@ -32,6 +32,8 @@ export const STAGES = [
   { key: 'negotiation', short: 'ng', label: 'Negotiation', reasonType: null, hasReason: false, slaHours: 72 },
 ]
 export const stageLabel = (key) => (key === 'closure' ? 'Closure' : STAGES.find((s) => s.key === key)?.label || key || '')
+// The pipeline states of a lead that is still OPEN (every state except closed_won / closed_lost): the State filter behind the "In pipeline" tile.
+export const OPEN_STATES = ['overdue', 'not_scheduled', 'on_track']
 export const PIPELINE_STATE_LABELS = { overdue: 'Overdue', not_scheduled: 'Not scheduled', on_track: 'On track', closed_won: 'Won', closed_lost: 'Lost' }
 export const PIPELINE_STATE_TONE = { overdue: 'danger', not_scheduled: 'warning', on_track: 'primary', closed_won: 'success', closed_lost: 'neutral' }
 
@@ -155,7 +157,8 @@ export function fetchSalesFmsColumnValues(key, filters = {}) {
   return fetchColumnValues({ table: 'sales_fms', column: FMS_FILTER_SPEC[key].column, params })
 }
 
-// The strip: { counts: { total, overdue, not_scheduled, on_track, won, lost }, stages: [{ stage, avg_delay_h, delay_n, avg_cycle_h, cycle_n } × 4] }
+// The strip: { counts: { total (every lead in FMS), open (no closure), overdue, not_scheduled, on_track, won, lost, stage_first_call, stage_demo, stage_quotation,
+// stage_negotiation, stage_closure (open leads by current_stage; they add up to open; the strip shows only Demo and Quotation, the rest stay available) }, stages: [{ stage, avg_delay_h, delay_n, avg_cycle_h, cycle_n } × 4] }
 // — counted for what the CALLER may see. Averages are null where nothing qualifies.
 export async function fetchSalesFmsSummary() {
   const res = await fetch(`${SB}/rpc/sales_fms_summary`, { method: 'POST', headers: SB_HDRS_JSON(), body: '{}' })
