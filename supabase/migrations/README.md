@@ -1,4 +1,4 @@
-# supabase/migrations — Lead Capture SQL (steps 20–26)
+# supabase/migrations — Lead Capture SQL (steps 20–30)
 
 The SQL of the Lead Capture permission rebuild and everything after it, kept in git. **These files are a record of what was run, not something to
 re-run:** every one of them has already been applied to the live database (by hand, through a hash-checked runner; this repo has no migration tool).
@@ -24,6 +24,9 @@ executing a file, so a file here whose hash equals the one below is byte-for-byt
 | `step28a_sales_field_tier.sql` | `45971d4db91c` | The `lc_sales_field` tier ("Sales Person + Field Sales": the Sales Person caps + `field_sales_form_view` / `_create`) and its first holders (Ronak, Vishwas, Suhas). No rollback written |
 | `step28_adopt.sql` | `051e58bc4c5d` | Adoption: a rep's OWN Enquiry Sheet enquiry or SCOT contact (resolved by `lc_my_label_keys`) can be adopted into a Discovery visit (`fs_adoption_candidate`, `adopt`, `adopted_from` / `adopted_scot_id`); `fs_find_by_phone` answers `adoptable`. No rollback written |
 | `step27b_user_run_delivery_and_storage.sql` | `9271cea2250d` | **NOT RUN YET (a person runs it in the SQL editor).** The vault secret + the pg_cron job that calls the alert Edge Function every 5 minutes, the private `field-sales-visits` storage bucket and its two policies (`fs_visits_upload`, `fs_visits_read`), and an optional freeze of the legacy form. Placeholders only: the real secret is typed at run time |
+| `step29_discovery_counts.sql` | `fc0573d15ec8` | Every Discovery visit is a meeting and puts the lead into Sales FMS at once (a Follow-up never counts; it moves the FMS stages: demo stamp, quotation plan, status `open` -> `interested`); the contact number is exactly 10 digits (`fs_phone10`: +91 / 91 / a leading 0 dropped, never cut down); `lc_sales_person` loses `enquiry_view` and `enquiries_select` shows it the leads in Sales FMS labelled to it (`sales_fms_view`); `meca_events` counts `purpose = 'Discovery'`. No rollback written |
+| `step29b_delete_test_lead.sql` | `c75363eedf39` | Soft-deletes one named end-to-end test lead (guarded: no enquiry, one visit). Data fix, not schema |
+| `step30_fms_stage_counts.sql` | `f94835f929e6` | `sales_fms_summary` gains `open` and `stage_first_call` / `stage_demo` / `stage_quotation` / `stage_negotiation` / `stage_closure` (open leads by the view's `current_stage`); every existing key unchanged. No rollback written |
 
 
 ## What is NOT here (applied live, text not recoverable)
