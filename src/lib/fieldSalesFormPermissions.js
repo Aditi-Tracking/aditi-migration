@@ -8,5 +8,8 @@ export const canAccessFieldSalesForm = (permissions) => permissions?.field_sales
 export const canCreateFieldSalesForm = (permissions) => permissions?.field_sales_form_create === 'true'
 export const canViewAllFieldSales = (permissions) => permissions?.field_sales_form_view_all === 'true'
 export const canManageFieldSalesLists = (permissions) => permissions?.field_sales_form_manage_dropdowns === 'true'
+// A rep deletes a LEAD they created with field_sales_lead_delete (Field Sales tiers); an admin with field_sales_form_delete (+ view_all: anyone's). The database decides
+// again (delete_field_sales_leads: own leads only, unless view_all). This is NOT the legacy entries' delete (canDeleteFieldSales below).
+export const canDeleteFieldSalesLeads = (permissions) => permissions?.field_sales_lead_delete === 'true' || permissions?.field_sales_form_delete === 'true'
 export const canDeleteFieldSales = (permissions) => permissions?.field_sales_form_delete === 'true'
 export const canDeletePushedFieldSales = (permissions) => canDeleteFieldSales(permissions) && permissions?.enquiry_delete_sent === 'true'

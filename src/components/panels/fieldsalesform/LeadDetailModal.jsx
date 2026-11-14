@@ -3,12 +3,13 @@ import { LEAD_STATE_LABEL, LEAD_STATE_TONE, OUTCOME_LABEL, OUTCOME_TONE, current
 import Icon from '../../shared/Icon'
 import OverlayShell from '../../shared/OverlayShell'
 import StatusBadge from '../../shared/table/StatusBadge'
-import { BTN_PRIMARY } from './visitFormStyles'
+import { BTN_DANGER_GHOST, BTN_PRIMARY } from './visitFormStyles'
 
 // Read-only detail of one Field Sales lead: its details and every visit with its STATE — completed, pending (the demo was not given), or superseded (a
 // demo-not-given visit that a LATER completed visit has replaced). Every Discovery visit shows a Meeting badge: it counts as a meeting in any state. The visits' photos are not shown here yet (they sit in a private bucket and need
 // signed links — a later round). Long text wraps here (the fixed-height rule is about table rows). The lead's creator also gets "Log a follow-up", which
-// opens the Visit Form on it. Props: summary (the list row), admin, canFollowUp (field_sales_form_create), onClose(), onFollowUp(summary).
+// opens the Visit Form on it; with canDelete it also gets "Delete lead" (which asks first, in the list's confirmation).
+// Props: summary (the list row), admin, canFollowUp (field_sales_form_create), canDelete, onClose(), onFollowUp(summary), onDelete(summary).
 const VISIT_TONE = { completed: 'success', pending: 'warning', superseded: 'neutral' }
 const VISIT_LABEL = { completed: 'Completed', pending: 'Demo not given', superseded: 'Superseded' }
 const yn = (b) => (b === true ? 'Yes' : b === false ? 'No' : '—')
@@ -31,7 +32,7 @@ function visitRows(v, admin) {
   return rows
 }
 
-export default function LeadDetailModal({ summary, admin, canFollowUp, onClose, onFollowUp }) {
+export default function LeadDetailModal({ summary, admin, canFollowUp, canDelete = false, onClose, onFollowUp, onDelete }) {
   const [res, setRes] = useState({ id: null, lead: null, visits: [], error: '', uid: '' })
   const leadId = summary?.lead_id
   useEffect(() => {
@@ -130,6 +131,14 @@ export default function LeadDetailModal({ summary, admin, canFollowUp, onClose, 
               <button type="button" onClick={() => onFollowUp(summary)} className={BTN_PRIMARY} data-role="log-followup">
                 <Icon name="plus" size={15} />
                 Log a follow-up
+              </button>
+            </div>
+          )}
+          {canDelete && (
+            <div className="mt-5 pt-4 border-t border-border">
+              <button type="button" onClick={() => onDelete(summary)} className={BTN_DANGER_GHOST} data-role="delete-lead">
+                <Icon name="trash" size={15} />
+                Delete lead
               </button>
             </div>
           )}

@@ -6,6 +6,7 @@ import {
   OUTCOME_LABEL,
   OUTCOME_TONE,
   VISITS_PAGE_SIZE,
+  deleteFieldSalesLeads,
   fetchLeadStates,
   formatDay,
   formatPlain,
@@ -23,6 +24,7 @@ import StatusBadge from '../../shared/table/StatusBadge'
 import TopPagination from '../../shared/table/TopPagination'
 import { useLeadSync, useNotifyChanged } from '../leadcapture/leadSync'
 import AlertSettingsModal from './AlertSettingsModal'
+import DeleteLeadConfirm from './DeleteLeadConfirm'
 import LeadDetailModal from './LeadDetailModal'
 import PainAreaManager from './PainAreaManager'
 import VisitForm from './VisitForm'
@@ -41,6 +43,7 @@ const COL = {
   outcome: 'w-[84px] min-w-[84px] max-w-[84px]',
   num: 'w-[72px] min-w-[72px] max-w-[72px]',
   next: 'w-[170px] min-w-[170px] max-w-[170px]',
+  actions: 'w-[44px] min-w-[44px] max-w-[44px]',
 }
 
 // What a saved visit says back to the rep (result of submit_field_sales_visit).
@@ -58,14 +61,22 @@ function savedMessage(r) {
   return { tone: 'success', text: `Visit saved${where}.${meeting}${r.meeting_counted ? '' : ' Sales FMS is updated.'}` }
 }
 
+// What a delete says back (result of delete_field_sales_leads).
+function deletedMessage(r) {
+  if (!r.deleted) return { tone: 'warn', text: 'Nothing was deleted — the lead may already be gone, or it is not yours.' }
+  const v = r.visits_deleted || 0
+  return { tone: 'success', text: `Lead deleted — ${v} visit${v === 1 ? '' : 's'}${r.enquiries_deleted ? ', its enquiry and its Sales FMS data' : ''} removed.` }
+}
+
 // The Field Sales Form tab's main view: the reps' LEADS (view field_sales_lead_state). A rep sees their own leads, an admin (field_sales_form_view_all) everyone's
 // with a Rep column. Each lead is one row — its state (never visited / demo not given / demo given), the outcome (open / won / lost), visit counts and the next follow-up
 // (flagged when overdue). A row click opens the read-only detail with every visit. "New Visit" (field_sales_form_create) opens the Visit Form in a modal, and a
 // lead's detail can start a follow-up on it. Admins (field_sales_form_manage_dropdowns) also get "Pain areas" and "Alert settings".
 // Data flow (same pattern as the other Lead Capture tables): { filter, page } + a retry nonce form a request key; a response for a superseded key is dropped;
 // a write marks the other tabs stale. Messages are toasts, so nothing shifts.
-// Props: admin, canCreate, canManage, painAreas, painError, onPainChanged().
-export default function FieldSalesLeadsTable({ admin, canCreate, canManage, painAreas, painError, onPainChanged }) {
+// With canDelete a row (and the lead's detail window) offers Delete: a confirmation first, then delete_field_sales_leads (a rep's own leads; an admin's any).
+// Props: admin, canCreate, canManage, canDelete, painAreas, painError, onPainChanged().
+export default function FieldSalesLeadsTable({ admin, canCreate, canManage, canDelete = false, painAreas, painError, onPainChanged }) {
   const [query, setQuery] = useState({ filter: 'all', page: 1 })
   const [nonce, setNonce] = useState(0)
   const [result, setResult] = useState({ key: null, rows: [], total: 0, error: '' })
@@ -74,11 +85,12 @@ export default function FieldSalesLeadsTable({ admin, canCreate, canManage, pain
   const [form, setForm] = useState({ open: false, preset: null })
   const [dirty, setDirty] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [deleting, setDeleting] = useState({ lead: null, busy: false })
   const [painEl, setPainEl] = useState(null)
   const [painOpen, setPainOpen] = useState(false)
   const painAnchor = useMemo(() => ({ current: painEl }), [painEl])
 
-  const syncKey = useLeadSync({ holdFocus: form.open || !!detailId })
+  const syncKey = useLeadSync({ holdFocus: form.open || !!detailId || !!deleting.lead })
   const changed = useNotifyChanged()
   const requestKey = `${nonce}|${syncKey}|${JSON.stringify(query)}`
 
@@ -104,7 +116,7 @@ export default function FieldSalesLeadsTable({ admin, canCreate, canManage, pain
   const loading = result.key !== requestKey
   const firstLoad = result.key === null
   const detail = rows.find((r) => r.lead_id === detailId) || null
-  const colCount = 10 + (admin ? 1 : 0)
+  const colCount = 10 + (admin ? 1 : 0) + (canDelete ? 1 : 0)
 
   const setFilter = (filter) => setQuery({ filter, page: 1 })
 
@@ -117,6 +129,22 @@ export default function FieldSalesLeadsTable({ admin, canCreate, canManage, pain
     if (dirty && !confirm('Discard this visit?\n\nEverything you have entered so far will be lost.')) return
     setForm({ open: false, preset: null })
     setDirty(false)
+  }
+  async function confirmDelete() {
+    const lead = deleting.lead
+    if (!lead || deleting.busy) return
+    setDeleting({ lead, busy: true })
+    try {
+      const r = await deleteFieldSalesLeads([lead.lead_id])
+      setDeleting({ lead: null, busy: false })
+      setDetailId(null)
+      setToast(deletedMessage(r))
+      changed() // Sales FMS and Sales Rep MeCa in the other tabs are stale now
+      setNonce((x) => x + 1)
+    } catch (e) {
+      setDeleting({ lead: null, busy: false })
+      setToast({ tone: 'error', text: friendlyError(e) })
+    }
   }
   function handleSaved(r) {
     setForm({ open: false, preset: null })
@@ -207,6 +235,11 @@ export default function FieldSalesLeadsTable({ admin, canCreate, canManage, pain
                 No demo
               </Th>
               <Th className={COL.next}>Next follow-up</Th>
+              {canDelete && (
+                <Th className={COL.actions}>
+                  <span className="sr-only">Actions</span>
+                </Th>
+              )}
             </TableHead>
             <tbody>
               {!rows.length ? (
@@ -261,6 +294,23 @@ export default function FieldSalesLeadsTable({ admin, canCreate, canManage, pain
                         </span>
                       )}
                     </Td>
+                    {canDelete && (
+                      <Td className={`${COL.actions} whitespace-nowrap`} align="right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleting({ lead: r, busy: false })
+                          }}
+                          aria-label={`Delete ${r.business_name}`}
+                          title="Delete this lead"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-transparent text-text-muted hover:text-danger hover:border-danger"
+                          data-role="delete-row"
+                        >
+                          <Icon name="trash" size={13} />
+                        </button>
+                      </Td>
+                    )}
                   </Tr>
                 ))
               )}
@@ -269,7 +319,10 @@ export default function FieldSalesLeadsTable({ admin, canCreate, canManage, pain
         </div>
       )}
 
-      {detail && <LeadDetailModal summary={detail} admin={admin} canFollowUp={canCreate} onClose={() => setDetailId(null)} onFollowUp={(s) => openForm(s)} />}
+      {detail && (
+        <LeadDetailModal summary={detail} admin={admin} canFollowUp={canCreate} canDelete={canDelete} onClose={() => setDetailId(null)} onFollowUp={(s) => openForm(s)} onDelete={(s) => setDeleting({ lead: s, busy: false })} />
+      )}
+      <DeleteLeadConfirm lead={deleting.lead} busy={deleting.busy} onConfirm={confirmDelete} onCancel={() => setDeleting({ lead: null, busy: false })} />
 
       {/* Closing it discards the form — and asks first if anything was entered. */}
       <OverlayShell open={form.open} onClose={closeForm} maxWidth="max-w-3xl" closeIcon={<Icon name="x" size={16} />}>

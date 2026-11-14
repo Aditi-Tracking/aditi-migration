@@ -9,7 +9,8 @@ import LeadCapturePanel from '../../src/components/panels/leadcapture/LeadCaptur
 
 // A FAKE backend (host rb.test) for the Field Sales Visit Form: it answers what the form asks and records what it was sent (window.__calls / __submits / __uploads).
 // Options (query string): role=admin|rep (default rep), geo=deny (the position is refused), nobucket=1 (storage answers "Bucket not found"), failsubmit=1 (the first
-// submit answers 500), netfail=1 (the first submit throws a network TypeError), latency=<ms>.
+// submit answers 500), netfail=1 (the first submit throws a network TypeError), deletefail=1 (the first delete answers 500), deletenone=1 (a delete deletes nothing),
+// latency=<ms>.
 const q = new URLSearchParams(location.search)
 const ROLE = q.get('role') || 'rep'
 const ME = 'u-me'
@@ -19,7 +20,7 @@ setAuthToken(`${b64({ alg: 'none' })}.${b64({ sub: ME, email: 'rep@rb.test' })}.
 const day = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 const iso = (n) => new Date(Date.now() + n * 864e5).toISOString()
 const PERMS = {
-  rep: ['field_sales_form_view', 'field_sales_form_create'],
+  rep: ['field_sales_form_view', 'field_sales_form_create', 'field_sales_lead_delete'],
   admin: ['field_sales_form_view', 'field_sales_form_create', 'field_sales_form_view_all', 'field_sales_form_manage_dropdowns', 'field_sales_form_delete', 'enquiry_delete_sent'],
   viewer: ['field_sales_form_view'],
 }
@@ -55,6 +56,7 @@ const DB = {
 window.__db = DB
 window.__calls = []
 window.__submits = []
+window.__deletes = []
 window.__uploads = []
 window.__uploadBlobs = []
 window.__lib = lib
@@ -124,6 +126,23 @@ window.fetch = async (url, init = {}) => {
       .map((l) => ({ lead_id: l.id, business_name: l.business_name, contact_person: l.contact_person, contact_number: l.contact_number, city: l.city, mine: l.created_by === ME, has_enquiry: !!l.enquiry_id,
         allowed_reasons: DB.state[l.id].completed_count > 0 ? ['Quotation follow-up'] : ['Demo pending'], created_by_name: ROLE === 'admin' ? l.created_by_name : null }))
     return json(rows)
+  }
+
+  // ── delete leads (a rep's own; an admin's any; the real function skips what is not yours) ──
+  if (p.endsWith('/rpc/delete_field_sales_leads')) {
+    const ids = body.p_ids
+    window.__deletes.push(ids)
+    if (q.get('deletefail') && DB.firstDelete !== false) {
+      DB.firstDelete = false
+      return err('P0001', 'Something broke on the server', 500)
+    }
+    if (q.get('deletenone')) return json({ requested: ids.length, deleted: 0, skipped: ids.length, visits_deleted: 0, enquiries_deleted: 0 })
+    const mine = DB.leads.filter((l) => ids.includes(l.id) && (l.created_by === ME || ROLE === 'admin'))
+    let visits = 0, enqs = 0
+    mine.forEach((l) => { visits += DB.state[l.id].visit_count; if (l.enquiry_id && l.adopted_from !== 'enquiry') enqs++ })
+    DB.leads = DB.leads.filter((l) => !mine.includes(l))
+    mine.forEach((l) => delete DB.state[l.id])
+    return json({ requested: ids.length, deleted: mine.length, skipped: ids.length - mine.length, visits_deleted: visits, enquiries_deleted: enqs })
   }
 
   // ── submit ──

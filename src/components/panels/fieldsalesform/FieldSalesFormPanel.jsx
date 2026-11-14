@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLeadCaptureAccess } from '../../../context/LeadCaptureAccessContext'
 import { fetchFieldSalesOptions } from '../../../lib/fieldSalesForm'
 import { fetchPainAreas } from '../../../lib/fieldSalesVisits'
-import { canAccessFieldSalesForm, canCreateFieldSalesForm, canDeleteFieldSales, canDeletePushedFieldSales, canManageFieldSalesLists, canViewAllFieldSales } from '../../../lib/fieldSalesFormPermissions'
+import { canAccessFieldSalesForm, canCreateFieldSalesForm, canDeleteFieldSales, canDeleteFieldSalesLeads, canDeletePushedFieldSales, canManageFieldSalesLists, canViewAllFieldSales } from '../../../lib/fieldSalesFormPermissions'
 import FieldSalesEntriesTable from './FieldSalesEntriesTable'
 import FieldSalesLeadsTable from './FieldSalesLeadsTable'
 import { PRIMARY, TOOL } from './visitFormStyles'
@@ -18,7 +18,8 @@ export default function FieldSalesFormPanel() {
   const canCreate = canCreateFieldSalesForm(permissions)
   const viewAll = canViewAllFieldSales(permissions)
   const canManage = canManageFieldSalesLists(permissions)
-  const canDelete = canDeleteFieldSales(permissions)
+  const canDelete = canDeleteFieldSales(permissions) // the legacy entries' delete (admin only)
+  const canDeleteLeads = canDeleteFieldSalesLeads(permissions) // a lead's own creator (or an admin)
   const canDeletePushed = canDeletePushedFieldSales(permissions)
 
   const [mode, setMode] = useState('leads') // 'leads' | 'legacy'
@@ -88,7 +89,7 @@ export default function FieldSalesFormPanel() {
       </div>
 
       <div hidden={mode !== 'leads'}>
-        <FieldSalesLeadsTable admin={viewAll} canCreate={canCreate} canManage={canManage} painAreas={painAreas} painError={painError} onPainChanged={refreshPain} />
+        <FieldSalesLeadsTable admin={viewAll} canCreate={canCreate} canManage={canManage} canDelete={canDeleteLeads} painAreas={painAreas} painError={painError} onPainChanged={refreshPain} />
       </div>
       {legacySeen && (
         <div hidden={mode !== 'legacy'}>

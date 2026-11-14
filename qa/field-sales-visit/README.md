@@ -13,7 +13,7 @@ npm test               # run.mjs; exit code 1 on any failure
 ```
 Needs Google Chrome; set `CHROME_PATH` if it is not at `C:/Program Files/Google/Chrome/Application/chrome.exe`. Port 5311 must be free.
 
-## What `run.mjs` checks (197 checks)
+## What `run.mjs` checks (225 checks)
 - **A. the rules** (`lib/fieldSalesVisits.js`; the contact number is exactly 10 digits once +91 / 91 / a leading 0 is dropped, never cut down: `normalizePhone10`): `visibleFields` for every branch of the design (Purpose, referral, GPS, demo Yes / No, the two outcomes, Follow-up with
   and without a lead, Demo pending, Quotation follow-up with Won / Lost / Next follow-up), the validator (hidden fields are never validated; dates, lengths, phone,
   fleet, amount), the payload (typed, trimmed, and carrying only fields that apply), the allowed follow-up reason, the stamp text.
@@ -33,10 +33,14 @@ Needs Google Chrome; set `CHROME_PATH` if it is not at `C:/Program Files/Google/
   (message, Retry still works after a blocked submit, then completes), a missing bucket says so and nothing is saved.
 - **J. Pain area manager**: add / rename (cascade, duplicate refused, the chosen chip follows) / remove / restore, from the form and from the toolbar; none for a rep.
 - **K. alert settings**: the current address, validation, save through `fs_set_setting` (normalised), admin only.
+- **M. delete a lead**: a Delete button on each of a rep's own leads (none without the capability, none in the detail window either), rows keep one height, the click
+  does not open the detail, the confirmation names the lead and says what goes (visits, the MeCa meeting, the enquiry and ALL its Sales FMS stage data, the Won deal / Lost
+  closure, an adopted Sheet enquiry staying), Cancel sends nothing, Confirm sends exactly that id, the toast, the list refetch, from the detail window too, the busy state (no
+  double delete), a server error and "nothing deleted", an admin deleting another rep's lead.
 - **L. phone-sized screen, emoji, console**: 16px inputs, chips at least 40px, no horizontal scroll, the camera input uses the rear camera, no emoji, no console errors.
 
 Page options (`visit.html`): `?role=admin|rep|viewer` (default rep), `?geo=deny` (the position is refused until `window.__geoDenied = false`), `?nobucket=1`
-(storage answers "Bucket not found"), `?failsubmit=1` (the first submit answers 500), `?netfail=1` (the first submit throws a network error), `?pending=3` (a follow-up without the demo answers 3 open no-demo visits instead of 2), `?latency=<ms>`.
+(storage answers "Bucket not found"), `?failsubmit=1` (the first submit answers 500), `?deletefail=1` (the first delete answers 500), `?deletenone=1` (a delete deletes nothing), `?netfail=1` (the first submit throws a network error), `?pending=3` (a follow-up without the demo answers 3 open no-demo visits instead of 2), `?latency=<ms>`.
 Phone numbers with special answers: `9000000001` own lead, `…02` adoptable enquiry, `…03` adoptable SCOT contact, `…04` taken, `…05` "none" first and adoptable after.
 
 ## Not covered here (needs the real thing)

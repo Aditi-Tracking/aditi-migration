@@ -357,6 +357,10 @@ const FILTER_PARAMS = {
   won: ['outcome=eq.won'],
   lost: ['outcome=eq.lost'],
 }
+// Delete leads (soft delete: the lead, its visits, the enquiry it created and, with it, its Sales FMS data and its MeCa meeting). The database refuses a lead that is not the
+// caller's own (admins with view_all excepted) by skipping it. Resolves to { requested, deleted, skipped, visits_deleted, enquiries_deleted }.
+export const deleteFieldSalesLeads = (ids) => rpc('delete_field_sales_leads', { p_ids: ids }, 'Could not delete the lead.')
+
 export async function fetchLeadStates({ filter = 'all', page = 0, pageSize = VISITS_PAGE_SIZE } = {}) {
   const q = ['select=*', 'order=last_visit_at.desc.nullslast,lead_created_at.desc', `limit=${pageSize}`, `offset=${page * pageSize}`, ...(FILTER_PARAMS[filter] || [])]
   const res = await fetch(`${SB}/field_sales_lead_state?${q.join('&')}`, { headers: { ...SB_HDRS(), Prefer: 'count=exact' } })
