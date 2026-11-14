@@ -5,12 +5,14 @@ import PortalPopover from './PortalPopover'
 const SEARCH_THRESHOLD = 12 // a search box appears for longer lists
 const LINK = 'shrink-0 inline-flex items-center justify-center bg-transparent border-none px-1.5 py-0.5 rounded text-[11.5px] font-semibold'
 
-function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCaption, numberField }) {
+function ManageBody({ label, items, onAdd, onSetActive, onRename, rules, onSetRule, ruleCaption, numberField }) {
   const [q, setQ] = useState('')
   const [text, setText] = useState('')
   const [confirmId, setConfirmId] = useState(null) // the row showing "Remove “X”? Yes / No"
   const [pendingId, setPendingId] = useState(null) // the row (or 'add') with a request in flight
   const [error, setError] = useState('')
+  const [renameId, setRenameId] = useState(null) // the row being renamed (onRename only)
+  const [renameText, setRenameText] = useState('')
   const addRef = useRef(null)
 
   const needle = q.trim().toLowerCase()
@@ -47,6 +49,25 @@ function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCa
     }
   }
 
+  // Rename (onRename only): the row's label becomes a box; Enter or Save commits, Escape or Cancel leaves it as it was. A name already in the list is refused in place.
+  async function rename(o) {
+    const v = renameText.trim().replace(/\s+/g, ' ')
+    if (!v) {
+      setError('Enter a name.')
+      return
+    }
+    if (v === o.value) {
+      setRenameId(null)
+      return
+    }
+    const hit = items.find((x) => x.id !== o.id && x.value.toLowerCase() === v.toLowerCase())
+    if (hit) {
+      setError(hit.is_active ? `“${hit.value}” is already in this list.` : `“${hit.value}” is already here but retired — use Restore.`)
+      return
+    }
+    if (await guarded(o.id, () => onRename(o, v))) setRenameId(null)
+  }
+
   async function setActive(item, value) {
     setConfirmId(null)
     await guarded(item.id, () => onSetActive(item, value))
@@ -69,15 +90,44 @@ function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCa
 
   const row = (o) => {
     const confirming = confirmId === o.id
+    const renaming = renameId === o.id
     const busy = pendingId === o.id
     const withRule = !!rules && o.is_active && !confirming
     const withNumber = !!numberField && o.is_active && !confirming
     const numberNote = withNumber ? numberField.lockedNote?.(o) : null
     return (
       <div key={o.id} data-row={o.value} className={`flex items-center gap-1 h-[26px] px-2 rounded hover:bg-surface-2 text-[12.5px] ${o.is_active ? 'text-text' : 'text-text-muted'}`}>
-        <span className="truncate" title={o.label ?? o.value}>
-          {confirming ? `Remove “${o.label ?? o.value}”?` : (o.label ?? o.value)}
-        </span>
+        {renaming ? (
+          <input
+            type="text"
+            data-role="rename-input"
+            aria-label={`New name for ${o.value}`}
+            maxLength={100}
+            autoFocus
+            value={renameText}
+            readOnly={pendingId === o.id}
+            onChange={(e) => {
+              setRenameText(e.target.value)
+              setError('')
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                rename(o)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                setRenameId(null)
+                setError('')
+              }
+            }}
+            className="min-w-0 flex-1 h-5 rounded border border-primary bg-surface px-1 text-[12px] text-text outline-none"
+          />
+        ) : (
+          <span className="truncate" title={o.label ?? o.value}>
+            {confirming ? `Remove “${o.label ?? o.value}”?` : (o.label ?? o.value)}
+          </span>
+        )}
         {withRule && (
           <select
             data-role="rule"
@@ -124,11 +174,20 @@ function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCa
             )}
           </span>
         )}
-        <span className={`${withRule || withNumber ? '' : 'ml-auto '}flex items-center justify-end shrink-0 min-w-[84px]`}>
+        <span className={`${withRule || withNumber || renaming ? '' : 'ml-auto '}flex items-center justify-end shrink-0 ${onRename ? 'min-w-[132px]' : 'min-w-[84px]'}`}>
           {o.locked ? (
             <span data-role="builtin" className="px-1.5 text-[11px] text-text-muted" title="Built in — it is part of how the portal works and can't be removed">
               Built in
             </span>
+          ) : renaming ? (
+            <>
+              <button type="button" data-role="rename-save" disabled={!!pendingId} onClick={() => rename(o)} className={`${LINK} text-primary`}>
+                {pendingId === o.id ? <Icon name="loader" size={12} /> : 'Save'}
+              </button>
+              <button type="button" data-role="rename-cancel" disabled={!!pendingId} onClick={() => { setRenameId(null); setError('') }} className={`${LINK} text-text-muted`}>
+                Cancel
+              </button>
+            </>
           ) : confirming ? (
             <>
               <button type="button" data-role="confirm-yes" disabled={!!pendingId} onClick={() => setActive(o, false)} className={`${LINK} text-danger`}>
@@ -139,9 +198,16 @@ function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCa
               </button>
             </>
           ) : o.is_active ? (
-            <button type="button" data-role="remove" disabled={!!pendingId} onClick={() => { setError(''); setConfirmId(o.id) }} aria-label={`Remove ${o.value}`} className={`${LINK} text-danger`}>
-              {busy ? <Icon name="loader" size={12} /> : 'Remove'}
-            </button>
+            <>
+              {onRename && (
+                <button type="button" data-role="rename" disabled={!!pendingId} onClick={() => { setError(''); setConfirmId(null); setRenameText(o.value); setRenameId(o.id) }} aria-label={`Rename ${o.value}`} className={`${LINK} text-primary`}>
+                  Rename
+                </button>
+              )}
+              <button type="button" data-role="remove" disabled={!!pendingId} onClick={() => { setError(''); setRenameId(null); setConfirmId(o.id) }} aria-label={`Remove ${o.value}`} className={`${LINK} text-danger`}>
+                {busy ? <Icon name="loader" size={12} /> : 'Remove'}
+              </button>
+            </>
           ) : (
             <button type="button" data-role="restore" disabled={!!pendingId} onClick={() => setActive(o, true)} aria-label={`Restore ${o.value}`} className={`${LINK} text-primary`}>
               {busy ? <Icon name="loader" size={12} /> : 'Restore'}
@@ -224,6 +290,8 @@ function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCa
 //               `label` is shown instead of `value` when set; `locked` marks a built-in that has no Remove (the database refuses it too).
 //   onAdd(value)             → promise; throws to report a failure (shown in the popover)
 //   onSetActive(item, bool)  → promise; same
+// Optional RENAME (used by the Pain Area list): pass `onRename(item, newName)` → promise (throws to report a failure, e.g. a name already taken); each ACTIVE, non-locked row
+// then has a Rename link beside Remove (the label becomes a box; Enter / Save commits, Escape / Cancel keeps the old name). A list that passes none looks and behaves exactly as before.
 // Optional per-row setting (used by Status: "Sends to FMS"): pass `rules` [{ value, label }], `onSetRule(item, ruleValue)` → promise (throws to
 // report a failure) and `ruleCaption` (a one-line explanation shown above the list); each ACTIVE row then carries a small select, and
 // `item.rule` is its current value. A list that passes none looks and behaves exactly as before.
@@ -235,10 +303,10 @@ function ManageBody({ label, items, onAdd, onSetActive, rules, onSetRule, ruleCa
 // Add is caught client-side, with a pointer to Restore when the existing value is retired. Anchor it to the
 // header's menu trigger (ColumnFilter's manage.onClick hands over that element):
 //   manage={{ label: 'Manage sources', onClick: (el) => { anchorRef.current = el; setManageOpen(true) } }}
-export default function ManageListPopover({ anchorRef, open, onClose, label, items, onAdd, onSetActive, rules, onSetRule, ruleCaption, numberField, width = 300, align = 'start' }) {
+export default function ManageListPopover({ anchorRef, open, onClose, label, items, onAdd, onSetActive, onRename, rules, onSetRule, ruleCaption, numberField, width = 300, align = 'start' }) {
   return (
     <PortalPopover anchorRef={anchorRef} open={open} onClose={onClose} width={width} align={align} ariaLabel={`Manage ${label}`}>
-      {open && <ManageBody label={label} items={items} onAdd={onAdd} onSetActive={onSetActive} rules={rules} onSetRule={onSetRule} ruleCaption={ruleCaption} numberField={numberField} />}
+      {open && <ManageBody label={label} items={items} onAdd={onAdd} onSetActive={onSetActive} onRename={onRename} rules={rules} onSetRule={onSetRule} ruleCaption={ruleCaption} numberField={numberField} />}
     </PortalPopover>
   )
 }
