@@ -3,10 +3,12 @@ import { CN } from '../../lib/contentNodes'
 import { getCNCardDesc } from '../../lib/cnCardDescriptions'
 import { clearCardName, setCardName } from '../../lib/activityTracking'
 import { useAuth } from '../../context/AuthContext'
-import { canUploadFiles } from '../../lib/cnUploadDelete'
+import { useFileViewer } from '../../context/FileViewerContext'
+import { canUploadFiles, deleteContentNodeFile, invalidateContentNodes } from '../../lib/cnUploadDelete'
 import { useCNSectionLoader } from '../../hooks/useCNSectionLoader'
 import OverlayShell from './OverlayShell'
 import CNCategoryBrowser from './CNCategoryBrowser'
+import { fileCardMeta } from './fileCardMeta'
 import DocCard from './DocCard'
 import UploadModal from './UploadModal'
 import { DOC_ICON, FOLDER_ICON, VIDEO_ICON } from './docIcons'
@@ -61,11 +63,27 @@ export default function CNSectionPanel({
 }) {
   const { permissions } = useAuth()
   const canDelete = canUploadFiles(permissions)
+  const { openFileViewer } = useFileViewer()
 
   const { loading, error, cats: allCats, reload, deleteCard } = useCNSectionLoader(sectionName)
   const cats = allCats.filter((cat) => !hiddenCategoryNames.includes(cat.name.trim().toLowerCase()))
   const [openModule, setOpenModule] = useState(null) // { id, name } | null
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [deletingFileId, setDeletingFileId] = useState(null)
+
+  async function handleDeleteDirectFile(f) {
+    if (!confirm('⚠️ This file will be permanently deleted. Are you sure?')) return
+    setDeletingFileId(f.id)
+    try {
+      await deleteContentNodeFile(f.id, f.url)
+      await invalidateContentNodes()
+      reload()
+    } catch (e) {
+      alert('❌ ' + e.message)
+    } finally {
+      setDeletingFileId(null)
+    }
+  }
 
   return (
     <div className="px-4 sm:px-6 py-5">
@@ -134,21 +152,48 @@ export default function CNSectionPanel({
               <div className="text-[15px] font-semibold text-text">{openModule.name}</div>
             </div>
             {linkFolders?.[openModule.name.trim().toLowerCase()] ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {linkFolders[openModule.name.trim().toLowerCase()].map((link) => {
-                  const isYoutube = isYoutubeUrl(link.url)
-                  return (
-                    <DocCard
-                      key={link.name}
-                      icon={isYoutube ? VIDEO_ICON : FOLDER_ICON}
-                      name={link.name}
-                      desc={!link.url ? 'Link coming soon.' : isYoutube ? 'Opens the YouTube video in a new tab.' : 'Opens the Google Drive folder in a new tab.'}
-                      meta={!link.url ? '⏳ Pending' : isYoutube ? '▶️ Watch on YouTube' : '📁 Open Drive Folder'}
-                      onClick={link.url ? () => openExternal(link.url) : undefined}
-                    />
-                  )
-                })}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {linkFolders[openModule.name.trim().toLowerCase()].map((link) => {
+                    const isYoutube = isYoutubeUrl(link.url)
+                    return (
+                      <DocCard
+                        key={link.name}
+                        icon={isYoutube ? VIDEO_ICON : FOLDER_ICON}
+                        name={link.name}
+                        desc={!link.url ? 'Link coming soon.' : isYoutube ? 'Opens the YouTube video in a new tab.' : 'Opens the Google Drive folder in a new tab.'}
+                        meta={!link.url ? '⏳ Pending' : isYoutube ? '▶️ Watch on YouTube' : '📁 Open Drive Folder'}
+                        onClick={link.url ? () => openExternal(link.url) : undefined}
+                      />
+                    )
+                  })}
+                </div>
+                {/* Files uploaded straight onto this card (Upload's "Select Card" = this one,
+                    Sub-Card left as "— Upload directly to parent card —") — just the files
+                    themselves, no heading and no sub-card list, kept out of the fixed Drive-link
+                    grid above. Hidden entirely until there's at least one. */}
+                {CN.getFiles(openModule.id).length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-3">Other files</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {CN.getFiles(openModule.id).map((f) => {
+                        const meta = fileCardMeta(f.url)
+                        return (
+                          <DocCard
+                            key={f.id}
+                            icon={meta.icon || DOC_ICON}
+                            name={f.name}
+                            desc={meta.label}
+                            meta="Tap to view"
+                            onClick={() => openFileViewer(f.url, f.name)}
+                            onDelete={canDelete && deletingFileId !== f.id ? () => handleDeleteDirectFile(f) : undefined}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <CNCategoryBrowser rootNodeId={openModule.id} rootName={openModule.name} canDelete={canDelete} onContentChanged={reload} />
             )}

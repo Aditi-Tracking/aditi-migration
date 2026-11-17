@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { CN } from '../../lib/contentNodes'
 import { useFileViewer } from '../../context/FileViewerContext'
 import { deleteContentNodeCard, deleteContentNodeFile, invalidateContentNodes } from '../../lib/cnUploadDelete'
-import { DOC_ICON, PDF_ICON, VIDEO_ICON } from './docIcons'
+import { DOC_ICON } from './docIcons'
+import { fileCardMeta } from './fileCardMeta'
 import folderIconSrc from '../../assets/folder-icon.png'
 
 // Ported from old-portal/js/shared.js's _cnRenderOverlayContent — generic
@@ -11,18 +12,6 @@ import folderIconSrc from '../../assets/folder-icon.png'
 // `canDelete`/`onContentChanged`, when passed by the caller (gated on
 // canUploadFiles(permissions)), render the per-row delete buttons ported from
 // _cnRenderOverlayContent's sub-card delBtn and renderOverlayCard's delFileBtn.
-function fileCardMeta(url) {
-  const ext = (url || '').split('?')[0].split('.').pop().toLowerCase()
-  const ytMatch = (url || '').match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/)
-  const isYt = !!ytMatch
-  const isVid = ['mp4', 'webm', 'mov'].includes(ext)
-  const isPdf = ext === 'pdf'
-  const label = isYt ? '▶ YouTube' : isVid ? '🎬 Video' : isPdf ? '📄 PDF' : '📁 Open'
-  // Scoped icon-color exception (PDF/video only) — see docIcons.jsx's PDF_ICON/VIDEO_ICON comment.
-  const bg = isPdf ? '#f87171' : isVid ? '#a78bfa' : null
-  const icon = isPdf ? PDF_ICON : isVid ? VIDEO_ICON : null
-  return { isYt, ytId: ytMatch?.[1] || null, label, bg, icon }
-}
 
 function ItemDeleteButton({ onDelete, deleting, title }) {
   return (
