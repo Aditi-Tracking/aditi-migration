@@ -65,12 +65,12 @@ export const LOCATIONS = [
     name: 'Bangalore',
     badge: 'Branch',
     lines: [
-      '7th Block, West, Jayanagar, 197,',
-      '1st Floor, New No.15, Bsk Ii Stage, Bengaluru,',
-      '4th Cross Road, Thyagaraj Nagar, Bangalore-560070, Karnataka',
+      'No. 26, 2nd Floor, 2nd Cross',
+      '32nd Cross Road, 7th Block, Jayanagar,',
+      'Bengaluru, Karnataka – 560 070, India',
     ],
-    mapUrl: 'https://www.adititracking.com/contact-us/',
-    mapLabel: '📞 Contact Bangalore Office',
+    mapUrl: 'https://maps.app.goo.gl/yTgjKPWFsdedjLqp6',
+    mapLabel: '📍 View on Google Maps',
     accent: '#a855f7',
   },
 ]

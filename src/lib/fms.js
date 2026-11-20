@@ -201,7 +201,8 @@ export async function fetchFmsOrders({ currentUser, permissions }) {
 
   let url = `${SUPABASE_URL}/rest/v1/fms_orders?order=created_at.desc`
   if (!isViewAll) {
-    if (isFmsConfigEmail(myEmail)) {
+    // Ankush (Bangalore support) keeps config actions but only sees his own orders.
+    if (isFmsConfigEmail(myEmail) && myEmail.toLowerCase() !== FMS_ANKUSH_EMAIL) {
       url += `&or=(created_by.eq.${encodeURIComponent(myEmail)},assigned_to_support.eq.${encodeURIComponent(myEmail)},status.eq.pending_config,status.eq.configuring,status.eq.pending_engineer,status.eq.installing,status.eq.completed)`
     } else {
       url += `&or=(created_by.eq.${encodeURIComponent(myEmail)},assigned_to_support.eq.${encodeURIComponent(myEmail)})`

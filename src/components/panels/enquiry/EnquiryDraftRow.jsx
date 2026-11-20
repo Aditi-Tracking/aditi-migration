@@ -81,7 +81,7 @@ export default function EnquiryDraftRow({ label, selectable, showChannel, dropdo
       {pick('source', 'Source', COL.source, managedOptions(dropdowns?.source), 'Source')}
       {pick('sales_person_accountable', 'Sales person', COL.salesPerson, managedOptions(dropdowns?.sales_person), 'Sales person')}
       {pick('client_type', 'Client type', COL.clientType, CLIENT_TYPE_OPTIONS, 'Client type')}
-      {pick('status', 'Status', COL.status, statusOptions(dropdowns), 'Status')}
+      {pick('status', 'Status', COL.status, statusOptions(dropdowns), 'Not called yet')}
       {showChannel && <Td className={`${COL.channel} text-text-muted`}>New</Td>}
       <Td className={`${COL.fms} text-text-muted`}>—</Td>
     </Tr>

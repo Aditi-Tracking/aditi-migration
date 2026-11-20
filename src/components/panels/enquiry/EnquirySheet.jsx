@@ -391,7 +391,8 @@ export default function EnquirySheet({ admin, canCreate, dropdowns, dropdownsErr
   }
   const sourceHeader = () => managedHeader('source', 'source', 'Source', { options: listFilterOptions(dropdowns?.source), includeBlanks: true })
   const salesPersonHeader = () => managedHeader('sales_person', 'salesPerson', 'Sales Person', { options: listFilterOptions(dropdowns?.sales_person), includeBlanks: true })
-  const statusHeader = () => managedHeader('status', 'status', 'Status', { options: statusFilterOptions(dropdowns), nonNullable: true })
+  // includeBlanks: status can now sit blank (not called yet), so it is a real filterable state, not "never NULL".
+  const statusHeader = () => managedHeader('status', 'status', 'Status', { options: statusFilterOptions(dropdowns), includeBlanks: true })
   const requirementHeader = () => managedHeader('requirement', 'requirement', 'Requirement', { loadValues: () => fetchEnquiryColumnValues('requirement', query.filters) })
 
   // The lists failing to load is a persistent condition, shown as a warning toast (it never moves the table) until

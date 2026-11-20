@@ -129,7 +129,9 @@ export default function EnquiryRow({ row, rowNumber, canEdit = true, selectable,
         onSave={saveStatus}
         confirm={confirmStatus}
         editable={!locked}
-        display={<StatusBadge tone={statusTone(row.status)}>{statusLabel(row.status)}</StatusBadge>}
+        allowBlank
+        blankLabel="Not called yet"
+        display={<StatusBadge tone={statusTone(row.status)}>{statusLabel(row.status) || 'Not called yet'}</StatusBadge>}
         onError={onError}
         ariaLabel={`Status, ${row.name}`}
         className={COL.status}

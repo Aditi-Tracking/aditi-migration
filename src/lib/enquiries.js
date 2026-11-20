@@ -2,8 +2,10 @@
 // MeCa → MD MeCa/GP → SCOT). A new module, not a port: there is no old-portal equivalent.
 // Tables (Supabase, schema applied manually — no migration files exist in this repo):
 //   enquiries (id, enquiry_date, name, company_name, phone, email, requirement, source,
-//     sales_person_accountable, client_type ['new'|'existing'], status [open|interested|rnr|
-//     future_lead|lost|won], entry_channel [portal_form|excel_upload|field_sales_form|scot_call; 'field_sales' is a legacy value the database still allows but nothing has assigned since step 21], entered_by
+//     sales_person_accountable, client_type ['new'|'existing'], status [null|open|interested|rnr|
+//     future_lead|lost|won] (null = not called yet — a manual row is created blank; only whoever
+//     calls it sets the first real status, which is what may auto-send to FMS), entry_channel
+//     [portal_form|excel_upload|field_sales_form|scot_call; 'field_sales' is a legacy value the database still allows but nothing has assigned since step 21], entered_by
 //     [auth UID, DB default auth.uid()], import_batch_id, import_flag ['duplicate_phone'],
 //     sent_to_fms_at, created_at, updated_at, deleted_at / deleted_by [SOFT delete — see deleteEnquiries]; requirement is a
 //     text[] of products),
@@ -124,6 +126,9 @@ async function httpError(res, fallback) {
 }
 
 // ── Manual entry ────────────────────────────────────────────────────────────
+// Status starts blank, not 'open': the person entering the lead stops at Source, and the row stays
+// unset until whoever calls it (a Sales Coordinator) picks the outcome — that first status pick is
+// what may auto-send it to FMS, not the row's creation.
 export const emptyEnquiryForm = () => ({
   enquiry_date: todayISO(),
   name: '',
@@ -134,7 +139,7 @@ export const emptyEnquiryForm = () => ({
   source: '',
   sales_person_accountable: '',
   client_type: '',
-  status: 'open',
+  status: '',
 })
 
 // Only Name and Phone are mandatory (matches the Excel rule). Returns { field: message }.
@@ -158,7 +163,7 @@ export function buildEnquiryPayload(form) {
     source: orNull(form.source),
     sales_person_accountable: orNull(form.sales_person_accountable),
     client_type: orNull(form.client_type),
-    status: form.status || 'open',
+    status: orNull(form.status),
   }
 }
 
