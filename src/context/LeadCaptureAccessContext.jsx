@@ -7,7 +7,7 @@ const LeadCaptureAccessContext = createContext(null)
 // Who the signed-in person is in Lead Capture: their ONE tier and the capabilities it holds (asked of the database, which is the only place the tiers are
 // defined). Mounted once at PortalShell level, like the other nav contexts, so the sidebar tile, the mobile menu, the Dashboards hub and the Lead Capture
 // panels all read the same value.
-//   tier         'lc_field_sales' | 'lc_sales_person' | 'lc_sales_field' | 'lc_admin' | null (no access)
+//   tier         'lc_field_sales' | 'lc_sales_person' | 'lc_sales_field' | 'lc_sales_enquiry' | 'lc_admin' | null (no access)
 //   permissions  { key: 'true' } — read by the five lib/*Permissions.js files exactly as the old per-key map was
 //   loading      true until the first answer for THIS person has arrived (never shown stale access for a previous login)
 //   error        the message when the last ask failed ('' otherwise); a failed ask never GRANTS access — the previous answer stays, or there is none

@@ -61,7 +61,7 @@ export default function LeadCapturePicker({ person, saving, saved, error, onChan
           </select>
         </div>
       </div>
-      {(tier === 'lc_sales_person' || tier === 'lc_sales_field') && !person.linked_sales_person && (
+      {(tier === 'lc_sales_person' || tier === 'lc_sales_field' || tier === 'lc_sales_enquiry') && !person.linked_sales_person && (
         <div className="mt-1.5 text-[12.5px] text-[#B77900]" data-role="lc-unlinked">
           This login is not linked to a Sales Person name, so it would see no leads in the Sheet and no numbers in Sales Rep MeCa. Link it under Lead Capture, Sales Rep MeCa, Set up.
         </div>

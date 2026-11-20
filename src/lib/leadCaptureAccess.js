@@ -13,6 +13,7 @@ const SB = SUPABASE_URL + '/rest/v1'
 export const LC_TIERS = [
   { value: 'lc_field_sales', label: 'Field Sales', hint: 'Field Sales Form (submit, own entries) · own Sales FMS and MeCa, view only' },
   { value: 'lc_sales_person', label: 'Sales Person', hint: 'Own Sales FMS and MeCa, view only (the leads labelled to them) · no Enquiry Capture Sheet' },
+  { value: 'lc_sales_enquiry', label: 'Sales Person + Enquiry Sheet', hint: 'Enquiry Capture Sheet (own leads) · own Sales FMS and MeCa, view only · no Field Sales Form' },
   { value: 'lc_sales_field', label: 'Sales Person + Field Sales', hint: 'Enquiry Capture Sheet (own leads) · Field Sales Form (submit, own leads) · own Sales FMS and MeCa, view only' },
   { value: 'lc_admin', label: 'Admin', hint: 'All five tabs, every write' },
 ]
