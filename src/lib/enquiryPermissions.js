@@ -5,7 +5,9 @@
 // These are plain `=== 'true'` checks with no client-side role shortcut, and the database enforces every one of them again.
 export const canAccessEnquiry = (permissions) => permissions?.enquiry_view === 'true'
 export const canCreateEnquiry = (permissions) => permissions?.enquiry_create === 'true'
-export const canViewAllEnquiries = (permissions) => permissions?.enquiry_view_all === 'true'
+// Status-only edit of the rows labelled to the person (tier lc_sales_enquiry): no create, no other column — the database enforces both.
+export const canUpdateAssignedEnquiry = (permissions) => permissions?.enquiry_update_assigned === 'true'
+export const canViewAllEnquiries =(permissions) => permissions?.enquiry_view_all === 'true'
 // Send to FMS is part of the admin (view_all) UI only — enquiry_assign_fms alone does not show it.
 export const canSendEnquiriesToFms = (permissions) => canViewAllEnquiries(permissions) && permissions?.enquiry_assign_fms === 'true'
 export const canManageEnquiryDropdowns = (permissions) => permissions?.enquiry_manage_dropdowns === 'true'

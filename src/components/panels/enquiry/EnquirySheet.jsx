@@ -151,7 +151,7 @@ function ManageButton({ label, onOpen }) {
 //
 // Props: admin; canCreate; dropdowns (the managed lists, null while loading), dropdownsError,
 // onDropdownsChanged() (force-refetch them — resolves, never rejects).
-export default function EnquirySheet({ admin, canCreate, dropdowns, dropdownsError, onDropdownsChanged }) {
+export default function EnquirySheet({ admin, canCreate, statusOnly = false, dropdowns, dropdownsError, onDropdownsChanged }) {
   const { permissions } = useLeadCaptureAccess()
   const canSend = admin && canSendEnquiriesToFms(permissions)
   const canDelete = canDeleteEnquiries(permissions) // own unsent rows on its own; anyone's with view_all (the database decides)
@@ -403,7 +403,7 @@ export default function EnquirySheet({ admin, canCreate, dropdowns, dropdownsErr
       : null
 
   const onManage = canManage && dropdowns ? openManage : undefined
-  const rowProps = { canEdit, selectable: canSelect, selectableSent: canDeleteSent, showChannel: admin, dropdowns, onManage, onAutoSent: handleAutoSent }
+  const rowProps = { canEdit, statusOnly, selectable: canSelect, selectableSent: canDeleteSent, showChannel: admin, dropdowns, onManage, onAutoSent: handleAutoSent }
 
   return (
     <div>

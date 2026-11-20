@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLeadCaptureAccess } from '../../../context/LeadCaptureAccessContext'
 import { fetchDropdownOptions } from '../../../lib/enquiries'
-import { canAccessEnquiry, canCreateEnquiry, canViewAllEnquiries } from '../../../lib/enquiryPermissions'
+import { canAccessEnquiry, canCreateEnquiry, canUpdateAssignedEnquiry, canViewAllEnquiries } from '../../../lib/enquiryPermissions'
 import EnquirySheet from './EnquirySheet'
 
 // Enquiry Capture Sheet (post-migration, not a port — see lib/enquiries.js for the data model and the
@@ -14,12 +14,13 @@ export default function EnquiryPanel() {
   const canView = canAccessEnquiry(permissions)
   const canCreate = canCreateEnquiry(permissions)
   const admin = canViewAllEnquiries(permissions)
+  const statusOnly = canUpdateAssignedEnquiry(permissions) && !canCreate && !admin // may change the Status of the rows labelled to them, nothing else
 
   // The managed lists: null while loading. Only fetched for someone who will use them (typing a row, editing
   // one, or an admin's filters / upload) — a view-only normal user never needs them.
   const [dropdowns, setDropdowns] = useState(null)
   const [dropdownsError, setDropdownsError] = useState('')
-  const needsDropdowns = canView && (canCreate || admin)
+  const needsDropdowns = canView && (canCreate || admin || statusOnly)
 
   useEffect(() => {
     if (!needsDropdowns) return
@@ -44,5 +45,5 @@ export default function EnquiryPanel() {
       .catch((e) => setDropdownsError(e.message))
   }
 
-  return <EnquirySheet admin={admin} canCreate={canCreate} dropdowns={dropdowns} dropdownsError={dropdownsError} onDropdownsChanged={refreshDropdowns} />
+  return <EnquirySheet admin={admin} canCreate={canCreate} statusOnly={statusOnly} dropdowns={dropdowns} dropdownsError={dropdownsError} onDropdownsChanged={refreshDropdowns} />
 }

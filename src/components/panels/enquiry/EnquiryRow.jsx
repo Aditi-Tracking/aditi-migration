@@ -57,7 +57,7 @@ function createRowSaver(initialStamp) {
 // (the managed lists, null while loading — Source / Sales Person stay read-only until they arrive);
 // onDetails(id); onRowSaved(savedRow) — the sheet patches its copy, no refetch; onError(error) — an error
 // from any cell (error.code 'conflict' | 'locked' | 'gone' | 'denied' for lock failures) for the sheet's toast.
-export default function EnquiryRow({ row, rowNumber, canEdit = true, selectable, selectableSent = false, selected, onToggle, showChannel, dropdowns, onDetails, onRowSaved, onError, onManage, onAutoSent }) {
+export default function EnquiryRow({ row, rowNumber, canEdit = true, statusOnly = false, selectable, selectableSent = false, selected, onToggle, showChannel, dropdowns, onDetails, onRowSaved, onError, onManage, onAutoSent }) {
   const [saver] = useState(() => createRowSaver(row.updated_at))
   // Follow a refetch (the saver ignores it while a save is in flight — that save is about to produce a newer stamp).
   useEffect(() => {
@@ -128,7 +128,7 @@ export default function EnquiryRow({ row, rowNumber, canEdit = true, selectable,
         options={statusOptions(dropdowns)}
         onSave={saveStatus}
         confirm={confirmStatus}
-        editable={!locked}
+        editable={!sent && (canEdit || statusOnly)}
         allowBlank
         blankLabel="Not called yet"
         display={<StatusBadge tone={statusTone(row.status)}>{statusLabel(row.status) || 'Not called yet'}</StatusBadge>}
