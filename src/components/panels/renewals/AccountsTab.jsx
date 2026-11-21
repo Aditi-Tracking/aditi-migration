@@ -30,6 +30,8 @@ export default function AccountsTab({ isMIS, isAccounts }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [detailId, setDetailId] = useState(null)
+  const [flaggedByFilter, setFlaggedByFilter] = useState('all')
+  const [locationFilter, setLocationFilter] = useState('all')
 
   function load() {
     let cancelled = false
@@ -68,28 +70,54 @@ export default function AccountsTab({ isMIS, isAccounts }) {
 
   const detailCustomer = customers.find((c) => c.id === detailId) || null
 
+  // Flagged By / Location filters work on the rows already loaded (the Status filter reloads them), so they add no request.
+  const flaggerOptions = [...new Set(customers.map((c) => resolveAuthorName(c.accounts_flagged_by)))].sort((a, b) => String(a).localeCompare(String(b)))
+  const locationOptions = [...new Set(customers.map((c) => locationLabel(c.location)))].sort((a, b) => String(a).localeCompare(String(b)))
+  const visible = customers.filter(
+    (c) =>
+      (flaggedByFilter === 'all' || resolveAuthorName(c.accounts_flagged_by) === flaggedByFilter) &&
+      (locationFilter === 'all' || locationLabel(c.location) === locationFilter),
+  )
+  const selectCls = 'rounded-md border border-border bg-surface-2 text-text text-[12px] font-bold px-2.5 py-1.5'
+
   return (
     <div>
       <div className="rounded-xl border border-border bg-surface overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between flex-wrap gap-2.5">
-          <span className="text-[13px] font-semibold text-text">Flagged Customers ({customers.length})</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-border bg-surface-2 text-text text-[12px] font-bold px-2.5 py-1.5"
-          >
-            {STATUS_OPTIONS.map(([v, label]) => (
-              <option key={v} value={v}>
-                Status: {label}
-              </option>
-            ))}
-          </select>
+          <span className="text-[13px] font-semibold text-text">Flagged Customers ({visible.length})</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={flaggedByFilter} onChange={(e) => setFlaggedByFilter(e.target.value)} className={selectCls}>
+              <option value="all">Flagged By: All</option>
+              {flaggerOptions.map((n) => (
+                <option key={n} value={n}>
+                  Flagged By: {n}
+                </option>
+              ))}
+            </select>
+            <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className={selectCls}>
+              <option value="all">Location: All</option>
+              {locationOptions.map((n) => (
+                <option key={n} value={n}>
+                  Location: {n}
+                </option>
+              ))}
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
+              {STATUS_OPTIONS.map(([v, label]) => (
+                <option key={v} value={v}>
+                  Status: {label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {loading ? (
           <p className="px-4 py-3.5 text-text-muted text-[12.5px]">Loading…</p>
         ) : error ? (
           <p className="px-4 py-3.5 text-danger text-[12.5px]">⚠️ {error}</p>
+        ) : !visible.length && customers.length ? (
+          <p className="px-4 py-3.5 text-text-muted text-[12.5px]">No flagged customers match these filters.</p>
         ) : !customers.length ? (
           <p className="px-4 py-3.5 text-text-muted text-[12.5px]">
             {statusFilter === 'resolved' ? 'No resolved flags yet.' : statusFilter === 'all' ? 'No flagged customers yet.' : 'No open flags 🎉'}
@@ -108,7 +136,7 @@ export default function AccountsTab({ isMIS, isAccounts }) {
                 </tr>
               </thead>
               <tbody>
-                {customers.map((c) => {
+                {visible.map((c) => {
                   const isOpen = c.accounts_flag_status === 'open'
                   const grandTotal = c._snapshot ? Number(c._snapshot.grand_total).toLocaleString('en-IN') : '—'
                   return (
